@@ -1,249 +1,8 @@
-////package com.lms.gateway.security;
-////
-////import org.springframework.cloud.gateway.filter.GlobalFilter;
-////import org.springframework.context.annotation.Bean;
-////import org.springframework.context.annotation.Configuration;
-////import org.springframework.http.HttpHeaders;
-////import org.springframework.http.HttpStatus;
-////
-////@Configuration
-////public class GatewaySecurityConfig {
-////
-////    private final JwtUtil jwtUtil;
-////
-////    public GatewaySecurityConfig(JwtUtil jwtUtil) {
-////        this.jwtUtil = jwtUtil;
-////    }
-////
-////    @Bean
-////    public GlobalFilter authenticationFilter() {
-////        return (exchange, chain) -> {
-////
-////            String path = exchange.getRequest().getURI().getPath();
-////
-////            // 🔓 PUBLIC ENDPOINTS (NO JWT REQUIRED)
-////            if (path.startsWith("/api/auth/google")      // ✅ Google OAuth
-////                    || path.startsWith("/api/auth/login") // ✅ Normal login
-////                    || path.startsWith("/api/auth/register")
-////                    || path.startsWith("/api/auth/forgot-password")
-////                    || path.startsWith("/api/auth/reset-password")
-////                    || path.startsWith("/api/video/play/")) {
-////
-////                return chain.filter(exchange);
-////            }
-////
-////            // 🔐 JWT REQUIRED FOR ALL OTHER ROUTES
-////            String authHeader =
-////                    exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-////
-////            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-////                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-////                return exchange.getResponse().setComplete();
-////            }
-////
-////            String token = authHeader.substring(7);
-////
-////            try {
-////                // ✅ VALIDATE JWT (signature + expiry)
-////                jwtUtil.validateToken(token);
-////            } catch (Exception e) {
-////                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-////                return exchange.getResponse().setComplete();
-////            }
-////
-////            return chain.filter(exchange);
-////        };
-////    }
-////}
-//package com.lms.gateway.security;
-//
-//import io.jsonwebtoken.Claims;
-//import io.jsonwebtoken.Jwts;
-//import io.jsonwebtoken.security.Keys;
-//import org.springframework.beans.factory.annotation.Value;
-//import org.springframework.cloud.gateway.filter.GlobalFilter;
-//import org.springframework.context.annotation.Bean;
-//import org.springframework.context.annotation.Configuration;
-//import org.springframework.http.HttpHeaders;
-//import org.springframework.http.HttpStatus;
-//
-//import javax.crypto.SecretKey;
-//import java.nio.charset.StandardCharsets;
-//
-//@Configuration
-//public class GatewaySecurityConfig {
-//
-//    private final JwtUtil jwtUtil;
-//    private final SecretKey key;
-//
-//    public GatewaySecurityConfig(
-//            JwtUtil jwtUtil,
-//            @Value("${jwt.secret}") String secret
-//    ) {
-//        this.jwtUtil = jwtUtil;
-//        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-//    }
-//
-//    @Bean
-//    public GlobalFilter authenticationFilter() {
-//        return (exchange, chain) -> {
-//
-//            String path = exchange.getRequest().getURI().getPath();
-//
-//            // 🔓 PUBLIC ENDPOINTS
-//            if (path.startsWith("/api/auth/google")
-//                    || path.startsWith("/api/auth/login")
-//                    || path.startsWith("/api/auth/register")
-//                    || path.startsWith("/api/auth/forgot-password")
-//                    || path.startsWith("/api/auth/reset-password")
-//                    || path.startsWith("/api/video/play/")) {
-//
-//                return chain.filter(exchange);
-//            }
-//
-//            // 🔐 JWT REQUIRED
-//            String authHeader =
-//                    exchange.getRequest().getHeaders()
-//                            .getFirst(HttpHeaders.AUTHORIZATION);
-//
-//            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-//                exchange.getResponse()
-//                        .setStatusCode(HttpStatus.UNAUTHORIZED);
-//                return exchange.getResponse().setComplete();
-//            }
-//
-//            String token = authHeader.substring(7);
-//
-//            try {
-//                jwtUtil.validateToken(token);
-//            } catch (Exception e) {
-//                exchange.getResponse()
-//                        .setStatusCode(HttpStatus.UNAUTHORIZED);
-//                return exchange.getResponse().setComplete();
-//            }
-//
-//            // 🔍 Extract role
-//            Claims claims = Jwts.parserBuilder()
-//                    .setSigningKey(key)
-//                    .build()
-//                    .parseClaimsJws(token)
-//                    .getBody();
-//
-//            String role = claims.get("role", String.class);
-//
-//            // ================= STUDENT SERVICE =================
-//            if (path.startsWith("/api/students")) {
-//                if (!"ADMIN".equalsIgnoreCase(role)) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//            }
-//
-//            // ================= ENROLLMENT SERVICE =================
-//            if (path.startsWith("/api/enrollments")) {
-//
-//                if ("STUDENT".equalsIgnoreCase(role)
-//                        && !path.startsWith("/api/enrollments/student")) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//
-//                if (!"ADMIN".equalsIgnoreCase(role)
-//                        && !"STUDENT".equalsIgnoreCase(role)) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//            }
-//            
-//
-//            // ================= PROGRESS SERVICE (✅ ADDED) =================
-//            if (path.startsWith("/api/progress")) {
-//
-//                // STUDENT: only allowed to view own progress
-//                if ("STUDENT".equalsIgnoreCase(role)
-//                        && !path.startsWith("/api/progress/student")) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//
-//                // ADMIN: full access
-//                if (!"ADMIN".equalsIgnoreCase(role)
-//                        && !"STUDENT".equalsIgnoreCase(role)) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//            }
-//         // ================= ASSESSMENT SERVICE =================
-//            if (path.startsWith("/api/quizzes")
-//                    || path.startsWith("/api/questions")
-//                    || path.startsWith("/api/options")
-//                    || path.startsWith("/api/attempts")) {
-//
-//                // STUDENT: only attempts & view quizzes
-//                if ("STUDENT".equalsIgnoreCase(role)) {
-//
-//                    if (path.startsWith("/api/questions")
-//                            || path.startsWith("/api/options")) {
-//                        exchange.getResponse()
-//                                .setStatusCode(HttpStatus.FORBIDDEN);
-//                        return exchange.getResponse().setComplete();
-//                    }
-//                }
-//
-//                // TRAINER: cannot delete attempts
-//                if ("TRAINER".equalsIgnoreCase(role)
-//                        && path.startsWith("/api/attempts")) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//
-//                // ADMIN / TRAINER / STUDENT allowed
-//                if (!"ADMIN".equalsIgnoreCase(role)
-//                        && !"TRAINER".equalsIgnoreCase(role)
-//                        && !"STUDENT".equalsIgnoreCase(role)) {
-//
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//            }
-//         // ================= PAYMENT SERVICE =================
-//            if (path.startsWith("/api/payment")
-//                    || path.startsWith("/api/refund")) {
-//
-//                // STUDENT: cannot refund
-//                if ("STUDENT".equalsIgnoreCase(role)
-//                        && path.startsWith("/api/refund")) {
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//
-//                // Only ADMIN & STUDENT
-//                if (!"ADMIN".equalsIgnoreCase(role)
-//                        && !"STUDENT".equalsIgnoreCase(role)) {
-//
-//                    exchange.getResponse()
-//                            .setStatusCode(HttpStatus.FORBIDDEN);
-//                    return exchange.getResponse().setComplete();
-//                }
-//            }
-//
-//            return chain.filter(exchange);
-//            
-//        };
-//    }
-//}
-//
+
 package com.lms.gateway.security;
 
 import io.jsonwebtoken.Claims;
+
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -289,14 +48,40 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/auth/register")
                     || path.startsWith("/api/auth/forgot-password")
                     || path.startsWith("/api/auth/reset-password")
+                    || path.startsWith("/api/auth/verify-email")
+                    || path.startsWith("/api/student/apply")
+                    || path.startsWith("/api/trainer/apply")
+                    || path.startsWith("/api/business/apply")
+                    || path.startsWith("/api/admin/apply")
+
+                    || path.startsWith("/api/auth/resend-verification")
                     || path.startsWith("/api/courses/")
                     || path.startsWith("/api/content/student/course/")
                     || path.startsWith("/api/content/course/")
-                    ||path.startsWith("/api/video/play/")
                     ||path.startsWith("/api/files/view/")) {
 
                 return chain.filter(exchange);
             }
+         // 🔓 PUBLIC VIDEO GET APIs
+            if (
+                (path.equals("/api/video") || path.equals("/api/video/"))
+                    && exchange.getRequest().getMethod() == HttpMethod.GET
+            ) {
+                return chain.filter(exchange);
+            }
+
+            // 🔓 PUBLIC VIDEO GET BY ID
+            if (path.matches("/api/video/\\d+")
+                    && exchange.getRequest().getMethod() == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
+
+            // 🔓 PUBLIC VIDEO PLAY
+            if (path.startsWith("/api/video/play/")
+                    && exchange.getRequest().getMethod() == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
+
 
             // 🔐 JWT REQUIRED
             String authHeader =
@@ -333,6 +118,41 @@ public class GatewaySecurityConfig {
             if (path.startsWith("/api/search")) {
                 return chain.filter(exchange);
             }
+            
+            
+            // ================= ATTENDANCE SERVICE =================
+
+            // 🧑‍🏫 Trainer Attendance APIs
+            if (path.startsWith("/api/trainer/attendance")) {
+
+                if ("TRAINER".equalsIgnoreCase(role)
+                        || "ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse()
+                        .setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+
+            // 🧑‍🎓 Student Attendance APIs
+            if (path.startsWith("/api/student/attendance")) {
+
+                if ("STUDENT".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse()
+                        .setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+
+            
+            
+            
+            
+            
+            
 
             // ================= STUDENT SERVICE =================
             if (path.startsWith("/api/students")) {
@@ -358,6 +178,11 @@ public class GatewaySecurityConfig {
                     return exchange.getResponse().setComplete();
                 }
             }
+            
+            
+            
+        
+            
             
             
          // ================= VIDEO SERVICE =================
@@ -394,7 +219,30 @@ public class GatewaySecurityConfig {
 
             }
 
+         // ================= COURSE VIDEO =================
+            if (path.startsWith("/api/course-videos")) {
 
+                if (exchange.getRequest().getMethod() == HttpMethod.POST
+                        || exchange.getRequest().getMethod() == HttpMethod.DELETE) {
+
+                    if (!"TRAINER".equalsIgnoreCase(role)
+                            && !"ADMIN".equalsIgnoreCase(role)) {
+
+                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                        return exchange.getResponse().setComplete();
+                    }
+                }
+
+                if (!"ADMIN".equalsIgnoreCase(role)
+                        && !"TRAINER".equalsIgnoreCase(role)
+                        && !"STUDENT".equalsIgnoreCase(role)) {
+
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+            }
+            
+         
 
             // ================= ENROLLMENT SERVICE =================
             if (path.startsWith("/api/enrollments")) {
@@ -432,11 +280,32 @@ public class GatewaySecurityConfig {
                 }
             }
             
+         // ================= CERTIFICATE FILES =================
+            if (path.startsWith("/api/files/certificates")) {
+
+                // ✅ Allow certificate generation & download
+                if (!"ADMIN".equalsIgnoreCase(role)
+                        && !"TRAINER".equalsIgnoreCase(role)
+                        && !"STUDENT".equalsIgnoreCase(role)) {
+
+                    exchange.getResponse()
+                            .setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // ✅ Skip normal file restrictions
+                return chain.filter(exchange);
+            }
+
+            
+            
+            
+            
          // ================= FILE SERVICE =================
-            if (path.startsWith("/api/files")) {
+            if (path.startsWith("/api/file")) {
 
                 // ❌ STUDENT CANNOT UPLOAD
-                if (path.startsWith("/api/files/upload")) {
+                if (path.startsWith("/api/file/upload")) {
                     if (!"ADMIN".equalsIgnoreCase(role)
                             && !"TRAINER".equalsIgnoreCase(role)) {
 
@@ -458,6 +327,41 @@ public class GatewaySecurityConfig {
                 }
 
                 // ✅ LIST + DOWNLOAD allowed for ADMIN / TRAINER / STUDENT
+                if (!"ADMIN".equalsIgnoreCase(role)
+                        && !"TRAINER".equalsIgnoreCase(role)
+                        && !"STUDENT".equalsIgnoreCase(role)) {
+
+                    exchange.getResponse()
+                            .setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+            }
+            
+            if (path.startsWith("/api/course-files")) {
+
+                // ❌ STUDENT cannot upload
+                if (path.contains("/upload")) {
+                    if (!"ADMIN".equalsIgnoreCase(role)
+                            && !"TRAINER".equalsIgnoreCase(role)) {
+
+                        exchange.getResponse()
+                                .setStatusCode(HttpStatus.FORBIDDEN);
+                        return exchange.getResponse().setComplete();
+                    }
+                }
+
+                // ❌ STUDENT cannot delete
+                if (exchange.getRequest().getMethod() == HttpMethod.DELETE) {
+                    if (!"ADMIN".equalsIgnoreCase(role)
+                            && !"TRAINER".equalsIgnoreCase(role)) {
+
+                        exchange.getResponse()
+                                .setStatusCode(HttpStatus.FORBIDDEN);
+                        return exchange.getResponse().setComplete();
+                    }
+                }
+
+                // ✅ ADMIN / TRAINER / STUDENT can stream
                 if (!"ADMIN".equalsIgnoreCase(role)
                         && !"TRAINER".equalsIgnoreCase(role)
                         && !"STUDENT".equalsIgnoreCase(role)) {
@@ -561,107 +465,237 @@ public class GatewaySecurityConfig {
                 return exchange.getResponse().setComplete();
             }
             
-            
-         // ================= BATCH SERVICE =================
-         // ================= ADMIN BRANCH SERVICE (FINAL FIX) =================
-            if (path.startsWith("/api/admin/branches")) {
+         // ================= ASSIGNMENTS =================
 
-                if (!"ADMIN".equalsIgnoreCase(role)) {
-                    exchange.getResponse()
-                            .setStatusCode(HttpStatus.FORBIDDEN);
-                    return exchange.getResponse().setComplete();
-                }
+         // 🔵 Student can view assignments by batch
+         if (path.startsWith("/api/assignments/batch")) {
 
-                // 🔥 VERY IMPORTANT: STOP ALL FURTHER CHECKS
-                return chain.filter(exchange);
-            }
-
-            
-            
-
-         // ADMIN batch management
-         
-         // ================= ADMIN BATCH SERVICE =================
-            if (path.startsWith("/api/admin/batches")) {
-
-                if (!"ADMIN".equalsIgnoreCase(role)) {
-                    exchange.getResponse()
-                            .setStatusCode(HttpStatus.FORBIDDEN);
-                    return exchange.getResponse().setComplete();
-                }
-
-                // 🔥 STOP HERE — allow ADMIN
-                return chain.filter(exchange);
-            }
-
-         // TRAINER batch access
-         if (path.startsWith("/api/trainer/batches")
-                 || path.startsWith("/api/trainer/batch-reports")) {
-
-             if (!"TRAINER".equalsIgnoreCase(role)
-                     && !"ADMIN".equalsIgnoreCase(role)) {
-
-                 exchange.getResponse()
-                         .setStatusCode(HttpStatus.FORBIDDEN);
-                 return exchange.getResponse().setComplete();
-             }
-         }
-         
-     
-
-      // ================= TRAINER ROOT ACCESS (FIX) =================
-         if (path.startsWith("/api/trainer/")) {
-
-             if (!"TRAINER".equalsIgnoreCase(role)
-                     && !"ADMIN".equalsIgnoreCase(role)) {
-
-                 exchange.getResponse()
-                         .setStatusCode(HttpStatus.FORBIDDEN);
-                 return exchange.getResponse().setComplete();
-             }
-
-             // ✅ trainer/admin allowed → continue
-             return chain.filter(exchange);
-         }
-
-         // STUDENT batch access
-         if (path.startsWith("/api/student/batch")) {
-
-             if (!"STUDENT".equalsIgnoreCase(role)) {
-                 exchange.getResponse()
-                         .setStatusCode(HttpStatus.FORBIDDEN);
-                 return exchange.getResponse().setComplete();
-             }
-         }
-
-            
-         // ================= ATTENDANCE SERVICE =================
-
-         // 🧑‍🏫 Trainer Attendance APIs
-         if (path.startsWith("/api/trainer/attendance")) {
-
-             if ("TRAINER".equalsIgnoreCase(role)
-                     || "ADMIN".equalsIgnoreCase(role)) {
+             if ("STUDENT".equalsIgnoreCase(role)
+                     && exchange.getRequest().getMethod() == HttpMethod.GET) {
                  return chain.filter(exchange);
              }
 
-             exchange.getResponse()
-                     .setStatusCode(HttpStatus.FORBIDDEN);
+             if ("ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
              return exchange.getResponse().setComplete();
          }
 
-         // 🧑‍🎓 Student Attendance APIs
-         if (path.startsWith("/api/student/attendance")) {
+         // 🔵 Trainer/Admin can create assignments
+         if (path.equals("/api/assignments")
+                 && exchange.getRequest().getMethod() == HttpMethod.POST) {
+
+             if ("ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+
+         // ================= ASSIGNMENT FILES =================
+
+         // 🔵 Students can download files
+         if (path.startsWith("/api/assignment-files")
+                 && exchange.getRequest().getMethod() == HttpMethod.GET) {
+
+             if ("STUDENT".equalsIgnoreCase(role)
+                     || "ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+
+         // 🔵 Trainer/Admin can upload assignment files
+         if (path.startsWith("/api/assignment-files")
+                 && exchange.getRequest().getMethod() == HttpMethod.POST) {
+
+             if ("ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+
+         // ================= SUBMISSIONS =================
+
+         // 🔵 Student can submit assignment
+         if (path.matches("/api/submissions/\\d+")
+                 && exchange.getRequest().getMethod() == HttpMethod.POST) {
 
              if ("STUDENT".equalsIgnoreCase(role)) {
                  return chain.filter(exchange);
              }
 
-             exchange.getResponse()
-                     .setStatusCode(HttpStatus.FORBIDDEN);
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
              return exchange.getResponse().setComplete();
          }
 
+         // 🔵 Trainer/Admin can view submissions
+         if (path.matches("/api/submissions/\\d+")
+                 && exchange.getRequest().getMethod() == HttpMethod.GET) {
+
+             if ("ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+
+         // 🔵 Anyone authenticated can download submission
+         if (path.startsWith("/api/submissions/download")) {
+
+             if ("STUDENT".equalsIgnoreCase(role)
+                     || "ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+
+            
+            
+            
+            
+            
+         // ================= BATCH SERVICE =================
+            
+         // ================= BATCH & BRANCH SERVICE (FINAL CLEAN FIX) =================
+
+         // ---------- BRANCH ----------
+         if (path.startsWith("/api/branch")) {
+
+             // Only ADMIN can manage branches
+             if (!"ADMIN".equalsIgnoreCase(role)) {
+                 exchange.getResponse()
+                         .setStatusCode(HttpStatus.FORBIDDEN);
+                 return exchange.getResponse().setComplete();
+             }
+
+             return chain.filter(exchange);
+         }
+
+         // ---------- BATCH ----------
+         if (path.startsWith("/api/batch")) {
+
+             // STUDENT → only allowed to see own batch
+        	 if (path.startsWith("/api/batch/student")) {
+
+        		    if (!role.equalsIgnoreCase("STUDENT")
+        		        && !role.equalsIgnoreCase("ROLE_STUDENT")) {
+
+        		        exchange.getResponse()
+        		                .setStatusCode(HttpStatus.FORBIDDEN);
+        		        return exchange.getResponse().setComplete();
+        		    }
+
+        		    return chain.filter(exchange);
+        		}
+
+             // TRAINER → trainer batch + reports
+          // TRAINER → trainer batch + reports
+             if (path.startsWith("/api/batch/trainer")
+                     || path.startsWith("/api/batch/reports/trainer")) {
+
+                 if (!"TRAINER".equalsIgnoreCase(role)
+                         && !"ADMIN".equalsIgnoreCase(role)) {
+                     exchange.getResponse()
+                             .setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+
+                 return chain.filter(exchange);
+             }
+
+             // ADMIN → create / manage batches
+             if (!"ADMIN".equalsIgnoreCase(role)) {
+                 exchange.getResponse()
+                         .setStatusCode(HttpStatus.FORBIDDEN);
+                 return exchange.getResponse().setComplete();
+             }
+
+             return chain.filter(exchange);
+         }
+//
+//            
+//            
+        
+     
+         
+               // ================= CHAT SERVICE =================
+     
+
+         
+//         
+//         if (path.startsWith("/api/chat")) {
+//
+//             // ✅ Allow STUDENT, TRAINER, ADMIN
+//             if ("STUDENT".equalsIgnoreCase(role)
+//                     || "TRAINER".equalsIgnoreCase(role)
+//                     || "ADMIN".equalsIgnoreCase(role)) {
+//
+//                 return chain.filter(exchange);
+//             }
+//
+//             // ❌ Block anyone else
+//             exchange.getResponse()
+//                     .setStatusCode(HttpStatus.FORBIDDEN);
+//             return exchange.getResponse().setComplete();
+//         }
+      // ---------- CHAT ----------
+         if (path.startsWith("/api/chat")) {
+
+             // STUDENT endpoints
+             if (path.startsWith("/api/chat/student")) {
+                 if (!role.equalsIgnoreCase("STUDENT")
+                         && !role.equalsIgnoreCase("ROLE_STUDENT")) {
+                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+                 return chain.filter(exchange);
+             }
+
+             // TRAINER endpoints
+             if (path.startsWith("/api/chat/trainer")) {
+                 if (!role.equalsIgnoreCase("TRAINER")
+                         && !role.equalsIgnoreCase("ROLE_TRAINER")) {
+                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+                 return chain.filter(exchange);
+             }
+
+             // COMMON endpoints (conversation + send)
+             if (path.startsWith("/api/chat/conversation")
+                     || path.startsWith("/api/chat/send")) {
+
+                 if (!(role.equalsIgnoreCase("STUDENT")
+                         || role.equalsIgnoreCase("TRAINER")
+                         || role.equalsIgnoreCase("ROLE_STUDENT")
+                         || role.equalsIgnoreCase("ROLE_TRAINER"))) {
+
+                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+
+                 return chain.filter(exchange);
+             }
+         }
+
+        
 
        
             // ================= PAYMENT SERVICE =================

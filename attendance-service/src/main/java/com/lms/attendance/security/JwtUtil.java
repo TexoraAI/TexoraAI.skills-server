@@ -3,32 +3,43 @@ package com.lms.attendance.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
+@Component
 public class JwtUtil {
 
-    private static final String SECRET =
-            "mysupersecretkeymysupersecretkey";
+    @Value("${jwt.secret}")
+    private String secret;
 
-    private static final SecretKey KEY =
-            Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+    private SecretKey secretKey;
 
-    public static Claims extractAllClaims(String token) {
+    @PostConstruct
+    public void init() {
+        this.secretKey = Keys.hmacShaKeyFor(
+                secret.getBytes(StandardCharsets.UTF_8)
+        );
 
+        System.out.println("✅ JwtUtil initialized with HS256 secure key");
+    }
+
+    public Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(KEY)
+                .setSigningKey(secretKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    public static String extractEmail(String token) {
-        return extractAllClaims(token).getSubject(); // email
+    public String extractEmail(String token) {
+        return extractAllClaims(token).getSubject();
     }
 
-    public static String extractRole(String token) {
+    public String extractRole(String token) {
         return extractAllClaims(token).get("role", String.class);
     }
 }

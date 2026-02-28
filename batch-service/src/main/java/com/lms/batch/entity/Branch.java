@@ -12,17 +12,7 @@ public class Branch {
 
     private String name;
     private String city;
-    private int students;
 
-    public Branch() {}
-
-    public Branch(String name, String city) {
-        this.name = name;
-        this.city = city;
-        this.students = 0;
-    }
-
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -45,13 +35,5 @@ public class Branch {
 
     public void setCity(String city) {
         this.city = city;
-    }
-
-    public int getStudents() {
-        return students;
-    }
-
-    public void setStudents(int students) {
-        this.students = students;
     }
 }

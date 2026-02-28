@@ -1,23 +1,13 @@
 package com.lms.attendance.dto;
 
-import com.lms.attendance.entity.AttendanceStatus;
-
 import java.time.LocalDate;
+import java.util.List;
 
 public class MarkAttendanceRequest {
 
-    private String studentEmail;   // ✅ REQUIRED
     private Long batchId;
-    private AttendanceStatus status;
-    private LocalDate date;
-
-    public String getStudentEmail() {
-        return studentEmail;
-    }
-
-    public void setStudentEmail(String studentEmail) {
-        this.studentEmail = studentEmail;
-    }
+    private LocalDate attendanceDate;
+    private List<StudentAttendance> attendances;
 
     public Long getBatchId() {
         return batchId;
@@ -27,19 +17,53 @@ public class MarkAttendanceRequest {
         this.batchId = batchId;
     }
 
-    public AttendanceStatus getStatus() {
-        return status;
+    public LocalDate getAttendanceDate() {
+        return attendanceDate;
     }
 
-    public void setStatus(AttendanceStatus status) {
-        this.status = status;
+    public void setAttendanceDate(LocalDate attendanceDate) {
+        this.attendanceDate = attendanceDate;
     }
 
-    public LocalDate getDate() {
-        return date;
+    public List<StudentAttendance> getAttendances() {
+        return attendances;
     }
 
-    public void setDate(LocalDate date) {
-        this.date = date;
+    public void setAttendances(List<StudentAttendance> attendances) {
+        this.attendances = attendances;
+    }
+
+    // =====================
+    // INNER CLASS (UPDATED)
+    // =====================
+    public static class StudentAttendance {
+
+        private Long studentUserId;
+        private String studentEmail; // ✅ REQUIRED (DB NOT NULL)
+        private String status; // PRESENT / ABSENT / LATE
+
+        public Long getStudentUserId() {
+            return studentUserId;
+        }
+
+        public void setStudentUserId(Long studentUserId) {
+            this.studentUserId = studentUserId;
+        }
+
+        public String getStudentEmail() {
+            return studentEmail;
+        }
+
+        public void setStudentEmail(String studentEmail) {
+            this.studentEmail = studentEmail;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 }

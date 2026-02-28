@@ -20,6 +20,8 @@ public class Course {
     @Column(nullable = false)
     private String ownerEmail; // 🔐 linked to JWT
 
+    private Long batchId;
+    
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
@@ -41,5 +43,14 @@ public class Course {
     public String getOwnerEmail() { return ownerEmail; }
     public void setOwnerEmail(String ownerEmail) { this.ownerEmail = ownerEmail; }
 
+    public Long getBatchId() { 
+        return batchId; 
+    }
+
+    public void setBatchId(Long batchId) { 
+        this.batchId = batchId; 
+    }
+    
+    
     public Instant getCreatedAt() { return createdAt; }
 }

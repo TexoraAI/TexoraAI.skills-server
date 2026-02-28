@@ -18,12 +18,37 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   redis:
     host: localhost
     port: 6379
 
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    # =========================
+    # 📥 CONSUMER CONFIG (Map JSON Events)
+    # =========================
+    consumer:
+      group-id: batch-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.HashMap
+
+    # =========================
+    # 📤 PRODUCER CONFIG
+    # =========================
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
 logging:
   level:
-    org.springframework.security: DEBUG
+    org.springframework.kafka: INFO

@@ -1,44 +1,254 @@
+//   
+//package com.lms.user.service;
+//
+//import com.lms.user.dto.CreateUserRequest;
+//import com.lms.user.dto.UpdateUserRequest;
+//import com.lms.user.dto.UserResponse;
+//import com.lms.user.event.UserEvent;
+//import com.lms.user.exception.ResourceNotFoundException;
+//import com.lms.user.kafka.UserSyncEventProducer;
+//import com.lms.user.model.User;
+//import com.lms.user.repo.UserRepository;
+//import org.springframework.cache.annotation.CacheEvict;
+//import org.springframework.cache.annotation.Cacheable;
+//import org.springframework.data.domain.*;
+//import org.springframework.stereotype.Service;
+//
+//import java.util.Optional;
+//
+//@Service
+//public class UserService {
+//
+//    private final UserRepository repo;
+//    private final UserSyncEventProducer producer;
+//
+//    public UserService(UserRepository repo, UserSyncEventProducer producer) {
+//        this.repo = repo;
+//        this.producer = producer;
+//    }
+//
+//    // ----------------------------------------------------
+//    // CREATE USER (handled via Auth → Kafka)
+//    // ----------------------------------------------------
+//    @CacheEvict(value = "users", allEntries = true)
+//    public UserResponse createUser(CreateUserRequest req) {
+//
+//        Optional<User> exists = repo.findByEmail(req.getEmail());
+//        if (exists.isPresent()) {
+//            throw new IllegalArgumentException("Email already exists");
+//        }
+//
+//        User u = new User();
+//        u.setEmail(req.getEmail());
+//        u.setDisplayName(req.getDisplayName());
+//        u.setTenantId(req.getTenantId());
+//        u.setRoles(req.getRoles());
+//
+//        User saved = repo.save(u);
+//        return mapToResponse(saved);
+//    }
+//
+//    // ----------------------------------------------------
+//    // GET USER BY ID
+//    // ----------------------------------------------------
+//    @Cacheable(value = "users", key = "#id")
+//    public UserResponse getById(Long id) {
+//        return repo.findById(id)
+//                .map(this::mapToResponse)
+//                .orElseThrow(() ->
+//                        new ResourceNotFoundException("User not found with id " + id));
+//    }
+//
+//    // ----------------------------------------------------
+//    // UPDATE USER
+//    // ----------------------------------------------------
+//    @CacheEvict(value = "users", key = "#id")
+//    public UserResponse updateUser(Long id, UpdateUserRequest req) {
+//
+//        User u = repo.findById(id)
+//                .orElseThrow(() ->
+//                        new ResourceNotFoundException("User not found with id " + id));
+//
+//        boolean roleChanged = false;
+//
+//        if (req.getDisplayName() != null) {
+//            u.setDisplayName(req.getDisplayName());
+//        }
+//
+//        if (req.getRoles() != null && !req.getRoles().equals(u.getRoles())) {
+//            u.setRoles(req.getRoles());
+//            roleChanged = true;
+//        }
+//
+//        User saved = repo.save(u);
+//
+//        // 🔥 USER_UPDATED
+//        producer.send(new UserEvent(
+//                "USER_UPDATED",
+//                saved.getEmail(),
+//                saved.getDisplayName(),
+//                null
+//        ));
+//
+//        // 🔥 USER_ROLE_CHANGED
+//        if (roleChanged) {
+//            producer.send(new UserEvent(
+//                    "USER_ROLE_CHANGED",
+//                    saved.getEmail(),
+//                    null,
+//                    saved.getRoles().replace("ROLE_", "")
+//            ));
+//        }
+//
+//        return mapToResponse(saved);
+//    }
+//
+//    // ----------------------------------------------------
+//    // DELETE USER
+//    // ----------------------------------------------------
+//    @CacheEvict(value = "users", key = "#id")
+//    public void deleteUser(Long id) {
+//
+//        User user = repo.findById(id)
+//                .orElseThrow(() ->
+//                        new ResourceNotFoundException("User not found with id " + id));
+//
+//        repo.delete(user);
+//
+//        producer.send(new UserEvent(
+//                "USER_DELETED",
+//                user.getEmail(),
+//                null,
+//                null
+//        ));
+//    }
+//
+//    // ----------------------------------------------------
+//    // LIST USERS
+//    // ----------------------------------------------------
+//    public Page<UserResponse> listUsers(int page, int size, String sort, String dir) {
+//
+//        Sort.Direction direction =
+//                "desc".equalsIgnoreCase(dir)
+//                        ? Sort.Direction.DESC
+//                        : Sort.Direction.ASC;
+//
+//        Sort s = Sort.by(direction,
+//                (sort == null || sort.isEmpty()) ? "id" : sort);
+//
+//        Pageable p = PageRequest.of(page, size, s);
+//        return repo.findAll(p).map(this::mapToResponse);
+//    }
+//
+//    // ----------------------------------------------------
+//    // GET BY EMAIL
+//    // ----------------------------------------------------
+//    @Cacheable(value = "users", key = "#email")
+//    public UserResponse getByEmail(String email) {
+//
+//        User user = repo.findByEmail(email)
+//                .orElseThrow(() ->
+//                        new ResourceNotFoundException(
+//                                "User not found with email " + email
+//                        ));
+//
+//        return mapToResponse(user);
+//    }
+//
+//    // ----------------------------------------------------
+//    // UPDATE BY EMAIL
+//    // ----------------------------------------------------
+//    @CacheEvict(value = "users", allEntries = true)
+//    public UserResponse updateByEmail(String email, UpdateUserRequest req) {
+//
+//        User u = repo.findByEmail(email)
+//                .orElseThrow(() ->
+//                        new ResourceNotFoundException(
+//                                "User not found with email " + email
+//                        ));
+//
+//        boolean roleChanged = false;
+//
+//        if (req.getDisplayName() != null) {
+//            u.setDisplayName(req.getDisplayName());
+//        }
+//
+//        if (req.getRoles() != null && !req.getRoles().equals(u.getRoles())) {
+//            u.setRoles(req.getRoles());
+//            roleChanged = true;
+//        }
+//
+//        User saved = repo.save(u);
+//
+//        producer.send(new UserEvent(
+//                "USER_UPDATED",
+//                saved.getEmail(),
+//                saved.getDisplayName(),
+//                null
+//        ));
+//
+//        if (roleChanged) {
+//            producer.send(new UserEvent(
+//                    "USER_ROLE_CHANGED",
+//                    saved.getEmail(),
+//                    null,
+//                    saved.getRoles().replace("ROLE_", "")
+//            ));
+//        }
+//
+//        return mapToResponse(saved);
+//    }
+//
+//    // ----------------------------------------------------
+//    // MAP ENTITY → RESPONSE
+//    // ----------------------------------------------------
+//    private UserResponse mapToResponse(User u) {
+//        UserResponse r = new UserResponse();
+//        r.setId(u.getId());
+//        r.setEmail(u.getEmail());
+//        r.setDisplayName(u.getDisplayName());
+//        r.setRoles(u.getRoles());
+//        r.setTenantId(u.getTenantId());
+//        r.setCreatedAt(u.getCreatedAt());
+//        return r;
+//    }
+//}
+
+
+
+
+
 package com.lms.user.service;
 
 import com.lms.user.dto.CreateUserRequest;
 import com.lms.user.dto.UpdateUserRequest;
-import com.lms.user.dto.UserEvent;
 import com.lms.user.dto.UserResponse;
+import com.lms.user.event.UserEvent;
 import com.lms.user.exception.ResourceNotFoundException;
-import com.lms.user.kafka.UserEventProducer;
+import com.lms.user.kafka.UserSyncEventProducer;
 import com.lms.user.model.User;
 import com.lms.user.repo.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 @Service
 public class UserService {
 
     private final UserRepository repo;
-    private final UserEventProducer producer;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final UserSyncEventProducer producer;
 
-    // 🔑 AUTH SERVICE URL (DIRECT — NO GATEWAY, NO JWT)
-    private static final String AUTH_SERVICE_URL =
-            "http://localhost:8081/api/auth/register";
-
-    public UserService(UserRepository repo, UserEventProducer producer) {
+    public UserService(UserRepository repo, UserSyncEventProducer producer) {
         this.repo = repo;
         this.producer = producer;
     }
 
     // ----------------------------------------------------
-    // CREATE USER (ADMIN FLOW)
+    // CREATE USER
     // ----------------------------------------------------
     @CacheEvict(value = "users", allEntries = true)
     public UserResponse createUser(CreateUserRequest req) {
@@ -48,38 +258,6 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        // 1️⃣ CREATE AUTH CREDENTIALS
-        Map<String, Object> authPayload = new HashMap<>();
-        authPayload.put("name", req.getDisplayName());
-        authPayload.put("email", req.getEmail());
-        authPayload.put("password", req.getPassword());
-        authPayload.put(
-                "role",
-                req.getRoles() != null
-                        ? req.getRoles().replace("ROLE_", "")
-                        : "STUDENT"
-        );
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<Map<String, Object>> entity =
-                new HttpEntity<>(authPayload, headers);
-
-        try {
-            restTemplate.postForEntity(
-                    AUTH_SERVICE_URL,
-                    entity,
-                    Void.class
-            );
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to create auth credentials",
-                    e
-            );
-        }
-
-        // 2️⃣ SAVE USER PROFILE
         User u = new User();
         u.setEmail(req.getEmail());
         u.setDisplayName(req.getDisplayName());
@@ -87,20 +265,6 @@ public class UserService {
         u.setRoles(req.getRoles());
 
         User saved = repo.save(u);
-
-        // 3️⃣ PUBLISH EVENT (NULL SAFE)
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("id", saved.getId());
-        eventData.put("email", saved.getEmail());
-        eventData.put(
-                "displayName",
-                saved.getDisplayName() != null
-                        ? saved.getDisplayName()
-                        : saved.getEmail()
-        );
-
-        producer.send(new UserEvent("USER_CREATED", eventData));
-
         return mapToResponse(saved);
     }
 
@@ -112,9 +276,7 @@ public class UserService {
         return repo.findById(id)
                 .map(this::mapToResponse)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found with id " + id
-                        ));
+                        new ResourceNotFoundException("User not found with id " + id));
     }
 
     // ----------------------------------------------------
@@ -125,31 +287,42 @@ public class UserService {
 
         User u = repo.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found with id " + id
-                        ));
+                        new ResourceNotFoundException("User not found with id " + id));
+
+        boolean roleChanged = false;
 
         if (req.getDisplayName() != null) {
             u.setDisplayName(req.getDisplayName());
         }
 
-        if (req.getRoles() != null) {
+        if (req.getRoles() != null && !req.getRoles().equals(u.getRoles())) {
             u.setRoles(req.getRoles());
+            roleChanged = true;
         }
 
         User saved = repo.save(u);
 
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("id", saved.getId());
-        eventData.put("email", saved.getEmail());
-        eventData.put(
-                "displayName",
-                saved.getDisplayName() != null
-                        ? saved.getDisplayName()
-                        : saved.getEmail()
+        // 🔥 USER_UPDATED EVENT
+        UserEvent updatedEvent = new UserEvent(
+                "USER_UPDATED",
+                saved.getEmail(),
+                saved.getDisplayName(),
+                null
         );
+        updatedEvent.setUserId(saved.getId()); // ✅ ONLY FIX
+        producer.send(updatedEvent);
 
-        producer.send(new UserEvent("USER_UPDATED", eventData));
+        // 🔥 USER_ROLE_CHANGED EVENT
+        if (roleChanged) {
+            UserEvent roleEvent = new UserEvent(
+                    "USER_ROLE_CHANGED",
+                    saved.getEmail(),
+                    null,
+                    saved.getRoles().replace("ROLE_", "")
+            );
+            roleEvent.setUserId(saved.getId()); // ✅ ONLY FIX
+            producer.send(roleEvent);
+        }
 
         return mapToResponse(saved);
     }
@@ -160,48 +333,109 @@ public class UserService {
     @CacheEvict(value = "users", key = "#id")
     public void deleteUser(Long id) {
 
-        if (!repo.existsById(id)) {
-            throw new ResourceNotFoundException(
-                    "User not found with id " + id
-            );
-        }
+        User user = repo.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found with id " + id));
 
-        repo.deleteById(id);
+        repo.delete(user);
 
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("id", id);
-
-        producer.send(new UserEvent("USER_DELETED", eventData));
+        UserEvent deleteEvent = new UserEvent(
+                "USER_DELETED",
+                user.getEmail(),
+                null,
+                null
+        );
+        deleteEvent.setUserId(user.getId()); // ✅ ONLY FIX
+        producer.send(deleteEvent);
     }
 
     // ----------------------------------------------------
     // LIST USERS
     // ----------------------------------------------------
-    // ✅ ONLY CHANGE: CACHE REMOVED (MISSING FIX)
-    public Page<UserResponse> listUsers(
-            int page,
-            int size,
-            String sort,
-            String dir
-    ) {
+    public Page<UserResponse> listUsers(int page, int size, String sort, String dir) {
 
         Sort.Direction direction =
                 "desc".equalsIgnoreCase(dir)
                         ? Sort.Direction.DESC
                         : Sort.Direction.ASC;
 
-        Sort s = Sort.by(
-                direction,
-                (sort == null || sort.isEmpty()) ? "id" : sort
-        );
+        Sort s = Sort.by(direction,
+                (sort == null || sort.isEmpty()) ? "id" : sort);
 
         Pageable p = PageRequest.of(page, size, s);
-
         return repo.findAll(p).map(this::mapToResponse);
     }
 
     // ----------------------------------------------------
-    // MAP ENTITY → DTO
+    // GET BY EMAIL
+    // ----------------------------------------------------
+    @Cacheable(value = "users", key = "#email")
+    public UserResponse getByEmail(String email) {
+
+        User user = repo.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with email " + email
+                        ));
+
+        return mapToResponse(user);
+    }
+
+    // ----------------------------------------------------
+    // UPDATE BY EMAIL
+    // ----------------------------------------------------
+    @CacheEvict(value = "users", allEntries = true)
+    public UserResponse updateByEmail(String email, UpdateUserRequest req) {
+
+        User u = repo.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found with email " + email
+                        ));
+
+        boolean roleChanged = false;
+
+        if (req.getDisplayName() != null) {
+            u.setDisplayName(req.getDisplayName());
+        }
+
+        if (req.getRoles() != null && !req.getRoles().equals(u.getRoles())) {
+            u.setRoles(req.getRoles());
+            roleChanged = true;
+        }
+
+        User saved = repo.save(u);
+
+        UserEvent updatedEvent = new UserEvent(
+                "USER_UPDATED",
+                saved.getEmail(),
+                saved.getDisplayName(),
+                null
+        );
+        updatedEvent.setUserId(saved.getId()); // ✅ ONLY FIX
+        producer.send(updatedEvent);
+
+        if (roleChanged) {
+            UserEvent roleEvent = new UserEvent(
+                    "USER_ROLE_CHANGED",
+                    saved.getEmail(),
+                    null,
+                    saved.getRoles().replace("ROLE_", "")
+            );
+            roleEvent.setUserId(saved.getId()); // ✅ ONLY FIX
+            producer.send(roleEvent);
+        }
+
+        return mapToResponse(saved);
+    }
+    public List<UserResponse> getUsersByRole(String role) {
+        return repo.findUsersByRole(role)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+    // ----------------------------------------------------
+    // MAP ENTITY → RESPONSE
     // ----------------------------------------------------
     private UserResponse mapToResponse(User u) {
         UserResponse r = new UserResponse();

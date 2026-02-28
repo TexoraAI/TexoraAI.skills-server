@@ -1,7 +1,6 @@
 package com.lms.batch.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 
 @Entity
 @Table(name = "batches")
@@ -12,42 +11,38 @@ public class Batch {
     private Long id;
 
     private String batchCode;
-    private String name;
+    private String batchName;
 
+    @Column(nullable = false)
     private Long branchId;
-    private Long courseId;
+
+    // OPTIONAL KEEP
     private Long trainerId;
 
-    private LocalDate startDate;
-    private LocalDate endDate;
+    // 🔥 MAIN FIELD NOW
+    @Column(name = "trainer_email")
+    private String trainerEmail;
 
-    private String status;
+    private boolean active = true;
 
-    // getters & setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public String getBatchCode() { return batchCode; }
     public void setBatchCode(String batchCode) { this.batchCode = batchCode; }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public String getBatchName() { return batchName; }
+    public void setBatchName(String batchName) { this.batchName = batchName; }
 
     public Long getBranchId() { return branchId; }
     public void setBranchId(Long branchId) { this.branchId = branchId; }
 
-    public Long getCourseId() { return courseId; }
-    public void setCourseId(Long courseId) { this.courseId = courseId; }
-
     public Long getTrainerId() { return trainerId; }
     public void setTrainerId(Long trainerId) { this.trainerId = trainerId; }
 
-    public LocalDate getStartDate() { return startDate; }
-    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+    public String getTrainerEmail() { return trainerEmail; }
+    public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
 
-    public LocalDate getEndDate() { return endDate; }
-    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 }

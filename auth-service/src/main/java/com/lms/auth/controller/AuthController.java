@@ -1,6 +1,8 @@
 package com.lms.auth.controller;
 
 import com.lms.auth.dto.AuthResponse;
+
+import com.lms.auth.dto.ForgotPasswordRequest;
 import com.lms.auth.dto.GoogleLoginRequest;
 import com.lms.auth.dto.LoginRequest;
 import com.lms.auth.dto.RegisterRequest;
@@ -11,6 +13,9 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import com.lms.auth.dto.VerifyEmailRequest;
+import com.lms.auth.dto.ResendVerificationRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -50,7 +55,7 @@ public class AuthController {
     // ================= FORGOT PASSWORD =================
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, String>> forgotPassword(
-            @RequestBody LoginRequest request) {
+            @RequestBody ForgotPasswordRequest request) {
 
         authService.forgotPassword(request.getEmail());
 
@@ -66,4 +71,27 @@ public class AuthController {
                               @RequestParam String newPassword) {
         authService.resetPassword(token, newPassword);
     }
+    
+ // ================= VERIFY EMAIL =================
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody VerifyEmailRequest request) {
+
+        authService.verifyEmail(request.getEmail(), request.getToken());
+
+        return ResponseEntity.ok(
+                Map.of("message", "Email verified successfully")
+        );
+    }
+
+    // ================= RESEND VERIFICATION =================
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestBody ResendVerificationRequest request) {
+
+        authService.resendVerification(request.getEmail());
+
+        return ResponseEntity.ok(
+                Map.of("message", "Verification link sent again to your email")
+        );
+    }
+
 }

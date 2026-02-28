@@ -149,11 +149,34 @@ public class Quiz {
     @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonIgnoreProperties({"quiz"})
     private List<Question> questions = new ArrayList<>();
+    
+    @Column(name = "batch_id", nullable = false)
+    private Long batchId;
 
+    
+    
+    @Column(name = "trainer_email", nullable = false)
+    private String trainerEmail;
+
+    public String getTrainerEmail() {
+        return trainerEmail;
+    }
+
+    public void setTrainerEmail(String trainerEmail) {
+        this.trainerEmail = trainerEmail;
+    }
     // =========================
     // GETTERS & SETTERS
     // =========================
 
+    public Long getBatchId()
+    {
+    	return batchId;
+    }
+    public void setBatchId(Long batchId)
+    {
+    	this.batchId=batchId;
+    }
     public Long getId() {
         return id;
     }

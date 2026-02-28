@@ -1,21 +1,25 @@
 package com.lms.batch.dto;
 
-import java.time.LocalDate;
-
 public class CreateBatchRequest {
-    private String name;
-    private Long branchId;
-    private Long courseId;
-    private Long trainerId;
-    private LocalDate startDate;
-    private LocalDate endDate;
 
-    public String getName() {
-        return name;
+    private String batchName;
+    private Long branchId;
+    private Long trainerId;
+    private String trainerEmail;
+
+    public String getBatchName() {
+        return batchName;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public String getTrainerEmail() {
+        return trainerEmail;
+    }
+
+    public void setTrainerEmail(String trainerEmail) {
+        this.trainerEmail = trainerEmail;
+    }
+    public void setBatchName(String batchName) {
+        this.batchName = batchName;
     }
 
     public Long getBranchId() {
@@ -26,35 +30,11 @@ public class CreateBatchRequest {
         this.branchId = branchId;
     }
 
-    public Long getCourseId() {
-        return courseId;
-    }
-
-    public void setCourseId(Long courseId) {
-        this.courseId = courseId;
-    }
-
     public Long getTrainerId() {
         return trainerId;
     }
 
     public void setTrainerId(Long trainerId) {
         this.trainerId = trainerId;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
     }
 }

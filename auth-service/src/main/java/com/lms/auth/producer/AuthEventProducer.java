@@ -1,7 +1,7 @@
 package com.lms.auth.producer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lms.auth.dto.AuthEvent;
+import com.lms.auth.event.AuthEvent;   // ✅ CORRECT PACKAGE
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +17,7 @@ public class AuthEventProducer {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    // 🔒 ONE METHOD ONLY — LOCK THIS
     public void sendEvent(AuthEvent event) {
         try {
             String json = objectMapper.writeValueAsString(event);

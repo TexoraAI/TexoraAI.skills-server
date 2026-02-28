@@ -1,250 +1,81 @@
-//package com.lms.assessment.service;
-//
-//import com.lms.assessment.dto.*;
-//import com.lms.assessment.kafka.AssessmentEventProducer;
-//import com.lms.assessment.model.*;
-//import com.lms.assessment.repository.*;
-//import org.springframework.cache.annotation.CacheEvict;
-//import org.springframework.cache.annotation.Cacheable;
-//import org.springframework.stereotype.Service;
-//
-//import java.time.Instant;
-//import java.util.*;
-//
-//@Service
-//public class QuizService {
-//
-//    private final QuizRepository quizRepo;
-//    private final QuestionRepository questionRepo;
-//    private final OptionRepository optionRepo;
-//    private final AttemptRepository attemptRepo;
-//    private final AnswerRepository answerRepo;
-//    private final AssessmentEventProducer producer;
-//
-//    public QuizService(
-//            QuizRepository quizRepo,
-//            QuestionRepository questionRepo,
-//            OptionRepository optionRepo,
-//            AttemptRepository attemptRepo,
-//            AnswerRepository answerRepo,
-//            AssessmentEventProducer producer
-//    ) {
-//        this.quizRepo = quizRepo;
-//        this.questionRepo = questionRepo;
-//        this.optionRepo = optionRepo;
-//        this.attemptRepo = attemptRepo;
-//        this.answerRepo = answerRepo;
-//        this.producer = producer;
-//    }
-//
-//    // WRITE → CLEAR CACHE
-//    @CacheEvict(value = {"quizById", "allQuizzes"}, allEntries = true)
-//    public Quiz createQuiz(Quiz quiz) {
-//        return quizRepo.save(quiz);
-//    }
-//
-//    // READ → CACHE
-//    @Cacheable(value = "quizById", key = "#id")
-//    public Quiz getQuiz(Long id) {
-//        return quizRepo.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//    }
-//
-//    // READ → CACHE
-//    @Cacheable(value = "allQuizzes")
-//    public List<Quiz> listAll() {
-//        return quizRepo.findAll();
-//    }
-//
-//    // WRITE → CLEAR CACHE
-//    @CacheEvict(value = {"quizById", "allQuizzes"}, allEntries = true)
-//    public void deleteQuiz(Long id) {
-//        quizRepo.deleteById(id);
-//    }
-//
-//    // ❌ NEVER CACHE (USER ANSWERS)
-//    public QuizResultResponse submitAnswers(SubmitAttemptRequest req) {
-//
-//        Quiz quiz = quizRepo.findById(req.getQuizId())
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//
-//        int total = quiz.getQuestions().size();
-//        int correct = 0;
-//
-//        for (AnswerRequest ar : req.getAnswers()) {
-//            Option opt = optionRepo.findById(ar.getSelectedOptionId())
-//                    .orElseThrow();
-//            if (opt.isCorrect()) correct++;
-//        }
-//
-//        double percentage = (correct * 100.0) / total;
-//
-//        QuizResultResponse res = new QuizResultResponse();
-//        res.setTotalQuestions(total);
-//        res.setCorrectAnswers(correct);
-//        res.setPercentage(percentage);
-//
-//        return res;
-//    }
-//
-//}
 
 
 
+package com.lms.assessment.service;
 
-//package com.lms.assessment.service;
-//
-//import com.lms.assessment.dto.*;
-//import com.lms.assessment.kafka.AssessmentEventProducer;
-//import com.lms.assessment.model.*;
-//import com.lms.assessment.repository.*;
-//import org.springframework.cache.annotation.CacheEvict;
-//import org.springframework.cache.annotation.Cacheable;
-//import org.springframework.stereotype.Service;
-//
-//import java.util.List;
-//
-//@Service
-//public class QuizService {
-//
-//    private final QuizRepository quizRepo;
-//    private final QuestionRepository questionRepo;
-//    private final OptionRepository optionRepo;
-//    private final AttemptRepository attemptRepo;
-//    private final AnswerRepository answerRepo;
-//    private final AssessmentEventProducer producer;
-//
-//    public QuizService(
-//            QuizRepository quizRepo,
-//            QuestionRepository questionRepo,
-//            OptionRepository optionRepo,
-//            AttemptRepository attemptRepo,
-//            AnswerRepository answerRepo,
-//            AssessmentEventProducer producer
-//    ) {
-//        this.quizRepo = quizRepo;
-//        this.questionRepo = questionRepo;
-//        this.optionRepo = optionRepo;
-//        this.attemptRepo = attemptRepo;
-//        this.answerRepo = answerRepo;
-//        this.producer = producer;
-//    }
-//
-//    // =========================
-//    // CREATE QUIZ (CLEAR CACHE)
-//    // =========================
-//    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-//    public Quiz createQuiz(Quiz quiz) {
-//        return quizRepo.save(quiz);
-//    }
-//
-//    // =========================
-//    // GET QUIZ BY ID
-//    // ❌ CACHE REMOVED (FIX)
-//    // =========================
-//    public Quiz getQuiz(Long id) {
-//        return quizRepo.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//    }
-//
-//    // =========================
-//    // LIST ALL QUIZZES (SAFE TO CACHE)
-//    // =========================
-//    @Cacheable(value = "allQuizzes")
-//    public List<Quiz> listAll() {
-//        return quizRepo.findAll();
-//    }
-//
-//    // =========================
-//    // DELETE QUIZ (CLEAR CACHE)
-//    // =========================
-//    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-//    public void deleteQuiz(Long id) {
-//        quizRepo.deleteById(id);
-//    }
-//
-//    // =========================
-//    // SUBMIT ANSWERS (NO CACHE)
-//    // =========================
-//    public QuizResultResponse submitAnswers(SubmitAttemptRequest req) {
-//
-//        Quiz quiz = quizRepo.findById(req.getQuizId())
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//
-//        int total = quiz.getQuestions().size();
-//        int correct = 0;
-//
-//        for (AnswerRequest ar : req.getAnswers()) {
-//            Option opt = optionRepo.findById(ar.getSelectedOptionId())
-//                    .orElseThrow(() -> new RuntimeException("Option not found"));
-//
-//            if (opt.isCorrect()) correct++;
-//        }
-//
-//        double percentage = (correct * 100.0) / total;
-//
-//        QuizResultResponse res = new QuizResultResponse();
-//        res.setTotalQuestions(total);
-//        res.setCorrectAnswers(correct);
-//        res.setPercentage(percentage);
-//
-//        return res;
-//    }
-//}
-//
-//package com.lms.assessment.service;
-//
-//import com.lms.assessment.dto.*;
-//import com.lms.assessment.kafka.AssessmentEventProducer;
-//import com.lms.assessment.model.*;
-//import com.lms.assessment.repository.*;
-//
-//import jakarta.transaction.Transactional;
-//
-//import org.springframework.cache.annotation.CacheEvict;
-//import org.springframework.cache.annotation.Cacheable;
-//import org.springframework.stereotype.Service;
-//
-//import java.util.ArrayList;
-//import java.util.List;
-//
-//@Service
-//public class QuizService {
-//
-//    private final QuizRepository quizRepo;
-//    private final QuestionRepository questionRepo;
-//    private final OptionRepository optionRepo;
-//    private final AttemptRepository attemptRepo;
-//    private final AnswerRepository answerRepo;
-//    private final AssessmentEventProducer producer;
-//
-//    public QuizService(
-//            QuizRepository quizRepo,
-//            QuestionRepository questionRepo,
-//            OptionRepository optionRepo,
-//            AttemptRepository attemptRepo,
-//            AnswerRepository answerRepo,
-//            AssessmentEventProducer producer
-//    ) {
-//        this.quizRepo = quizRepo;
-//        this.questionRepo = questionRepo;
-//        this.optionRepo = optionRepo;
-//        this.attemptRepo = attemptRepo;
-//        this.answerRepo = answerRepo;
-//        this.producer = producer;
-//    }
-//
-//    // =========================
-//    // CREATE QUIZ ONLY
-//    // =========================
-//    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-//    public Quiz createQuiz(Quiz quiz) {
-//        return quizRepo.save(quiz);
-//    }
-//
-//    // =========================
-//    // ✅ CREATE QUIZ WITH MULTIPLE QUESTIONS (NEW)
-//    // =========================
+import com.lms.assessment.dto.*;
+import com.lms.assessment.kafka.AssessmentEventProducer;
+import com.lms.assessment.model.*;
+import com.lms.assessment.repository.*;
+import jakarta.transaction.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class QuizService {
+
+    private final QuizRepository quizRepo;
+    private final QuestionRepository questionRepo;
+    private final OptionRepository optionRepo;
+    private final AttemptRepository attemptRepo;
+    private final AnswerRepository answerRepo;
+    private final AssessmentEventProducer producer;
+    private final TrainerBatchMapRepository trainerBatchMapRepository;
+    private final StudentBatchMapRepository studentBatchMapRepository;
+    private StudentTrainerMapRepository studentTrainerMapRepository;
+    private StudentQuizMapRepository studentQuizMapRepository;
+    public QuizService(
+            QuizRepository quizRepo,
+            QuestionRepository questionRepo,
+            OptionRepository optionRepo,
+            AttemptRepository attemptRepo,
+            AnswerRepository answerRepo,
+            AssessmentEventProducer producer,
+            TrainerBatchMapRepository trainerBatchMapRepository,
+            StudentBatchMapRepository studentBatchMapRepository,
+            StudentTrainerMapRepository studentTrainerMapRepository,
+            StudentQuizMapRepository studentQuizMapRepository
+    ) {
+        this.quizRepo = quizRepo;
+        this.questionRepo = questionRepo;
+        this.optionRepo = optionRepo;
+        this.attemptRepo = attemptRepo;
+        this.answerRepo = answerRepo;
+        this.producer = producer;
+        this.trainerBatchMapRepository = trainerBatchMapRepository;
+        this.studentBatchMapRepository = studentBatchMapRepository;
+        this.studentTrainerMapRepository=studentTrainerMapRepository;
+        this.studentQuizMapRepository=studentQuizMapRepository;
+    }
+
+    // =========================
+    // CREATE QUIZ
+    
+    
+    @Transactional
+    public Quiz createQuiz(Quiz quiz, String trainerEmail) {
+
+        quiz.setTrainerEmail(trainerEmail);
+        quiz.setActive(true);
+
+        // 1️⃣ Save quiz
+        Quiz savedQuiz = quizRepo.save(quiz);
+
+        // 2️⃣ Assign to trainer students
+        assignQuizToTrainerStudents(
+                savedQuiz.getId(),
+                trainerEmail,
+                savedQuiz.getBatchId()
+        );
+
+        return savedQuiz;
+    }
+    // CREATE QUIZ WITH QUESTIONS
+    // =========================
 //    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
 //    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req) {
 //
@@ -275,141 +106,17 @@
 //        }
 //
 //        quiz.setQuestions(questions);
-//        return quizRepo.save(quiz); // CASCADE saves all
+//        return quizRepo.save(quiz);
 //    }
-//
-//    
-//        // =========================
-//    // GET QUIZ BY ID (NO CACHE)
-//    // =========================
-////    public Quiz getQuiz(Long id) {
-////        return quizRepo.findById(id)
-////                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-////    }
-//    public Quiz getQuiz(Long id) {
-//        return quizRepo.findByIdAndActiveTrue(id)
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//    }
-//
-//
-//
-//
-//    // =========================
-//    // LIST ALL QUIZZES
-//    // =========================
-//    @Cacheable(value = "allQuizzes")
-//    public List<Quiz> getAllQuizzes() {
-//        return quizRepo.findByActiveTrue();
-//    }
-//
-//    // =========================
-//    // DELETE QUIZ
-//    // =========================
-////    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-////    public void deleteQuiz(Long id) {
-////        quizRepo.deleteById(id);
-////    }
-//    @Transactional
-//    public void deleteQuiz(Long quizId) {
-//
-//        Quiz quiz = quizRepo.findById(quizId)
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//
-//        // 🔥 Soft delete instead of real delete
-//        quiz.setActive(false);
-//
-//        quizRepo.save(quiz);
-//    }
-//
-//
-//    // =========================
-//    // SUBMIT ANSWERS
-//    // =========================
-//    public QuizResultResponse submitAnswers(SubmitAttemptRequest req) {
-//
-//        Quiz quiz = quizRepo.findById(req.getQuizId())
-//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-//
-//        int total = quiz.getQuestions().size();
-//        int correct = 0;
-//
-//        for (AnswerRequest ar : req.getAnswers()) {
-//            Option opt = optionRepo.findById(ar.getSelectedOptionId())
-//                    .orElseThrow(() -> new RuntimeException("Option not found"));
-//
-//            if (opt.isCorrect()) correct++;
-//        }
-//
-//        double percentage = (correct * 100.0) / total;
-//
-//        QuizResultResponse res = new QuizResultResponse();
-//        res.setTotalQuestions(total);
-//        res.setCorrectAnswers(correct);
-//        res.setPercentage(percentage);
-//
-//        return res;
-//    }
-//}
-
-
-
-package com.lms.assessment.service;
-
-import com.lms.assessment.dto.*;
-import com.lms.assessment.kafka.AssessmentEventProducer;
-import com.lms.assessment.model.*;
-import com.lms.assessment.repository.*;
-import jakarta.transaction.Transactional;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-
-@Service
-public class QuizService {
-
-    private final QuizRepository quizRepo;
-    private final QuestionRepository questionRepo;
-    private final OptionRepository optionRepo;
-    private final AttemptRepository attemptRepo;
-    private final AnswerRepository answerRepo;
-    private final AssessmentEventProducer producer;
-
-    public QuizService(
-            QuizRepository quizRepo,
-            QuestionRepository questionRepo,
-            OptionRepository optionRepo,
-            AttemptRepository attemptRepo,
-            AnswerRepository answerRepo,
-            AssessmentEventProducer producer
-    ) {
-        this.quizRepo = quizRepo;
-        this.questionRepo = questionRepo;
-        this.optionRepo = optionRepo;
-        this.attemptRepo = attemptRepo;
-        this.answerRepo = answerRepo;
-        this.producer = producer;
-    }
-
-    // =========================
-    // CREATE QUIZ
-    // =========================
-    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-    public Quiz createQuiz(Quiz quiz) {
-        return quizRepo.save(quiz);
-    }
-
-    // =========================
-    // CREATE QUIZ WITH QUESTIONS
-    // =========================
-    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req) {
+    @Transactional
+    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req, String trainerEmail) {
 
         Quiz quiz = new Quiz();
         quiz.setTitle(req.getTitle());
         quiz.setCourseId(req.getCourseId());
+        quiz.setBatchId(req.getBatchId());
+        quiz.setTrainerEmail(trainerEmail);
+        quiz.setActive(true);
 
         List<Question> questions = new ArrayList<>();
 
@@ -434,9 +141,19 @@ public class QuizService {
         }
 
         quiz.setQuestions(questions);
-        return quizRepo.save(quiz);
-    }
 
+        // 🔥 SAVE QUIZ FIRST
+        Quiz savedQuiz = quizRepo.save(quiz);
+
+        // 🔥 MOST IMPORTANT LINE — ASSIGN TO STUDENTS
+        assignQuizToTrainerStudents(
+                savedQuiz.getId(),
+                trainerEmail,
+                savedQuiz.getBatchId()
+        );
+
+        return savedQuiz;
+    }
     // =========================
     // STUDENT — GET QUIZ
     // =========================
@@ -448,20 +165,22 @@ public class QuizService {
     // =========================
     // STUDENT — LIST QUIZZES
     // =========================
-    @Cacheable("allQuizzes")
-    public List<Quiz> getAllQuizzes() {
-        return quizRepo.findByActiveTrue();
-    }
-
+    
     // =========================
     // TRAINER — SOFT DELETE
     // =========================
     @Transactional
-    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-    public void deleteQuiz(Long quizId) {
+    public void deleteQuizByTrainer(Long quizId, String trainerEmail) {
+
         Quiz quiz = quizRepo.findById(quizId)
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
 
+        // 🔐 Security check
+        if (!quiz.getTrainerEmail().equals(trainerEmail)) {
+            throw new RuntimeException("You are not allowed to delete this quiz");
+        }
+
+        // Soft delete
         quiz.setActive(false);
         quizRepo.save(quiz);
     }
@@ -492,6 +211,45 @@ public class QuizService {
         res.setPercentage(percentage);
 
         return res;
+    }
+    public List<Quiz> getTrainerQuizzes(String email) {
+        return quizRepo.findByTrainerEmailAndActiveTrue(email);
+    }
+//    public List<Quiz> getStudentQuizzes(String studentEmail) {
+//        return quizRepo.findAssignedQuizzes(studentEmail);
+//    }
+//    public List<Quiz> getStudentQuizzes(String email) {
+//
+//        return quizRepo.findQuizzesAssignedToStudent(email);
+//    }
+    public List<Quiz> getStudentQuizzes(String email) {
+    	Long batchId = studentBatchMapRepository
+    	        .findBatchIdByStudentEmail(email)
+    	        .orElseThrow(() -> new RuntimeException("Student batch not found"));
+    	return quizRepo.findByBatchIdAndActiveTrue(batchId);
+    }
+    
+    public Quiz getQuizForStudent(Long quizId, String studentEmail) {
+
+        boolean allowed = studentQuizMapRepository
+                .existsByQuizIdAndStudentEmail(quizId, studentEmail);
+
+        if(!allowed)
+            throw new RuntimeException("You are not allowed to access this quiz");
+
+        return quizRepo.findByIdAndActiveTrue(quizId)
+                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+    }
+    
+    private void assignQuizToTrainerStudents(Long quizId, String trainerEmail, Long batchId) {
+
+        List<String> students = studentTrainerMapRepository
+                .findActiveStudentsByTrainerAndBatch(trainerEmail, batchId);
+
+        for (String student : students) {
+            StudentQuizMap map = new StudentQuizMap(quizId, student);
+            studentQuizMapRepository.save(map);
+        }
     }
 }
 

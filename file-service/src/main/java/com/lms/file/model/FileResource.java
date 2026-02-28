@@ -11,6 +11,13 @@ public class FileResource {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String title;
+    private String description;
+    
+
+    
+    
+    
     private String originalName;
     private String storedName;
     private String contentType;
@@ -19,8 +26,41 @@ public class FileResource {
     private String uploadedByRole; // ADMIN
 
     private Instant uploadedAt;
+    @Column(nullable = false)
+    private Long batchId;
+
+    @Column(nullable = false)
+    private String trainerEmail;
+
+    // getters setters
+    public Long getBatchId() { return batchId; }
+    public void setBatchId(Long batchId) { this.batchId = batchId; }
+
+    public String getTrainerEmail() { return trainerEmail; }
+    public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
+
 
     // ===== GETTERS & SETTERS =====
+    
+ // Getter for title
+    public String getTitle() {
+        return title;
+    }
+
+    // Setter for title
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    // Getter for description
+    public String getDescription() {
+        return description;
+    }
+
+    // Setter for description
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

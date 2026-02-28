@@ -1,6 +1,7 @@
 package com.lms.course.repository;
 
 import com.lms.course.model.ContentItem;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

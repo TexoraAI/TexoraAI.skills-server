@@ -1,18 +1,18 @@
 package com.lms.file.service;
 
 import com.lms.file.kafka.FileEventProducer;
+import com.lms.file.model.FileClassroomAccess;
 import com.lms.file.model.FileResource;
+import com.lms.file.repository.FileClassroomAccessRepository;
 import com.lms.file.repository.FileRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.*;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class FileService {
@@ -21,28 +21,36 @@ public class FileService {
     private String storageDir;
 
     private final FileRepository repo;
+    private final FileClassroomAccessRepository accessRepo;
     private final FileEventProducer producer;
 
-    public FileService(FileRepository repo, FileEventProducer producer) {
+    public FileService(FileRepository repo,
+                       FileClassroomAccessRepository accessRepo,
+                       FileEventProducer producer) {
         this.repo = repo;
+        this.accessRepo = accessRepo;
         this.producer = producer;
     }
 
-    // ================= UPLOAD (ADMIN + TRAINER) =================
-    public FileResource upload(MultipartFile file, String role) throws Exception {
+    // ================= TRAINER UPLOAD =================
+    public FileResource upload(MultipartFile file, Long batchId,String title, String description) throws Exception {
 
-        // normalize role
-        role = role.toUpperCase();
+        String trainerEmail = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
-        // role validation
-        if (!role.equals("ADMIN") && !role.equals("TRAINER")) {
-            throw new RuntimeException("Only ADMIN or TRAINER can upload files");
-        }
+        // 🔒 check trainer teaches this batch
+        boolean allowed = accessRepo
+                .findByTrainerEmailAndBatchId(trainerEmail, batchId)
+                .size() > 0;
+
+        if (!allowed)
+            throw new RuntimeException("You are not assigned to this batch");
 
         Path dir = Paths.get(storageDir);
-        if (!Files.exists(dir)) {
+        if (!Files.exists(dir))
             Files.createDirectories(dir);
-        }
 
         String storedName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
         Path path = dir.resolve(storedName);
@@ -52,27 +60,47 @@ public class FileService {
         FileResource fr = new FileResource();
         fr.setOriginalName(file.getOriginalFilename());
         fr.setStoredName(storedName);
+        fr.setTitle(title);
+        fr.setDescription(description);
         fr.setContentType(file.getContentType());
         fr.setSize(file.getSize());
-        fr.setUploadedByRole(role);
         fr.setUploadedAt(Instant.now());
+        fr.setBatchId(batchId);
+        fr.setTrainerEmail(trainerEmail);
 
         FileResource saved = repo.save(fr);
 
-        // Kafka is OPTIONAL — should not break upload
         try {
             producer.sendFileUploadedEvent(saved.getId());
-        } catch (Exception e) {
-            System.err.println("Kafka skipped: " + e.getMessage());
-        }
+        } catch (Exception ignored) {}
 
         return saved;
     }
 
-    // ================= LIST =================
-    @Cacheable(value = "files")
-    public Page<FileResource> listFiles(Pageable pageable) {
-        return repo.findAll(pageable);
+    // ================= TRAINER FILES =================
+    public List<FileResource> getTrainerFiles() {
+
+        String trainerEmail = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        return repo.findByTrainerEmail(trainerEmail);
+    }
+
+    // ================= STUDENT FILES =================
+    public List<FileResource> getStudentFiles() {
+
+        String studentEmail = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        FileClassroomAccess access = accessRepo
+                .findByStudentEmail(studentEmail)
+                .orElseThrow(() -> new RuntimeException("Student not assigned to any batch"));
+
+        return repo.findByBatchId(access.getBatchId());
     }
 
     // ================= DOWNLOAD =================
@@ -81,22 +109,43 @@ public class FileService {
         return Files.readAllBytes(path);
     }
 
-    // ================= DELETE (ADMIN + TRAINER) =================
-    @CacheEvict(value = "files", allEntries = true)
-    public void delete(Long id, String role) throws Exception {
+    // ================= DELETE =================
+    public void delete(Long id) throws Exception {
 
-        role = role.toUpperCase();
-
-        if (!role.equals("ADMIN") && !role.equals("TRAINER")) {
-            throw new RuntimeException("Only ADMIN or TRAINER can delete files");
-        }
+        String trainerEmail = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
         FileResource fr = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("File not found: " + id));
+                .orElseThrow(() -> new RuntimeException("File not found"));
+
+        // 🔒 trainer can delete only own file
+        if (!fr.getTrainerEmail().equals(trainerEmail))
+            throw new RuntimeException("You can delete only your files");
 
         Path path = Paths.get(storageDir).resolve(fr.getStoredName());
         Files.deleteIfExists(path);
 
         repo.delete(fr);
     }
+    public FileResource getById(Long id) {
+        return repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("File not found with id: " + id));
+    }
+    public byte[] viewFile(Long id) throws Exception {
+
+        FileResource file = getById(id);
+
+        Path path = Paths.get(storageDir).resolve(file.getStoredName());
+
+        if (!Files.exists(path))
+            throw new RuntimeException("File not found");
+
+        return Files.readAllBytes(path);
+    }
+    public String getStorageDir() {
+        return storageDir;
+    }
+
 }

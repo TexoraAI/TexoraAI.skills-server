@@ -26,19 +26,45 @@ spring:
       host: localhost
       port: 6379
 
+  # ================= KAFKA =================
   kafka:
     bootstrap-servers: localhost:9092
+
+    # PRODUCER (for file uploaded event)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+    # CONSUMER (for batch assignment + lifecycle events)
+    consumer:
+      group-id: file-service-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted.packages: "*"
+
+        # IMPORTANT → allows Map OR Event class
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.Map
+
+    listener:
+      missing-topics-fatal: false
+
+# ================= TOPICS =================
 topics:
-  file: file-uploaded
+  batch-assignment: batch-assignment
+  batch-lifecycle: batch-lifecycle
+  file-uploaded: file-uploaded
 
+# ================= FILE STORAGE =================
 file:
   storage-dir: files
 
+# ================= LOGGING =================
 logging:
   level:
     org.springframework.kafka: INFO
-    com.lms.file: INFO
+    org.apache.kafka: WARN
+    com.lms.file: DEBUG

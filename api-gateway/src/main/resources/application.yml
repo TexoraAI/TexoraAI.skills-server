@@ -37,3 +37,4 @@ services:
   student: ${STUDENT_SERVICE_URL:http://localhost:8093}
   attendance: ${ATTENDANCE_SERVICE_URL:http://localhost:8094}
   batch: ${BATCH_SERVICE_URL:http://localhost:8095}
+  chat: ${CHAT_SERVICE_URL:http://localhost:8096}

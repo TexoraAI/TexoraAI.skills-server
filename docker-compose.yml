@@ -1,0 +1,198 @@
+version: "3.8"
+
+services:
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # Gateway service routing URLs (Docker network)
+      AUTH_SERVICE_URL: http://auth-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      COURSE_SERVICE_URL: http://course-service:8083
+      CONTENT_SERVICE_URL: http://course-service:8083
+      VIDEO_SERVICE_URL: http://video-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      ANALYTICS_SERVICE_URL: http://analytics-service:8086
+      ASSESSMENT_SERVICE_URL: http://assessment:8087
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8088
+      PROGRESS_SERVICE_URL: http://progress-service:8089
+      SEARCH_SERVICE_URL: http://search-service:8090
+      PAYMENT_SERVICE_URL: http://payment-service:8091
+      FILE_SERVICE_URL: http://file-service:8092
+      STUDENT_SERVICE_URL: http://student-service:8093
+      ATTENDANCE_SERVICE_URL: http://attendance-service:8094
+      BATCH_SERVICE_URL: http://batch-service:8095
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: always
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  course-service:
+    build: ./course-service
+    container_name: course-service
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+
+  # ==========================
+  # ✅ ADDED POSTGRES FOR VIDEO
+  # ==========================
+  postgres-video:
+    image: postgres:15
+    container_name: postgres-video
+    restart: always
+    environment:
+      POSTGRES_DB: videodb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Shareef@1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_video_data:/var/lib/postgresql/data
+
+
+  # ==========================
+  # ✅ UPDATED VIDEO SERVICE
+  # ==========================
+  video-service:
+    build: ./video-service
+    container_name: video-service
+    restart: always
+    ports:
+      - "8084:8084"
+    depends_on:
+      - postgres-video
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # ✅ override DB config inside docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/videodb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: Shareef@1234
+
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    restart: always
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: analytics-service
+    restart: always
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  assessment:
+    build: ./assessment
+    container_name: assessment
+    restart: always
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  enrollment-service:
+    build: ./enrollment-service
+    container_name: enrollment-service
+    restart: always
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  progress-service:
+    build: ./progress-service
+    container_name: progress-service
+    restart: always
+    ports:
+      - "8089:8089"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  search-service:
+    build: ./search-service
+    container_name: search-service
+    restart: always
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    restart: always
+    ports:
+      - "8091:8091"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  file-service:
+    build: ./file-service
+    container_name: file-service
+    restart: always
+    ports:
+      - "8092:8092"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  student-service:
+    build: ./student-service
+    container_name: student-service
+    restart: always
+    ports:
+      - "8093:8093"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  attendance-service:
+    build: ./attendance-service
+    container_name: attendance-service
+    restart: always
+    ports:
+      - "8094:8094"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  batch-service:
+    build: ./batch-service
+    container_name: batch-service
+    restart: always
+    ports:
+      - "8095:8095"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+
+volumes:
+  postgres_video_data:

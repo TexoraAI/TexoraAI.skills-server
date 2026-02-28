@@ -18,11 +18,8 @@ spring:
   # ================= KAFKA =================
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
-      group-id: ${KAFKA_CONSUMER_GROUP_ID:user-group}
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:user-service-group}
       auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -47,7 +44,3 @@ logging:
   level:
     org.springframework.security: ${LOGGING_SECURITY_LEVEL:INFO}
     org.hibernate.SQL: ${LOGGING_HIBERNATE_SQL_LEVEL:DEBUG}
-
-# ================= TOPICS =================
-topics:
-  user: ${TOPIC_USER:user-events}

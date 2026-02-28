@@ -1,26 +1,31 @@
 package com.lms.batch.dto;
 
+import java.util.List;
+
 public class BatchReportResponse {
 
-    private String batchName;
-    private int students;
+    private int totalBatches;
+    private int totalStudents;
     private double avgScore;
-    private double completion;
+    private int topBatches;
 
-    public String getBatchName() {
-        return batchName;
+    // optional – for future UI expansion
+    private List<TrainerBatchReportDTO> batches;
+
+    public int getTotalBatches() {
+        return totalBatches;
     }
 
-    public void setBatchName(String batchName) {
-        this.batchName = batchName;
+    public void setTotalBatches(int totalBatches) {
+        this.totalBatches = totalBatches;
     }
 
-    public int getStudents() {
-        return students;
+    public int getTotalStudents() {
+        return totalStudents;
     }
 
-    public void setStudents(int students) {
-        this.students = students;
+    public void setTotalStudents(int totalStudents) {
+        this.totalStudents = totalStudents;
     }
 
     public double getAvgScore() {
@@ -31,11 +36,19 @@ public class BatchReportResponse {
         this.avgScore = avgScore;
     }
 
-    public double getCompletion() {
-        return completion;
+    public int getTopBatches() {
+        return topBatches;
     }
 
-    public void setCompletion(double completion) {
-        this.completion = completion;
+    public void setTopBatches(int topBatches) {
+        this.topBatches = topBatches;
+    }
+
+    public List<TrainerBatchReportDTO> getBatches() {
+        return batches;
+    }
+
+    public void setBatches(List<TrainerBatchReportDTO> batches) {
+        this.batches = batches;
     }
 }

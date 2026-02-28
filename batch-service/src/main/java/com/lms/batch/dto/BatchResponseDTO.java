@@ -2,10 +2,22 @@ package com.lms.batch.dto;
 
 public class BatchResponseDTO {
 
+    private Long id;
     private String batchCode;
-    private String name;
-    private String status;
-    private long students;
+    private String batchName;
+    private Long branchId;
+
+    // OLD (keep — don't break frontend already using it)
+    private Long trainerId;
+
+    // 🆕 NEW
+    private String trainerEmail;
+
+    private boolean active;
+
+    public Long getId() {
+        return id;
+    }
 
     public String getBatchCode() {
         return batchCode;
@@ -15,27 +27,48 @@ public class BatchResponseDTO {
         this.batchCode = batchCode;
     }
 
-    public String getName() {
-        return name;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public String getBatchName() {
+        return batchName;
     }
 
-    public String getStatus() {
-        return status;
+    public void setBatchName(String batchName) {
+        this.batchName = batchName;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
+    public Long getBranchId() {
+        return branchId;
     }
 
-    public long getStudents() {
-        return students;
+    public void setBranchId(Long branchId) {
+        this.branchId = branchId;
     }
 
-    public void setStudents(long students) {
-        this.students = students;
+    public Long getTrainerId() {
+        return trainerId;
+    }
+
+    public void setTrainerId(Long trainerId) {
+        this.trainerId = trainerId;
+    }
+
+    // 🆕 NEW
+    public String getTrainerEmail() {
+        return trainerEmail;
+    }
+
+    public void setTrainerEmail(String trainerEmail) {
+        this.trainerEmail = trainerEmail;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

@@ -23,9 +23,19 @@ spring:
   # ================= KAFKA =================
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+    # 🔥 PRODUCER (already existed – unchanged)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    # 🔥 CONSUMER (ADDED – THIS WAS MISSING)
+    consumer:
+      group-id: auth-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
     properties:
       spring.json.add.type.headers: false
 
@@ -53,3 +63,7 @@ jwt:
 # ================= GOOGLE OAUTH =================
 google:
   client-id: ${GOOGLE_CLIENT_ID:572421778240-akk3kkb4f60ukuv9pcfrpg2ielm09thk.apps.googleusercontent.com}
+
+# ================= FRONTEND =================
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}

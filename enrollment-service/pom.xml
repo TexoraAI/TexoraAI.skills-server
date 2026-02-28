@@ -19,7 +19,8 @@
     <description>Enrollment Microservice for LMS</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
+
     </properties>
 
     <dependencies>

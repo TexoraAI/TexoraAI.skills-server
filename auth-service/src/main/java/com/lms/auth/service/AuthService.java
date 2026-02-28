@@ -1,4 +1,13 @@
+
+
+
+
+
+
 package com.lms.auth.service;
+import com.lms.auth.event.AuthEvent;
+import com.lms.auth.producer.AuthEventProducer;
+
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
@@ -7,8 +16,14 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.lms.auth.dto.AuthResponse;
 import com.lms.auth.dto.RegisterRequest;
+import com.lms.auth.model.EmailVerificationToken;
 import com.lms.auth.model.Role;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import com.lms.auth.model.User;
+import com.lms.auth.repository.EmailVerificationTokenRepository;
 import com.lms.auth.repository.UserRepository;
 import com.lms.auth.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,14 +32,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AuthService {
+	private final AuthEventProducer authEventProducer;
 
     private final UserRepository userRepository;
+    private final EmailVerificationTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final JwtUtil jwtUtil;
@@ -32,9 +50,12 @@ public class AuthService {
     @Value("${google.client-id}")
     private String googleClientId;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
+    
     private final ConcurrentHashMap<String, String> resetTokens = new ConcurrentHashMap<>();
 
-    // ✅ Google-recommended reusable components
     private static final JacksonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static NetHttpTransport HTTP_TRANSPORT;
 
@@ -47,23 +68,23 @@ public class AuthService {
     }
 
     public AuthService(UserRepository userRepository,
+                       EmailVerificationTokenRepository tokenRepository,
                        PasswordEncoder passwordEncoder,
                        EmailService emailService,
-                       JwtUtil jwtUtil) {
+                       JwtUtil jwtUtil,AuthEventProducer authEventProducer) {
         this.userRepository = userRepository;
+        this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.jwtUtil = jwtUtil;
+        this.authEventProducer = authEventProducer;
     }
 
     // ================= REGISTER =================
     public void register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Email already registered"
-            );
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
         User user = new User();
@@ -72,7 +93,13 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole() != null ? request.getRole() : Role.STUDENT);
 
-        userRepository.save(user);
+        user.setApproved(false);
+        user.setEmailVerified(false);
+
+        User savedUser = userRepository.save(user);
+
+        // ✅ Send Verification Mail
+        sendVerificationLink(savedUser);
     }
 
     // ================= EMAIL LOGIN =================
@@ -91,6 +118,23 @@ public class AuthService {
             );
         }
 
+        // ✅ Block login until email verified
+        if (!user.isEmailVerified()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Please verify your email first"
+            );
+        }
+
+        // ✅ Block login until approved (Student + Trainer + Business)
+        if ((user.getRole() == Role.STUDENT || user.getRole() == Role.TRAINER || user.getRole() == Role.BUSINESS)
+                && !user.isApproved()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Your application is not approved yet"
+            );
+        }
+
         String token = jwtUtil.generateToken(user);
 
         return new AuthResponse(
@@ -101,9 +145,8 @@ public class AuthService {
     }
 
     // ================= GOOGLE LOGIN =================
-    public AuthResponse authenticateGoogle(String  idToken, Role role) {
-     System.out.println(idToken);
-     System.out.println(role);
+    public AuthResponse authenticateGoogle(String idToken, Role role) {
+
         if (idToken == null || idToken.isBlank()) {
             throw new RuntimeException("Google ID token is missing");
         }
@@ -126,27 +169,34 @@ public class AuthService {
 
             User user = userRepository.findByEmail(email)
                     .orElseGet(() -> createGoogleUser(email, name, role));
-            
+
+            // ✅ Google users are verified automatically
+            user.setEmailVerified(true);
+            userRepository.save(user);
+
+            // ✅ Block login until approved (Student + Trainer + Business)
+            if ((user.getRole() == Role.STUDENT || user.getRole() == Role.TRAINER || user.getRole() == Role.BUSINESS)
+                    && !user.isApproved()) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your application is not approved yet"
+                );
+            }
+
             String jwt = jwtUtil.generateToken(user);
 
-            return new AuthResponse(
-                    jwt,
-                    user.getEmail(),
-                    user.getRole().name()
-            );
+            return new AuthResponse(jwt, user.getEmail(), user.getRole().name());
 
-        } 
-        catch (Exception e) {
-            e.printStackTrace();   // 🔥 THIS IS CRITICAL
+        } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
-
     }
 
     // ================= FORGOT PASSWORD =================
     public void forgotPassword(String email) {
 
-        User user = userRepository.findByEmail(email)
+        userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "User not found"
@@ -155,8 +205,9 @@ public class AuthService {
         String token = UUID.randomUUID().toString();
         resetTokens.put(token, email);
 
-        String resetLink =
-                "http://localhost:5173/reset-password?token=" + token;
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
+
+
 
         emailService.sendResetPasswordMail(email, resetLink);
     }
@@ -184,19 +235,105 @@ public class AuthService {
         resetTokens.remove(token);
     }
 
+//    // ================= VERIFY EMAIL =================
+
+    public void verifyEmail(String email, String token) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
+
+        EmailVerificationToken savedToken = tokenRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "No verification token found. Please resend verification email."
+                ));
+
+        if (!savedToken.getToken().equals(token)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid verification token"
+            );
+        }
+
+        if (savedToken.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Verification link expired"
+            );
+        }
+
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        tokenRepository.delete(savedToken);
+    }
+
+
+    // ================= RESEND VERIFICATION =================
+    public void resendVerification(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
+
+        if (user.isEmailVerified()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Email already verified"
+            );
+        }
+
+        // delete old token if exists
+        tokenRepository.deleteByUserId(user.getId());
+
+        sendVerificationLink(user);
+    }
+
+    // ================= HELPER: SEND VERIFICATION LINK =================
+    private void sendVerificationLink(User user) {
+
+        String token = UUID.randomUUID().toString();
+
+        EmailVerificationToken verifyToken = new EmailVerificationToken(
+                token,
+                LocalDateTime.now().plusHours(24),
+                user
+        );
+
+        tokenRepository.save(verifyToken);
+     // ✅ Improvement 1: encode email properly
+        String encodedEmail = URLEncoder.encode(user.getEmail(), StandardCharsets.UTF_8);
+
+        // ✅ Improvement 2: frontend url from config
+        String verifyLink =
+                frontendUrl + "/verify-email?token=" + token + "&email=" + encodedEmail;
+
+        emailService.sendVerificationMail(user.getEmail(), verifyLink);
+    }
+
     // ================= GOOGLE USER CREATION =================
     private User createGoogleUser(String email, String name, Role role) {
 
         User user = new User();
         user.setName(name);
         user.setEmail(email);
-
-        user.setPassword(
-                passwordEncoder.encode(UUID.randomUUID().toString())
-        );
-
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         user.setRole(role != null ? role : Role.STUDENT);
+
+        user.setApproved(false);
+        user.setEmailVerified(true); // google verified
 
         return userRepository.save(user);
     }
 }
+
+
+
+
+
+

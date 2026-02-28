@@ -1,37 +1,29 @@
+
 package com.lms.attendance.controller;
 
 import com.lms.attendance.dto.MarkAttendanceRequest;
 import com.lms.attendance.service.AttendanceService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/trainer/attendance")
+@RequestMapping("/api/trainer/attendance")
+@PreAuthorize("hasRole('TRAINER')")
 public class TrainerAttendanceController {
 
-    @Autowired
-    private AttendanceService attendanceService;
+    private final AttendanceService service;
+
+    public TrainerAttendanceController(AttendanceService service) {
+        this.service = service;
+    }
 
     @PostMapping("/mark")
-    public ResponseEntity<String> markAttendance(
-            @RequestBody MarkAttendanceRequest request
-    ) {
+    public void mark(@RequestBody MarkAttendanceRequest req) {
 
-        String trainerEmail = (String) SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
+        String trainerEmail =
+                SecurityContextHolder.getContext().getAuthentication().getName();
 
-        attendanceService.markAttendance(
-                request.getStudentEmail(),   // ✅ STRING
-                request.getBatchId(),
-                request.getStatus(),
-                request.getDate(),
-                trainerEmail
-        );
-
-        return ResponseEntity.ok("Attendance marked successfully");
+        service.markAttendance(trainerEmail, req);
     }
 }
