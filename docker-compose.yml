@@ -193,6 +193,14 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
 
+  chat-service:
+  build: ./chat-service
+  container_name: chat-service
+  restart: always
+  ports:
+    - "8096:8096"
+  environment:
+    SPRING_PROFILES_ACTIVE: prod
 
 volumes:
   postgres_video_data:
