@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Deploy to EC2 via SSH
@@ -20,7 +20,31 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+
+            echo "Connecting to server..."
             cd TexoraAI.skills-server
+
+            echo "Pulling latest code..."
             git pull origin main
-            sudo docker-compose down
-            sudo docker-compose up -d --build
+
+            echo "Detecting changed services..."
+
+            CHANGED_SERVICES=$(git diff --name-only HEAD~1 HEAD | cut -d/ -f1 | sort -u)
+
+            echo "Changed folders:"
+            echo "$CHANGED_SERVICES"
+
+            for SERVICE in $CHANGED_SERVICES
+            do
+              if [ -f "$SERVICE/Dockerfile" ]; then
+                echo "Rebuilding service: $SERVICE"
+
+                sudo docker-compose build $SERVICE
+                sudo docker-compose up -d $SERVICE
+
+              else
+                echo "Skipping $SERVICE (not a microservice folder)"
+              fi
+            done
+
+            echo "Deployment completed!"
