@@ -609,6 +609,7 @@ public class BatchService {
                 .distinct()
                 .toList();
     }
+    //classroom
     public StudentClassroomDTO getStudentClassroom(String email) {
 
         Optional<BatchTrainerStudent> optional =
