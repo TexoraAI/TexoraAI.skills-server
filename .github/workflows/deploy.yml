@@ -19,7 +19,13 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+
+          # IMPORTANT: prevent timeout during docker build
+          command_timeout: 30m
+
           script: |
+
+            set -e
 
             echo "Connecting to server..."
             cd TexoraAI.skills-server
@@ -34,13 +40,21 @@ jobs:
             echo "Changed folders:"
             echo "$CHANGED_SERVICES"
 
+            # If nothing changed, stop deployment
+            if [ -z "$CHANGED_SERVICES" ]; then
+              echo "No services changed. Skipping deployment."
+              exit 0
+            fi
+
             for SERVICE in $CHANGED_SERVICES
             do
               if [ -f "$SERVICE/Dockerfile" ]; then
+                echo "-----------------------------------"
                 echo "Rebuilding service: $SERVICE"
+                echo "-----------------------------------"
 
-                sudo docker-compose build $SERVICE
-                sudo docker-compose up -d $SERVICE
+                sudo docker compose build $SERVICE
+                sudo docker compose up -d $SERVICE
 
               else
                 echo "Skipping $SERVICE (not a microservice folder)"
