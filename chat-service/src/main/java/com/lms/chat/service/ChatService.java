@@ -169,6 +169,7 @@ public class ChatService {
                 .orElseThrow(() ->
                         new RuntimeException("Trainer not assigned to this student"));
     }
+    //getstudent 1222
     public Map<String, Object> getStudentContext(String studentEmail) {
 
         ChatClassroomAccess access = accessRepo
