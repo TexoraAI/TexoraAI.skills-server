@@ -28,6 +28,7 @@ services:
       STUDENT_SERVICE_URL: http://student-service:8093
       ATTENDANCE_SERVICE_URL: http://attendance-service:8094
       BATCH_SERVICE_URL: http://batch-service:8095
+      CHAT_SERVICE_URL: http://chat-service:8096
 
   auth-service:
     build: ./auth-service
