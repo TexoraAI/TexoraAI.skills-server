@@ -20,20 +20,28 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
 
-          # IMPORTANT: prevent timeout during docker build
+          # Prevent timeout during docker build
           command_timeout: 30m
 
           script: |
 
             set -e
 
+            echo "================================="
             echo "Connecting to server..."
+            echo "================================="
+
             cd TexoraAI.skills-server
 
+            echo "================================="
             echo "Pulling latest code..."
+            echo "================================="
+
             git pull origin main
 
+            echo "================================="
             echo "Detecting changed services..."
+            echo "================================="
 
             CHANGED_SERVICES=$(git diff --name-only HEAD~1 HEAD | cut -d/ -f1 | sort -u)
 
@@ -53,12 +61,14 @@ jobs:
                 echo "Rebuilding service: $SERVICE"
                 echo "-----------------------------------"
 
-                sudo docker compose build $SERVICE
-                sudo docker compose up -d $SERVICE
+                sudo docker-compose build $SERVICE
+                sudo docker-compose up -d $SERVICE
 
               else
                 echo "Skipping $SERVICE (not a microservice folder)"
               fi
             done
 
-            echo "Deployment completed!"
+            echo "================================="
+            echo "Deployment completed successfully!"
+            echo "================================="
