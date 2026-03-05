@@ -619,7 +619,7 @@ public class BatchService {
         if (optional.isEmpty()) {
             return null;
         }
-
+//code for 
         BatchTrainerStudent mapping = optional.get();
 
         Batch batch = batchRepository.findById(mapping.getBatchId())
