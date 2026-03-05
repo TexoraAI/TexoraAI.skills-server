@@ -58,7 +58,7 @@ services:
 
 
   # ==========================
-  # ✅ ADDED POSTGRES FOR VIDEO
+  # POSTGRES FOR VIDEO
   # ==========================
   postgres-video:
     image: postgres:15
@@ -75,7 +75,7 @@ services:
 
 
   # ==========================
-  # ✅ UPDATED VIDEO SERVICE
+  # VIDEO SERVICE
   # ==========================
   video-service:
     build: ./video-service
@@ -87,8 +87,6 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
-
-      # ✅ override DB config inside docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/videodb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
@@ -194,13 +192,14 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   chat-service:
-  build: ./chat-service
-  container_name: chat-service
-  restart: always
-  ports:
-    - "8096:8096"
-  environment:
-    SPRING_PROFILES_ACTIVE: prod
+    build: ./chat-service
+    container_name: chat-service
+    restart: always
+    ports:
+      - "8096:8096"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
 
 volumes:
   postgres_video_data:
