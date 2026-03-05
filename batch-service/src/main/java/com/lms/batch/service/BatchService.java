@@ -540,7 +540,7 @@ public class BatchService {
 //                .stream()
 //                .map(BatchTrainerStudent::getStudentEmail)
 //                .toList();
-//
+//  //kdfnfjffvjkfvnf
 //        // get all students from user-service
 //        return userClient.getAllStudents()
 //                .stream()

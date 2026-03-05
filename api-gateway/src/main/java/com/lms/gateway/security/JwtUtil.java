@@ -16,7 +16,7 @@ public class JwtUtil {
     public JwtUtil(@Value("${jwt.secret}") String secret) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
-
+//cfjnkjfnfv
     public void validateToken(String token) {
         Jwts.parserBuilder()
                 .setSigningKey(key)

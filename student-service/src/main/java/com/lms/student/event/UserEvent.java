@@ -81,7 +81,7 @@ public class UserEvent {
     private String role;   // <-- THIS IS THE KEY
 
     public UserEvent() {}
-
+//vvv
     public String getEventType() { return eventType; }
     public Long getUserId() { return userId; }
     public String getEmail() { return email; }

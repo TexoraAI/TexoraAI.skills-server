@@ -48,4 +48,5 @@ public class AnalyticsService {
     public long countByType(String type) {
         return repository.findByEventType(type).size();
     }
+    // hudhjkdhudud
 }

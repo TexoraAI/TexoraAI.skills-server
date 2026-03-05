@@ -6,7 +6,7 @@ public class CertificateResponse {
     private String courseName;
     private String type;
     private String issuedDate;
-
+//bfjhfjhff
     public CertificateResponse() {}
 
     public CertificateResponse(

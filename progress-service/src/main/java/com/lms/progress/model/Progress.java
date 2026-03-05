@@ -15,7 +15,7 @@ public class Progress {
     private Long userId;
 
     private Long courseId;
-
+//fvfdf
     @ElementCollection
     @CollectionTable(name = "progress_completed_content", joinColumns = @JoinColumn(name = "progress_id"))
     @Column(name = "content_id")

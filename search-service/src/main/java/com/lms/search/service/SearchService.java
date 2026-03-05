@@ -23,7 +23,7 @@ public class SearchService {
         producer.sendEvent("Course indexed: " + saved.getCourseTitle());
         return saved;
     }
-
+//fjkdjkfn
     public List<SearchIndex> search(String keyword) {
 
         List<SearchIndex> results =

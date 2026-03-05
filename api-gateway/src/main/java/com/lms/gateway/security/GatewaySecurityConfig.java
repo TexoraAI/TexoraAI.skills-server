@@ -383,7 +383,7 @@ public class GatewaySecurityConfig {
                      && exchange.getRequest().getMethod() == HttpMethod.GET) {
                  return chain.filter(exchange);
              }
-
+//cfjkndjkfnjkn
              exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
              return exchange.getResponse().setComplete();
          }

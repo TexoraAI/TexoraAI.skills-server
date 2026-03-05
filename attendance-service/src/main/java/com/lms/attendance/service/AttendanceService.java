@@ -21,7 +21,7 @@ public class AttendanceService {
     private final AttendanceEventProducer attendanceEventProducer;
     private final TrainerBatchAccessRepository accessRepo;
 
-
+//cfcfcfcfffff
     public AttendanceService(
             AttendanceRepository attendanceRepository,
             AttendanceEventProducer attendanceEventProducer,
