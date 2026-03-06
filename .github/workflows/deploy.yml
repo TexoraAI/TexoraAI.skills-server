@@ -53,14 +53,18 @@ jobs:
           echo "Building $SERVICE"
           docker build -t shareef123/$SERVICE:latest ./$SERVICE
 
-      - name: Push Image
+      - name: Push Image with Retry
         run: |
           SERVICE=${{ matrix.service }}
           echo "Pushing $SERVICE"
-          docker push shareef123/$SERVICE:latest
+          for i in 1 2 3; do
+            docker push shareef123/$SERVICE:latest && break
+            echo "Push failed, retrying in 30s... (attempt $i/3)"
+            sleep 30
+          done
 
       - name: Delay to Avoid Rate Limit
-        run: sleep 20
+        run: sleep 60
 
   deploy:
     needs: build-and-push
