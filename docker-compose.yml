@@ -3,15 +3,13 @@ version: "3.8"
 services:
 
   api-gateway:
-    build: ./api-gateway
+    image: shareef123/api-gateway:latest
     container_name: api-gateway
     restart: always
     ports:
       - "9000:9000"
     environment:
       SPRING_PROFILES_ACTIVE: prod
-
-      # Gateway service routing URLs (Docker network)
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
       COURSE_SERVICE_URL: http://course-service:8083
@@ -31,7 +29,7 @@ services:
       CHAT_SERVICE_URL: http://chat-service:8096
 
   auth-service:
-    build: ./auth-service
+    image: shareef123/auth-service:latest
     container_name: auth-service
     restart: always
     ports:
@@ -40,7 +38,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   user-service:
-    build: ./user-service
+    image: shareef123/user-service:latest
     container_name: user-service
     restart: always
     ports:
@@ -49,7 +47,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   course-service:
-    build: ./course-service
+    image: shareef123/course-service:latest
     container_name: course-service
     restart: always
     ports:
@@ -57,29 +55,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
 
-
-  # ==========================
-  # POSTGRES FOR VIDEO
-  # ==========================
-  postgres-video:
-    image: postgres:15
-    container_name: postgres-video
-    restart: always
-    environment:
-      POSTGRES_DB: videodb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Shareef@1234
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_video_data:/var/lib/postgresql/data
-
-
-  # ==========================
-  # VIDEO SERVICE
-  # ==========================
   video-service:
-    build: ./video-service
+    image: shareef123/video-service:latest
     container_name: video-service
     restart: always
     ports:
@@ -92,9 +69,8 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
 
-
   notification-service:
-    build: ./notification-service
+    image: shareef123/notification-service:latest
     container_name: notification-service
     restart: always
     ports:
@@ -103,7 +79,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   analytics-service:
-    build: ./analytics-service
+    image: shareef123/analytics-service:latest
     container_name: analytics-service
     restart: always
     ports:
@@ -112,7 +88,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   assessment:
-    build: ./assessment
+    image: shareef123/assessment:latest
     container_name: assessment
     restart: always
     ports:
@@ -121,7 +97,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   enrollment-service:
-    build: ./enrollment-service
+    image: shareef123/enrollment-service:latest
     container_name: enrollment-service
     restart: always
     ports:
@@ -130,7 +106,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   progress-service:
-    build: ./progress-service
+    image: shareef123/progress-service:latest
     container_name: progress-service
     restart: always
     ports:
@@ -139,7 +115,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   search-service:
-    build: ./search-service
+    image: shareef123/search-service:latest
     container_name: search-service
     restart: always
     ports:
@@ -148,7 +124,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   payment-service:
-    build: ./payment-service
+    image: shareef123/payment-service:latest
     container_name: payment-service
     restart: always
     ports:
@@ -157,7 +133,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   file-service:
-    build: ./file-service
+    image: shareef123/file-service:latest
     container_name: file-service
     restart: always
     ports:
@@ -166,7 +142,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   student-service:
-    build: ./student-service
+    image: shareef123/student-service:latest
     container_name: student-service
     restart: always
     ports:
@@ -175,7 +151,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   attendance-service:
-    build: ./attendance-service
+    image: shareef123/attendance-service:latest
     container_name: attendance-service
     restart: always
     ports:
@@ -184,7 +160,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   batch-service:
-    build: ./batch-service
+    image: shareef123/batch-service:latest
     container_name: batch-service
     restart: always
     ports:
@@ -193,13 +169,27 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
   chat-service:
-    build: ./chat-service
+    image: shareef123/chat-service:latest
     container_name: chat-service
     restart: always
     ports:
       - "8096:8096"
     environment:
       SPRING_PROFILES_ACTIVE: prod
+
+
+  postgres-video:
+    image: postgres:15
+    container_name: postgres-video
+    restart: always
+    environment:
+      POSTGRES_DB: videodb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Shareef@1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_video_data:/var/lib/postgresql/data
 
 
 volumes:
