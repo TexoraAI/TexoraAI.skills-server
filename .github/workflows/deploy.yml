@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+    max-parallel: 3
       matrix:
         service:
           - api-gateway
@@ -60,5 +61,5 @@ jobs:
           script: |
             cd TexoraAI.skills-server
             git pull origin main
-            sudo docker-compose pull
-            sudo docker-compose up -d
+            sudo docker compose pull
+            sudo docker compose up -d --remove-orphans
