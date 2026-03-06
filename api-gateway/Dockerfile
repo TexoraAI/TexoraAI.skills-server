@@ -8,7 +8,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # -------- Run Stage --------
-FROM eclipse-temurin:17-jdk-jammy        # <-- fix is here
+FROM eclipse-temurin:17-jdk-jammy      
 
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
