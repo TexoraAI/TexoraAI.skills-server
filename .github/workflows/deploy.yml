@@ -1,64 +1,64 @@
 name: Deploy Backend
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 jobs:
-build-and-push:
-runs-on: ubuntu-latest
+  build-and-push:
+    runs-on: ubuntu-latest
 
-strategy:
-  matrix:
-    service:
-      - api-gateway
-      - auth-service
-      - user-service
-      - course-service
-      - video-service
-      - notification-service
-      - analytics-service
-      - assessment
-      - enrollment-service
-      - progress-service
-      - search-service
-      - payment-service
-      - file-service
-      - student-service
-      - attendance-service
-      - batch-service
-      - chat-service
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - course-service
+          - video-service
+          - notification-service
+          - analytics-service
+          - assessment
+          - enrollment-service
+          - progress-service
+          - search-service
+          - payment-service
+          - file-service
+          - student-service
+          - attendance-service
+          - batch-service
+          - chat-service
 
-steps:
-  - name: Checkout Repository
-    uses: actions/checkout@v3
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-  - name: Login to DockerHub
-    uses: docker/login-action@v3
-    with:
-      username: ${{ secrets.DOCKER_USERNAME }}
-      password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-  - name: Build and Push Service
-    run: |
-      SERVICE=${{ matrix.service }}
-      docker build -t shareef123/$SERVICE ./$SERVICE
-      docker push shareef123/$SERVICE
+      - name: Build and Push Service
+        run: |
+          SERVICE=${{ matrix.service }}
+          docker build -t shareef123/$SERVICE ./$SERVICE
+          docker push shareef123/$SERVICE
 
-deploy:
-needs: build-and-push
-runs-on: ubuntu-latest
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Deploy to EC2
-    uses: appleboy/ssh-action@v1.0.0
-    with:
-      host: ${{ secrets.EC2_HOST }}
-      username: ubuntu
-      key: ${{ secrets.EC2_SSH_KEY }}
-      script: |
-        cd TexoraAI.skills-server
-        git pull origin main
-        sudo docker compose pull
-        sudo docker compose up -d
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd TexoraAI.skills-server
+            git pull origin main
+            sudo docker compose pull
+            sudo docker compose up -d
