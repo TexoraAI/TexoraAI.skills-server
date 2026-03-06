@@ -4,29 +4,62 @@ on:
     branches:
       - main
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Detect Changed Services
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            api-gateway:
+              - 'api-gateway/**'
+            auth-service:
+              - 'auth-service/**'
+            user-service:
+              - 'user-service/**'
+            course-service:
+              - 'course-service/**'
+            video-service:
+              - 'video-service/**'
+            notification-service:
+              - 'notification-service/**'
+            analytics-service:
+              - 'analytics-service/**'
+            assessment:
+              - 'assessment/**'
+            enrollment-service:
+              - 'enrollment-service/**'
+            progress-service:
+              - 'progress-service/**'
+            search-service:
+              - 'search-service/**'
+            payment-service:
+              - 'payment-service/**'
+            file-service:
+              - 'file-service/**'
+            student-service:
+              - 'student-service/**'
+            attendance-service:
+              - 'attendance-service/**'
+            batch-service:
+              - 'batch-service/**'
+            chat-service:
+              - 'chat-service/**'
+
   build-and-push:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.services != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
       matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - course-service
-          - video-service
-          - notification-service
-          - analytics-service
-          - assessment
-          - enrollment-service
-          - progress-service
-          - search-service
-          - payment-service
-          - file-service
-          - student-service
-          - attendance-service
-          - batch-service
-          - chat-service
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -56,10 +89,9 @@ jobs:
       - name: Push Image with Retry
         run: |
           SERVICE=${{ matrix.service }}
-          echo "Pushing $SERVICE"
           for i in 1 2 3; do
             docker push shareef123/$SERVICE:latest && break
-            echo "Push failed, retrying in 30s... (attempt $i/3)"
+            echo "Retrying in 30s... ($i/3)"
             sleep 30
           done
 
