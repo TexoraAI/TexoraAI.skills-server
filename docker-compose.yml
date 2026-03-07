@@ -28,14 +28,21 @@ services:
       BATCH_SERVICE_URL: http://batch-service:8095
       CHAT_SERVICE_URL: http://chat-service:8096
 
+
   auth-service:
     image: shareef123/auth-service:latest
     container_name: auth-service
     restart: always
     ports:
       - "8081:8081"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/authdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   user-service:
     image: shareef123/user-service:latest
@@ -43,8 +50,14 @@ services:
     restart: always
     ports:
       - "8082:8082"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/userdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   course-service:
     image: shareef123/course-service:latest
@@ -52,8 +65,14 @@ services:
     restart: always
     ports:
       - "8083:8083"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/coursedb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   video-service:
     image: shareef123/video-service:latest
@@ -66,8 +85,9 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/videodb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: Shareef@1234
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   notification-service:
     image: shareef123/notification-service:latest
@@ -75,8 +95,14 @@ services:
     restart: always
     ports:
       - "8085:8085"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/notificationdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   analytics-service:
     image: shareef123/analytics-service:latest
@@ -84,8 +110,14 @@ services:
     restart: always
     ports:
       - "8086:8086"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/analyticsdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   assessment:
     image: shareef123/assessment:latest
@@ -93,8 +125,14 @@ services:
     restart: always
     ports:
       - "8087:8087"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/assessmentdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   enrollment-service:
     image: shareef123/enrollment-service:latest
@@ -102,8 +140,14 @@ services:
     restart: always
     ports:
       - "8088:8088"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/enrollmentdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   progress-service:
     image: shareef123/progress-service:latest
@@ -111,8 +155,14 @@ services:
     restart: always
     ports:
       - "8089:8089"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/progressdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   search-service:
     image: shareef123/search-service:latest
@@ -120,8 +170,14 @@ services:
     restart: always
     ports:
       - "8090:8090"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/searchdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   payment-service:
     image: shareef123/payment-service:latest
@@ -129,8 +185,14 @@ services:
     restart: always
     ports:
       - "8091:8091"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/paymentdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   file-service:
     image: shareef123/file-service:latest
@@ -138,8 +200,14 @@ services:
     restart: always
     ports:
       - "8092:8092"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/filedb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   student-service:
     image: shareef123/student-service:latest
@@ -147,8 +215,14 @@ services:
     restart: always
     ports:
       - "8093:8093"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/studentdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   attendance-service:
     image: shareef123/attendance-service:latest
@@ -156,8 +230,14 @@ services:
     restart: always
     ports:
       - "8094:8094"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/attendancedb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   batch-service:
     image: shareef123/batch-service:latest
@@ -165,8 +245,14 @@ services:
     restart: always
     ports:
       - "8095:8095"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/batchdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+
 
   chat-service:
     image: shareef123/chat-service:latest
@@ -174,8 +260,13 @@ services:
     restart: always
     ports:
       - "8096:8096"
+    depends_on:
+      - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/chatdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
 
 
   postgres-video:
@@ -184,8 +275,8 @@ services:
     restart: always
     environment:
       POSTGRES_DB: videodb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Shareef@1234
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
     ports:
       - "5432:5432"
     volumes:
