@@ -10,6 +10,7 @@ services:
       - "9000:9000"
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
       COURSE_SERVICE_URL: http://course-service:8083
@@ -39,6 +40,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/authdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -54,6 +56,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/userdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -69,6 +72,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/coursedb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -84,6 +88,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/videodb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -99,6 +104,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/notificationdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -114,6 +120,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/analyticsdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -129,6 +136,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/assessmentdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -144,6 +152,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/enrollmentdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -159,6 +168,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/progressdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -174,6 +184,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/searchdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -189,6 +200,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/paymentdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -204,6 +216,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/filedb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -219,6 +232,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/studentdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -234,6 +248,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/attendancedb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -249,6 +264,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/batchdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
@@ -264,6 +280,7 @@ services:
       - postgres-video
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/chatdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
