@@ -324,8 +324,8 @@ services:
     restart: always
     environment:
       POSTGRES_DB: videodb
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Shareef@1234
     ports:
       - "5432:5432"
     volumes:
