@@ -368,6 +368,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   postgres-video:
+    command: postgres -c max_connections=300
     image: postgres:15
     container_name: postgres-video
     restart: always
