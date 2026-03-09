@@ -49,6 +49,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   user-service:
     image: shareef123/user-service:latest
@@ -68,6 +70,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   course-service:
     image: shareef123/course-service:latest
@@ -87,6 +91,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   video-service:
     image: shareef123/video-service:latest
@@ -106,6 +112,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   notification-service:
     image: shareef123/notification-service:latest
@@ -125,6 +133,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   analytics-service:
     image: shareef123/analytics-service:latest
@@ -144,6 +154,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   assessment:
     image: shareef123/assessment:latest
@@ -163,6 +175,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   enrollment-service:
     image: shareef123/enrollment-service:latest
@@ -182,6 +196,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   progress-service:
     image: shareef123/progress-service:latest
@@ -201,6 +217,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   search-service:
     image: shareef123/search-service:latest
@@ -220,6 +238,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   payment-service:
     image: shareef123/payment-service:latest
@@ -239,6 +259,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   file-service:
     image: shareef123/file-service:latest
@@ -258,6 +280,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   student-service:
     image: shareef123/student-service:latest
@@ -277,6 +301,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   attendance-service:
     image: shareef123/attendance-service:latest
@@ -296,6 +322,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   batch-service:
     image: shareef123/batch-service:latest
@@ -315,6 +343,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   chat-service:
     image: shareef123/chat-service:latest
@@ -334,6 +364,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
 
   postgres-video:
     image: postgres:15
