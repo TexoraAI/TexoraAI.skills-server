@@ -12,7 +12,6 @@ spring:
       ddl-auto: update
     show-sql: true
 
-  # ================= REDIS =================
   cache:
     type: ${SPRING_CACHE_TYPE:redis}
   data:
@@ -20,26 +19,19 @@ spring:
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
 
-  # ================= KAFKA =================
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-
-    # 🔥 PRODUCER (already existed – unchanged)
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-
-    # 🔥 CONSUMER (ADDED – THIS WAS MISSING)
     consumer:
       group-id: auth-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-
     properties:
       spring.json.add.type.headers: false
 
-  # ================= GMAIL (SMTP) =================
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -55,15 +47,12 @@ spring:
           timeout: 5000
           writetimeout: 5000
 
-# ================= JWT =================
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
   expiration: ${JWT_EXPIRATION:3600000}
 
-# ================= GOOGLE OAUTH =================
 google:
   client-id: ${GOOGLE_CLIENT_ID:572421778240-akk3kkb4f60ukuv9pcfrpg2ielm09thk.apps.googleusercontent.com}
 
-# ================= FRONTEND =================
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}

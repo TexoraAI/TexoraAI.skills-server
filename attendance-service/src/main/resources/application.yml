@@ -1,14 +1,14 @@
 server:
-  port: 8094
+  port: ${PORT:8094}
 
 spring:
   application:
     name: attendance-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/attendance_db
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/attendance_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -21,16 +21,11 @@ spring:
         format_sql: true
 
   redis:
-    host: localhost
-    port: 6379
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
 
-  # ==================================================
-  # 🔥 KAFKA CONFIG (NOW PRODUCER + CONSUMER ENABLED)
-  # ==================================================
   kafka:
-    bootstrap-servers: localhost:9092
-
-    # 📥 CONSUMER — receive batch events
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: attendance-service-group
       auto-offset-reset: earliest
@@ -40,18 +35,15 @@ spring:
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-
-    # 📤 PRODUCER — send attendance marked events
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
 
-# ================= JWT =================
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
-  expiration: 3600000
+  expiration: ${JWT_EXPIRATION:3600000}
 
 logging:
   level:
@@ -59,7 +51,6 @@ logging:
     org.springframework.security: INFO
     org.springframework.kafka: INFO
 
-# ================= TOPICS =================
 topics:
   user: user-events
   batch-assignment: batch-assignment

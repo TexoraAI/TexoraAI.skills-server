@@ -1,47 +1,40 @@
 server:
-  port: 8083
+  port: ${PORT:8083}
 
 spring:
   application:
     name: course-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/coursedb
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/coursedb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 1
+      maximum-pool-size: ${DB_POOL_MAX:5}
+      minimum-idle: ${DB_POOL_MIN:1}
       idle-timeout: 30000
       max-lifetime: 600000
       connection-timeout: 30000
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
 
-  # =========================
-  # 🔥 REDIS CACHE
-  # =========================
   cache:
-    type: redis
+    type: ${SPRING_CACHE_TYPE:redis}
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
       timeout: 60000
 
-  # =========================
-  # 🔥 KAFKA CONFIG (JSON MODE - MATCH VIDEO SERVICE)
-  # =========================
   kafka:
-    bootstrap-servers: localhost:9092
-
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: course-service-group
-      auto-offset-reset: earliest
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:course-service-group}
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
@@ -49,25 +42,18 @@ spring:
         spring.json.value.default.type: java.util.HashMap
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
 
-# =========================
-# 🔐 JWT (MUST MATCH AUTH SERVICE)
-# =========================
 jwt:
-  secret: mysupersecretkeymysupersecretkey
-  expiration: 3600000
+  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+  expiration: ${JWT_EXPIRATION:3600000}
 
-# =========================
-# 🔥 TOPICS
-# =========================
 topics:
-  batch-assignment: batch-assignment
-  batch-lifecycle: batch-lifecycle
-  course: course-events
-  content: content-events
+  batch-assignment: ${TOPIC_BATCH_ASSIGNMENT:batch-assignment}
+  batch-lifecycle: ${TOPIC_BATCH_LIFECYCLE:batch-lifecycle}
+  course: ${TOPIC_COURSE:course-events}
+  content: ${TOPIC_CONTENT:content-events}

@@ -1,12 +1,12 @@
 server:
-  port: 8085
+  port: ${PORT:8085}
 
 spring:
   application:
     name: notification-service
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
     admin:
       enabled: false
@@ -28,7 +28,7 @@ topics:
   progress: progress-events
   search: search-events
   payment: payment-events
-  file: file-uploaded     # ✅ ADDED (THIS WAS REQUIRED)
+  file: file-uploaded
 
 logging:
   level:

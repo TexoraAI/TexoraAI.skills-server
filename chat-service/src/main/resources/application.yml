@@ -1,14 +1,14 @@
 server:
-  port: 8096   # chat-service port
+  port: ${PORT:8096}
 
 spring:
   application:
     name: chat-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatdb
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/chatdb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,12 +20,8 @@ spring:
         format_sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
-  # =========================
-  # 🔥 KAFKA CONFIG (JSON CONTRACT MODE)
-  # =========================
   kafka:
-    bootstrap-servers: localhost:9092
-
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: chat-service-group
       auto-offset-reset: earliest
@@ -35,7 +31,6 @@ spring:
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -50,5 +45,5 @@ logging:
     org.springframework.kafka: INFO
 
 jwt:
-  secret: mysupersecretkeymysupersecretkey
-  expiration: 3600000
+  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+  expiration: ${JWT_EXPIRATION:3600000}

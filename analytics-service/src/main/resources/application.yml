@@ -1,18 +1,19 @@
 server:
-  port: 8086
+  port: ${PORT:8086}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/analyticsdb
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/analyticsdb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: analytics-group
       auto-offset-reset: earliest

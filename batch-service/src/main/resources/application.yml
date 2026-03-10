@@ -1,14 +1,14 @@
 server:
-  port: 8095
+  port: ${PORT:8095}
 
 spring:
   application:
     name: batch-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/lms_batch_db
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/lms_batch_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,29 +20,20 @@ spring:
         format_sql: true
 
   redis:
-    host: localhost
-    port: 6379
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
 
   kafka:
-    bootstrap-servers: localhost:9092
-
-    # =========================
-    # 📥 CONSUMER CONFIG (Map JSON Events)
-    # =========================
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: batch-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
         spring.json.value.default.type: java.util.HashMap
-
-    # =========================
-    # 📤 PRODUCER CONFIG
-    # =========================
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer

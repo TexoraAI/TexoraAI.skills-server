@@ -1,11 +1,11 @@
 server:
-  port: 8090  # Search service port
+  port: ${PORT:8090}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/lms_search
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/lms_search}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
 
   jpa:
     hibernate:
@@ -13,14 +13,13 @@ spring:
     show-sql: true
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 topics:
   search: search-events
-  course: course-events   # ✅ REQUIRED (THIS FIXES THE CRASH)
+  course: course-events
 
 logging:
   level:
     org.springframework.kafka: INFO
     com.lms.search: DEBUG
-

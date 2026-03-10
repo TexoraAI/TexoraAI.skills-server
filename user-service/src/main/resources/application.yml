@@ -15,31 +15,26 @@ spring:
       hibernate:
         dialect: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
 
-  # ================= KAFKA =================
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP_ID:user-service-group}
       auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-  # ================= REDIS =================
   data:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
 
-  # ================= CACHE =================
   cache:
     type: ${SPRING_CACHE_TYPE:redis}
 
-# ================= JWT =================
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
   expiration: ${JWT_EXPIRATION:3600000}
 
-# ================= LOGGING =================
 logging:
   level:
     org.springframework.security: ${LOGGING_SECURITY_LEVEL:INFO}

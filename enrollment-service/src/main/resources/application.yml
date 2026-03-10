@@ -1,14 +1,14 @@
 server:
-  port: 8088
+  port: ${PORT:8088}
 
 spring:
   application:
     name: enrollment-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/lms_enrollment
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/lms_enrollment}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
 
   jpa:
     hibernate:
@@ -18,43 +18,28 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # =========================
-  # 🔥 REDIS CONFIG
-  # =========================
   cache:
     type: redis
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
       timeout: 60000
 
-  # =========================
-  # 🔥 KAFKA CONFIG
-  # =========================
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
-# =========================
-# 🔥 KAFKA TOPICS
-# =========================
 topics:
   enrollment: enrollment-events
 
-# =========================
-# 🔐 JWT CONFIG (MUST MATCH AUTH)
-# =========================
 jwt:
-  secret: mysupersecretkeymysupersecretkey
-  expiration: 3600000
+  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+  expiration: ${JWT_EXPIRATION:3600000}
 
-# =========================
-# 📝 LOGGING
-# =========================
 logging:
   level:
     org.springframework.security: INFO

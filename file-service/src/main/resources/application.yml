@@ -1,14 +1,14 @@
 server:
-  port: 8092
+  port: ${PORT:8092}
 
 spring:
   application:
     name: file-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/filedb
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/filedb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
 
   jpa:
     hibernate:
@@ -23,46 +23,34 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
 
-  # ================= KAFKA =================
   kafka:
-    bootstrap-servers: localhost:9092
-
-    # PRODUCER (for file uploaded event)
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-
-    # CONSUMER (for batch assignment + lifecycle events)
     consumer:
       group-id: file-service-group
       auto-offset-reset: latest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-
       properties:
         spring.json.trusted.packages: "*"
-
-        # IMPORTANT → allows Map OR Event class
         spring.json.use.type.headers: false
         spring.json.value.default.type: java.util.Map
-
     listener:
       missing-topics-fatal: false
 
-# ================= TOPICS =================
 topics:
   batch-assignment: batch-assignment
   batch-lifecycle: batch-lifecycle
   file-uploaded: file-uploaded
 
-# ================= FILE STORAGE =================
 file:
   storage-dir: files
 
-# ================= LOGGING =================
 logging:
   level:
     org.springframework.kafka: INFO

@@ -1,11 +1,11 @@
 server:
-  port: 8093
+  port: ${PORT:8093}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/studentdb
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/studentdb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
 
   jpa:
     hibernate:
@@ -14,8 +14,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
-    bootstrap-servers: localhost:9092
-
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: student-service-group
       auto-offset-reset: earliest
