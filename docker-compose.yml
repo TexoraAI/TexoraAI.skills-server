@@ -44,6 +44,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FRONTEND_URL: https://ilm-ora.texora.ai  
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/authdb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
