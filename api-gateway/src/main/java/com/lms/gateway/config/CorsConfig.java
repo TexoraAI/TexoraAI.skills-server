@@ -127,7 +127,8 @@ public class CorsConfig {
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
                 "https://ilm-ora.texora.ai",
-                "https://*.vercel.app"
+                "https://*.vercel.app",
+                "http://15.206.210.30"
         ));
 
         // ✅ Allow all headers
