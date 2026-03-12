@@ -44,7 +44,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      FRONTEND_URL: https://ilm-ora.texora.ai  
+      FRONTEND_URL: https://ilm-ora.texora.ai
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-video:5432/authdb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Shareef@1234
@@ -346,6 +346,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+      USER_SERVICE_URL: http://user-service:8082
 
   chat-service:
     image: shareef123/chat-service:latest

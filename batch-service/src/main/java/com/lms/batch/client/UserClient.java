@@ -13,7 +13,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 @FeignClient(
         name = "user-service",
-        url = "http://localhost:8082",
+         url = "${USER_SERVICE_URL:http://localhost:8082}",  
+//        url = "http://localhost:8082",
         configuration = FeignAuthConfig.class
 )
 public interface UserClient {
