@@ -1,0 +1,71 @@
+server:
+  port: 8097
+
+spring:
+  application:
+    name: live-session-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lms_live
+    username: postgres
+    password: Shareef@1234
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: live-session-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.value.default.type: java.util.HashMap
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+  websocket:
+    allowed-origins: "*"
+
+file:
+  upload-dir: ./recordings
+
+livekit:
+  url: http://localhost:7880
+  api-key: devkey
+  api-secret: secret
+
+jwt:
+  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+
+# ✅ PRODUCTION STYLE TOPICS
+topics:
+  live-session: live-session-events
+  live-session-started: live-session-started
+  student-joined: student-joined-session
+
+logging:
+  level:
+    root: INFO
+    com.lms: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

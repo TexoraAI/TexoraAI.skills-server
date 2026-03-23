@@ -695,6 +695,23 @@ public class GatewaySecurityConfig {
              }
          }
 
+         
+         
+      // ================= LIVE SESSION SERVICE =================
+         if (path.startsWith("/api/live-sessions")
+                 || path.startsWith("/api/recordings")
+                 || path.startsWith("/api/attendance")) {
+
+             if ("ADMIN".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)
+                     || "STUDENT".equalsIgnoreCase(role)) {
+
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
         
 
        

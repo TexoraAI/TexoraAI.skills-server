@@ -630,6 +630,7 @@ public class BatchService {
         UserDTO trainer = userClient.getUserByEmail(mapping.getTrainerEmail());
 
         return new StudentClassroomDTO(
+        		 batch.getId(),   
                 batch.getBatchName(),
                 trainer.getEmail(),
                 trainer.getDisplayName()

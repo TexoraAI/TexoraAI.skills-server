@@ -51,6 +51,8 @@ jobs:
               - 'batch-service/**'
             chat-service:
               - 'chat-service/**'
+            live-session-service:
+              - 'live-session-service/**'
 
   build-and-push:
     needs: detect-changes

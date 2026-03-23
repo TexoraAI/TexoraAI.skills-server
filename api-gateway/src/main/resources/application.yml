@@ -38,3 +38,4 @@ services:
   attendance: ${ATTENDANCE_SERVICE_URL:http://localhost:8094}
   batch: ${BATCH_SERVICE_URL:http://localhost:8095}
   chat: ${CHAT_SERVICE_URL:http://localhost:8096}
+  live-session: ${LIVE_SESSION_SERVICE_URL:http://localhost:8097}

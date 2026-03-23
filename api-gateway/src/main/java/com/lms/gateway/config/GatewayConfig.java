@@ -63,6 +63,9 @@ public class GatewayConfig {
     @Value("${services.chat}")
     private String chatService;
 
+    @Value("${services.live-session}")
+    private String liveSessionService;
+    
     @Bean
     public RouteLocator customRoutes(RouteLocatorBuilder builder) {
 
@@ -169,7 +172,14 @@ public class GatewayConfig {
          // ================= CHAT SERVICE (✅ NEW) =================
             .route("chat-service", r -> r.path("/api/chat/**")
                     .uri(chatService))
-
+         // ================= LIVE SESSION SERVICE =================
+            .route("live-session-service", r -> r.path(
+                    "/api/live-sessions/**",
+                    "/api/recordings/**",
+                    "/api/attendance/**"
+            ).uri(liveSessionService))
+            
+            
             .build();
     }
 }
