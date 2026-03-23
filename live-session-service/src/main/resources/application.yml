@@ -6,18 +6,22 @@ spring:
     name: live-session-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/lms_live
-    username: postgres
-    password: Shareef@1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/livesessiondb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:3}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:1}
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+    database-platform: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -50,14 +54,13 @@ file:
   upload-dir: ./recordings
 
 livekit:
-  url: http://localhost:7880
-  api-key: devkey
-  api-secret: secret
+  url: ${LIVEKIT_URL:http://localhost:7880}
+  api-key: ${LIVEKIT_API_KEY:devkey}
+  api-secret: ${LIVEKIT_API_SECRET:secret}
 
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
 
-# ✅ PRODUCTION STYLE TOPICS
 topics:
   live-session: live-session-events
   live-session-started: live-session-started
