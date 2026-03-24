@@ -126,7 +126,7 @@ public class CorsConfig {
         // ✅ Allow localhost + your Vercel frontend
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
-                "https://ilm-ora.texora.ai",
+                "https://ilm.ora.texora.ai",
                 "https://*.vercel.app",
                 "http://15.206.210.30"
         ));
