@@ -63,4 +63,11 @@ public class LiveSessionService {
     public List<LiveSession> getLiveSessions(Long batchId) {
         return repository.findByBatchIdAndStatus(batchId, "LIVE");
     }
+    public void deleteSession(Long id) {
+
+        LiveSession session = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        repository.delete(session);
+    }
 }

@@ -92,4 +92,10 @@ public class LiveSessionController {
     public List<LiveSession> getLiveSessions(@PathVariable Long batchId) {
         return service.getLiveSessions(batchId);
     }
+    @DeleteMapping("/{id}")
+    public String deleteSession(@PathVariable Long id) {
+        service.deleteSession(id);
+        return "Session deleted successfully";
+    }
+    
 }
