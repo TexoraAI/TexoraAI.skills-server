@@ -71,11 +71,13 @@ public class GatewayConfig {
 
         return builder.routes()
 
+//        		.route("live-session-websocket", r -> r
+//                        .path("/live-chat/**")
+//                        .uri(liveSessionService.replace("http", "ws")))
+//        		
         		.route("live-session-websocket", r -> r
-                        .path("/live-chat/**")
-                        .uri(liveSessionService.replace("http", "ws")))
-        		
-        		
+        			    .path("/api/live-chat/**")
+        			    .uri(liveSessionService.replace("http", "ws")))
             // ================= ATTENDANCE SERVICE (✅ FIX: MOVED UP) =================
             .route("attendance-service", r -> r.path(
                     "/api/trainer/attendance/**",
