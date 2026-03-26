@@ -1,5 +1,5 @@
 package com.lms.live_session.controller;
-
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.lms.live_session.entity.LiveSession;
 import com.lms.live_session.service.LiveKitTokenService;
 import com.lms.live_session.service.LiveSessionService;
@@ -9,20 +9,23 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 @RestController
 @RequestMapping("/api/live-sessions")
 public class LiveSessionController {
 
     private final LiveSessionService service;
     private final LiveKitTokenService tokenService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public LiveSessionController(
             LiveSessionService service,
-            LiveKitTokenService tokenService) {
+            LiveKitTokenService tokenService,SimpMessagingTemplate messagingTemplate) {
+    	
 
         this.service = service;
         this.tokenService = tokenService;
+        this.messagingTemplate=messagingTemplate;
     }
 
     // Create live session
@@ -96,6 +99,49 @@ public class LiveSessionController {
     public String deleteSession(@PathVariable Long id) {
         service.deleteSession(id);
         return "Session deleted successfully";
+    }
+//    @PostMapping("/call/start")
+//    public Map<String, String> startCall(@RequestParam String trainerEmail) {
+//
+//        String room = "call-" + trainerEmail + "-" + System.currentTimeMillis();
+//
+//        String token = tokenService.generateCallToken("student", room);
+//
+//        Map<String, String> response = new HashMap<>();
+//        response.put("room", room);
+//        response.put("token", token);
+//
+//        return response;
+//    }
+    @PostMapping("/call/start")
+    public Map<String, String> startCall(@RequestParam String trainerEmail) {
+        String room = "call-" + trainerEmail + "-" + System.currentTimeMillis();
+
+        // ✅ Use correct room name in token
+        String token = tokenService.generateCallToken("student-caller", room);
+
+        messagingTemplate.convertAndSend("/topic/calls/" + trainerEmail, room);
+
+        Map<String, String> res = new HashMap<>();
+        res.put("room", room);
+        res.put("token", token);
+        return res;
+    }
+    @GetMapping("/call/join")
+    public Map<String, String> joinCall(@RequestParam String room) {
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        String token = tokenService.generateCallToken(email, room);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("room", room);
+        response.put("token", token);
+
+        return response;
     }
     
 }

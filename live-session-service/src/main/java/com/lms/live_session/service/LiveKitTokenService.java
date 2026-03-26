@@ -50,4 +50,18 @@ public class LiveKitTokenService {
 
         return token.toJwt();
     }
+    public String generateCallToken(String identity, String roomName) {
+
+        AccessToken token = new AccessToken(
+                config.getApiKey(),
+                config.getApiSecret()
+        );
+
+        token.setIdentity(identity);
+        token.setName(identity);
+
+        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+
+        return token.toJwt();
+    }
 }

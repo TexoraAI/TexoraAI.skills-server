@@ -29,6 +29,8 @@ public class SecurityConfig {
                     // allow health checks
                     .requestMatchers("/actuator/**").permitAll()
 
+                    .requestMatchers("/live-chat/**").permitAll()
+                    .requestMatchers("/live-chat-sockjs/**").permitAll()
                     // everything else requires authentication
                     .anyRequest().authenticated()
             );

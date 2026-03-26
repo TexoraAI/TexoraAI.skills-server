@@ -71,6 +71,11 @@ public class GatewayConfig {
 
         return builder.routes()
 
+        		.route("live-session-websocket", r -> r
+                        .path("/live-chat/**")
+                        .uri(liveSessionService.replace("http", "ws")))
+        		
+        		
             // ================= ATTENDANCE SERVICE (✅ FIX: MOVED UP) =================
             .route("attendance-service", r -> r.path(
                     "/api/trainer/attendance/**",
@@ -172,14 +177,22 @@ public class GatewayConfig {
          // ================= CHAT SERVICE (✅ NEW) =================
             .route("chat-service", r -> r.path("/api/chat/**")
                     .uri(chatService))
+//         // ================= LIVE SESSION SERVICE =================
+//            .route("live-session-service", r -> r.path(
+//                    "/api/live-sessions/**",
+//                    "/api/recordings/**",
+//                    "/api/attendance/**"
+//            ).uri(liveSessionService))
+//            
+//            
+//            .build();
          // ================= LIVE SESSION SERVICE =================
             .route("live-session-service", r -> r.path(
                     "/api/live-sessions/**",
                     "/api/recordings/**",
                     "/api/attendance/**"
             ).uri(liveSessionService))
-            
-            
+ 
             .build();
     }
 }
