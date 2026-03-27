@@ -74,10 +74,11 @@ public class GatewayConfig {
 //        		.route("live-session-websocket", r -> r
 //                        .path("/live-chat/**")
 //                        .uri(liveSessionService.replace("http", "ws")))
-//        		
-        		.route("live-session-websocket", r -> r
-        			    .path("/api/live-chat/**")
-        			    .uri(liveSessionService.replace("http", "ws")))
+//        		  // ========== ✅ FIXED: WEBSOCKET ROUTE (rewritePath strips /api prefix) ==========
+                .route("live-session-websocket", r -> r
+                        .path("/api/live-chat/**")
+                        .filters(f -> f.rewritePath("/api/live-chat/(?<segment>.*)", "/live-chat/${segment}"))
+                        .uri(liveSessionService.replace("http", "ws")))
             // ================= ATTENDANCE SERVICE (✅ FIX: MOVED UP) =================
             .route("attendance-service", r -> r.path(
                     "/api/trainer/attendance/**",
