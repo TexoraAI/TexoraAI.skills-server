@@ -31,7 +31,7 @@ public class SecurityConfig {
 
                     .requestMatchers("/live-chat/**").permitAll()
                     .requestMatchers("/live-chat-sockjs/**").permitAll()
-                    .requestMatchers("/api/live-chat/**").permitAll()
+                    .requestMatchers("/live-chat/**").permitAll()
                     // everything else requires authentication
                     .anyRequest().authenticated()
             );
