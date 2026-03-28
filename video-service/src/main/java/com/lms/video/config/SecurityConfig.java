@@ -97,6 +97,10 @@ public class SecurityConfig {
 
                     
                     .requestMatchers(HttpMethod.GET, "/api/course-videos/**").permitAll()
+                    
+                    .requestMatchers(HttpMethod.POST, "/api/upload-course/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/upload-course/all").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/upload-course/stream/**").permitAll()
                     // 🔐 upload/delete should still require login
                     .anyRequest().authenticated()
         );

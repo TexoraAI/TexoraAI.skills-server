@@ -99,20 +99,27 @@ public class GatewayConfig {
                     .uri(userService))
 
             // ================= COURSE =================
-            .route("course-service", r -> r.path("/api/courses/**")
-                    .uri(courseService))
-
+//            .route("course-service", r -> r.path("/api/courses/**")
+//                    .uri(courseService))
+         // ================= COURSE =================
+            .route("course-service", r -> r.path(
+                    "/api/courses/**",
+                    "/api/featured-courses/**"   // ✅ ADD THIS
+            ).uri(courseService))
             // ================= CONTENT =================
             .route("content-service", r -> r.path("/api/content/**")
                     .uri(contentService))
 
-            // ================= VIDEO =================
-//            .route("video-service", r -> r.path("/api/video/**")
-//                    .uri(videoService))
-         // ================= VIDEO SERVICE =================
+          
+//         // ================= VIDEO SERVICE =================
+//            .route("video-service", r -> r.path(
+//                    "/api/video/**",               // 🎬 Video Library
+//                    "/api/course-videos/**"        // 📚 Course Module Videos
+//            ).uri(videoService))
             .route("video-service", r -> r.path(
-                    "/api/video/**",               // 🎬 Video Library
-                    "/api/course-videos/**"        // 📚 Course Module Videos
+                    "/api/video/**",
+                    "/api/course-videos/**",
+                    "/api/upload-course/**"   // ✅ ADD THIS
             ).uri(videoService))
          
          // ================= VIDEO STATIC FILES =================

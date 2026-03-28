@@ -82,8 +82,27 @@ public class GatewaySecurityConfig {
                     && exchange.getRequest().getMethod() == HttpMethod.GET) {
                 return chain.filter(exchange);
             }
+         // 🔓 PUBLIC FEATURED COURSES (for explore page)
+            if (path.startsWith("/api/featured-courses")
+                    && exchange.getRequest().getMethod() == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
 
+         // ================= PUBLIC UPLOAD COURSE (MOVE HERE) =================
 
+         // 🔓 PUBLIC GET ALL
+         if (path.equals("/api/upload-course/all")
+                 && exchange.getRequest().getMethod() == HttpMethod.GET) {
+             return chain.filter(exchange);
+         }
+
+         // 🔓 PUBLIC STREAM
+         if (path.startsWith("/api/upload-course/stream/")
+                 && exchange.getRequest().getMethod() == HttpMethod.GET) {
+             return chain.filter(exchange);
+         }
+
+            
             // 🔐 JWT REQUIRED
             String authHeader =
                     exchange.getRequest()
@@ -219,7 +238,40 @@ public class GatewaySecurityConfig {
                 }
 
             }
+            
+         // ================= UPLOAD COURSE (VIDEO SERVICE) =================
+         // ================= UPLOAD COURSE (VIDEO SERVICE) =================
+            if (path.startsWith("/api/upload-course")) {
 
+                // 🔓 SKIP PUBLIC AGAIN (VERY IMPORTANT)
+                if (path.equals("/api/upload-course/all")
+                        && exchange.getRequest().getMethod() == HttpMethod.GET) {
+                    return chain.filter(exchange);
+                }
+
+                if (path.startsWith("/api/upload-course/stream/")
+                        && exchange.getRequest().getMethod() == HttpMethod.GET) {
+                    return chain.filter(exchange);
+                }
+
+                // 🔐 POST → ONLY ADMIN
+                if (exchange.getRequest().getMethod() == HttpMethod.POST) {
+                    if (!"ADMIN".equalsIgnoreCase(role)) {
+                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                        return exchange.getResponse().setComplete();
+                    }
+                }
+
+                // 🔐 DELETE → ONLY ADMIN
+                if (exchange.getRequest().getMethod() == HttpMethod.DELETE) {
+                    if (!"ADMIN".equalsIgnoreCase(role)) {
+                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                        return exchange.getResponse().setComplete();
+                    }
+                }
+
+                return chain.filter(exchange);
+            }
          // ================= COURSE VIDEO =================
             if (path.startsWith("/api/course-videos")) {
 
@@ -243,6 +295,15 @@ public class GatewaySecurityConfig {
                 }
             }
             
+         // 🔐 FEATURED COURSE CREATE (ADMIN ONLY)
+            if (path.startsWith("/api/featured-courses")
+                    && exchange.getRequest().getMethod() == HttpMethod.POST) {
+
+                if (!"ADMIN".equalsIgnoreCase(role)) {
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+            }
          
 
             // ================= ENROLLMENT SERVICE =================
