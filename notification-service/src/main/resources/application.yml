@@ -5,32 +5,55 @@ spring:
   application:
     name: notification-service
 
+  # ✅ PostgreSQL — same pattern as video-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notificationdb}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      max-lifetime: 600000
+      connection-timeout: 30000
+
+  # ✅ JPA
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # ✅ Kafka — StringDeserializer for ALL topics, parse manually with ObjectMapper
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-
-    admin:
-      enabled: false
-
     consumer:
-      group-id: notification-group
+      group-id: notification-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+jwt:
+  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+  expiration: ${JWT_EXPIRATION:3600000}
 
 topics:
-  auth: auth-events
-  user: user-events
-  course: course-events
+  batch-assignment: batch-assignment
+  batch-lifecycle: batch-lifecycle
   video: video-uploaded
-  content: content-events
-  assessment: assessment-events
-  enrollment: enrollment-events
-  progress: progress-events
-  search: search-events
-  payment: payment-events
-  file: file-uploaded
 
 logging:
   level:
     org.springframework.kafka: INFO
-    com.lms.notification: INFO
+    com.lms.notification: DEBUG

@@ -4,5 +4,6 @@ public enum Role {
     STUDENT,
     TRAINER,
     ADMIN,
-    BUSINESS
+    BUSINESS,
+    TENANT_ADMIN
 }

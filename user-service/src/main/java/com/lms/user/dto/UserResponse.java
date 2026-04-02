@@ -9,6 +9,8 @@ public class UserResponse {
     private String roles;
     private String tenantId;
     private Instant createdAt;
+    //updted
+    private String photoUrl;
 
     public UserResponse() {}
 
@@ -29,4 +31,8 @@ public class UserResponse {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    
+ // ✅ ADDED: getter & setter for photoUrl
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 }

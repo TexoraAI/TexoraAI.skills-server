@@ -91,7 +91,8 @@ public class GatewayConfig {
                     "/api/student/**",
                     "/api/trainer/**",
                     "/api/business/**",
-                    "/api/admin/**"
+                    "/api/admin/**",
+                    "/api/organizations/**"
             ).uri(authService))
 
             // ================= USER =================

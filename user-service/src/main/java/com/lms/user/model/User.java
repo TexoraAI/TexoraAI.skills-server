@@ -24,6 +24,10 @@ public class User {
     private String displayName;
 
     private String roles; // e.g. ROLE_STUDENT,ROLE_INSTRUCTOR
+    
+    // ✅ ADDED: store photo as Base64 string in DB (no file server needed)
+    @Column(name = "photo_url", columnDefinition = "TEXT")
+    private String photoUrl;
 
     @Column(name="created_at")
     private Instant createdAt = Instant.now();
@@ -51,4 +55,7 @@ public class User {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    //new added 
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 }

@@ -99,4 +99,5 @@ public class EmailService {
 
         System.out.println("✅ Verification mail SENT successfully to: " + toEmail);
     }
+    
 }

@@ -91,7 +91,8 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/verify-email",
-                                "/api/auth/resend-verification"
+                                "/api/auth/resend-verification",
+                                "/api/organizations"
                         ).permitAll()
 
                         // ✅ Approval endpoints (ADMIN will access)

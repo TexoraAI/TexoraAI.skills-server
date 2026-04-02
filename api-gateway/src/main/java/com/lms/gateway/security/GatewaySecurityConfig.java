@@ -59,6 +59,7 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/courses/")
                     || path.startsWith("/api/content/student/course/")
                     || path.startsWith("/api/content/course/")
+                    || path.startsWith("/api/organizations/")
                     ||path.startsWith("/api/files/view/")) {
 
                 return chain.filter(exchange);
@@ -87,6 +88,8 @@ public class GatewaySecurityConfig {
                     && exchange.getRequest().getMethod() == HttpMethod.GET) {
                 return chain.filter(exchange);
             }
+            
+          
 
          // ================= PUBLIC UPLOAD COURSE (MOVE HERE) =================
 
@@ -140,6 +143,8 @@ public class GatewaySecurityConfig {
             }
             
             
+           
+            
             // ================= ATTENDANCE SERVICE =================
 
             // 🧑‍🏫 Trainer Attendance APIs
@@ -169,10 +174,10 @@ public class GatewaySecurityConfig {
 
             
             
+
             
             
-            
-            
+       
 
             // ================= STUDENT SERVICE =================
             if (path.startsWith("/api/students")) {
@@ -794,6 +799,17 @@ public class GatewaySecurityConfig {
                             .setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }
+            }
+            
+         // ================= ORGANIZATION SERVICE =================
+            if (path.startsWith("/api/organizations")) {
+                // public already handled above
+                // all other org endpoints — only SUPER_ADMIN
+                if (!"ADMIN".equalsIgnoreCase(role)) {
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+                return chain.filter(exchange);
             }
 
             return chain.filter(exchange);
