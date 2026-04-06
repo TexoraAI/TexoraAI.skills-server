@@ -1,46 +1,41 @@
 package com.lms.video.kafka;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
+ // create this or use Map
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class VideoProducer {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ObjectMapper mapper = new ObjectMapper();
+    // ✅ SAME as batch service — Object not String
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public VideoProducer(KafkaTemplate<String, String> kafkaTemplate) {
+    public VideoProducer(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void sendVideoUploadedEvent(String fileName) {
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("fileName", fileName);
+    public void sendVideoUploadedEvent(String fileName, String title, Long batchId) {
+        // ✅ No ObjectMapper — send Map directly like batch service
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("fileName", fileName);
+        payload.put("title", title);
+        payload.put("batchId", batchId);
 
-            Map<String, Object> event = new HashMap<>();
-            event.put("type", "VIDEO_UPLOADED");
-            event.put("payload", payload);
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "VIDEO_UPLOADED");
+        event.put("payload", payload);
 
-            String json = mapper.writeValueAsString(event);
-
-            kafkaTemplate.send("video-uploaded", json);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send Kafka event");
-        }
-        
+        kafkaTemplate.send("video-uploaded", event); // ✅ send object directly
+        System.out.println("🔥 VIDEO EVENT -> VIDEO_UPLOADED | file=" + fileName + " | batchId=" + batchId);
     }
+
     public void sendVideoDeletedEvent(String fileName) {
-        try {
-            kafkaTemplate.send("video-deleted", fileName);
-        } catch (Exception e) {
-            System.out.println("Failed to send video-deleted event");
-        }
-    }
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "VIDEO_DELETED");
+        event.put("fileName", fileName);
 
+        kafkaTemplate.send("video-deleted", event); // ✅ same pattern
+        System.out.println("🔥 VIDEO EVENT -> VIDEO_DELETED | file=" + fileName);
+    }
 }

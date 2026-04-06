@@ -19,4 +19,9 @@ public class ContentEvent {
 
     public Map<String, Object> getPayload() { return payload; }
     public void setPayload(Map<String, Object> payload) { this.payload = payload; }
+
+    @Override
+    public String toString() {
+        return "ContentEvent{type='" + type + "', payload=" + payload + "}";
+    }
 }

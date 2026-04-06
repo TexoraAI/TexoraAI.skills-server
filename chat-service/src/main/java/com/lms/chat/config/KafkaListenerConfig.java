@@ -84,4 +84,6 @@ public class KafkaListenerConfig {
         factory.setRecordMessageConverter(new JsonMessageConverter());
         return factory;
     }
+    
+    
 }

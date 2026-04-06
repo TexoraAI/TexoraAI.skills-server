@@ -79,9 +79,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- LiveKit -->
-       <!-- LiveKit -->
-<dependency>
+      <dependency>
     <groupId>io.livekit</groupId>
     <artifactId>livekit-server</artifactId>
     <version>0.12.0</version>

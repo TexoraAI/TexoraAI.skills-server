@@ -19,4 +19,9 @@ public class CourseEvent {
 
     public Map<String, Object> getPayload() { return payload; }
     public void setPayload(Map<String, Object> payload) { this.payload = payload; }
+
+    @Override
+    public String toString() {
+        return "CourseEvent{type='" + type + "', payload=" + payload + "}";
+    }
 }

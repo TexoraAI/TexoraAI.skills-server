@@ -71,7 +71,9 @@ public class FileService {
         FileResource saved = repo.save(fr);
 
         try {
-            producer.sendFileUploadedEvent(saved.getId());
+        	// ✅ NEW
+        	producer.sendFileUploadedEvent(saved.getId(), saved.getTitle(),
+        	                                saved.getBatchId(), saved.getTrainerEmail());
         } catch (Exception ignored) {}
 
         return saved;

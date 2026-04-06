@@ -1,87 +1,86 @@
-
-
-
-package com.lms.assessment.service;
-
-import com.lms.assessment.dto.*;
-import com.lms.assessment.kafka.AssessmentEventProducer;
-import com.lms.assessment.model.*;
-import com.lms.assessment.repository.*;
-import jakarta.transaction.Transactional;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-
-@Service
-public class QuizService {
-
-    private final QuizRepository quizRepo;
-    private final QuestionRepository questionRepo;
-    private final OptionRepository optionRepo;
-    private final AttemptRepository attemptRepo;
-    private final AnswerRepository answerRepo;
-    private final AssessmentEventProducer producer;
-    private final TrainerBatchMapRepository trainerBatchMapRepository;
-    private final StudentBatchMapRepository studentBatchMapRepository;
-    private StudentTrainerMapRepository studentTrainerMapRepository;
-    private StudentQuizMapRepository studentQuizMapRepository;
-    public QuizService(
-            QuizRepository quizRepo,
-            QuestionRepository questionRepo,
-            OptionRepository optionRepo,
-            AttemptRepository attemptRepo,
-            AnswerRepository answerRepo,
-            AssessmentEventProducer producer,
-            TrainerBatchMapRepository trainerBatchMapRepository,
-            StudentBatchMapRepository studentBatchMapRepository,
-            StudentTrainerMapRepository studentTrainerMapRepository,
-            StudentQuizMapRepository studentQuizMapRepository
-    ) {
-        this.quizRepo = quizRepo;
-        this.questionRepo = questionRepo;
-        this.optionRepo = optionRepo;
-        this.attemptRepo = attemptRepo;
-        this.answerRepo = answerRepo;
-        this.producer = producer;
-        this.trainerBatchMapRepository = trainerBatchMapRepository;
-        this.studentBatchMapRepository = studentBatchMapRepository;
-        this.studentTrainerMapRepository=studentTrainerMapRepository;
-        this.studentQuizMapRepository=studentQuizMapRepository;
-    }
-
-    // =========================
-    // CREATE QUIZ
-    
-    
-    @Transactional
-    public Quiz createQuiz(Quiz quiz, String trainerEmail) {
-
-        quiz.setTrainerEmail(trainerEmail);
-        quiz.setActive(true);
-
-        // 1️⃣ Save quiz
-        Quiz savedQuiz = quizRepo.save(quiz);
-
-        // 2️⃣ Assign to trainer students
-        assignQuizToTrainerStudents(
-                savedQuiz.getId(),
-                trainerEmail,
-                savedQuiz.getBatchId()
-        );
-
-        return savedQuiz;
-    }
-    // CREATE QUIZ WITH QUESTIONS
-    // =========================
-//    @CacheEvict(value = {"allQuizzes"}, allEntries = true)
-//    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req) {
+//package com.lms.assessment.service;
+//
+//import com.lms.assessment.dto.*;
+//import com.lms.assessment.kafka.AssessmentEventProducer;
+//import com.lms.assessment.model.*;
+//import com.lms.assessment.repository.*;
+//import jakarta.transaction.Transactional;
+//import org.springframework.cache.annotation.CacheEvict;
+//import org.springframework.cache.annotation.Cacheable;
+//import org.springframework.stereotype.Service;
+//
+//import java.util.ArrayList;
+//import java.util.List;
+//
+//@Service
+//public class QuizService {
+//
+//    private final QuizRepository quizRepo;
+//    private final QuestionRepository questionRepo;
+//    private final OptionRepository optionRepo;
+//    private final AttemptRepository attemptRepo;
+//    private final AnswerRepository answerRepo;
+//    private final AssessmentEventProducer producer;
+//    private final TrainerBatchMapRepository trainerBatchMapRepository;
+//    private final StudentBatchMapRepository studentBatchMapRepository;
+//    private StudentTrainerMapRepository studentTrainerMapRepository;
+//    private StudentQuizMapRepository studentQuizMapRepository;
+//    public QuizService(
+//            QuizRepository quizRepo,
+//            QuestionRepository questionRepo,
+//            OptionRepository optionRepo,
+//            AttemptRepository attemptRepo,
+//            AnswerRepository answerRepo,
+//            AssessmentEventProducer producer,
+//            TrainerBatchMapRepository trainerBatchMapRepository,
+//            StudentBatchMapRepository studentBatchMapRepository,
+//            StudentTrainerMapRepository studentTrainerMapRepository,
+//            StudentQuizMapRepository studentQuizMapRepository
+//    ) {
+//        this.quizRepo = quizRepo;
+//        this.questionRepo = questionRepo;
+//        this.optionRepo = optionRepo;
+//        this.attemptRepo = attemptRepo;
+//        this.answerRepo = answerRepo;
+//        this.producer = producer;
+//        this.trainerBatchMapRepository = trainerBatchMapRepository;
+//        this.studentBatchMapRepository = studentBatchMapRepository;
+//        this.studentTrainerMapRepository=studentTrainerMapRepository;
+//        this.studentQuizMapRepository=studentQuizMapRepository;
+//    }
+//
+//    // =========================
+//    // CREATE QUIZ
+//    
+//    
+//    @Transactional
+//    public Quiz createQuiz(Quiz quiz, String trainerEmail) {
+//
+//        quiz.setTrainerEmail(trainerEmail);
+//        quiz.setActive(true);
+//
+//        // 1️⃣ Save quiz
+//        Quiz savedQuiz = quizRepo.save(quiz);
+//
+//        // 2️⃣ Assign to trainer students
+//        assignQuizToTrainerStudents(
+//                savedQuiz.getId(),
+//                trainerEmail,
+//                savedQuiz.getBatchId()
+//        );
+//
+//        return savedQuiz;
+//    }
+//
+//    @Transactional
+//    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req, String trainerEmail) {
 //
 //        Quiz quiz = new Quiz();
 //        quiz.setTitle(req.getTitle());
 //        quiz.setCourseId(req.getCourseId());
+//        quiz.setBatchId(req.getBatchId());
+//        quiz.setTrainerEmail(trainerEmail);
+//        quiz.setActive(true);
 //
 //        List<Question> questions = new ArrayList<>();
 //
@@ -106,10 +105,205 @@ public class QuizService {
 //        }
 //
 //        quiz.setQuestions(questions);
-//        return quizRepo.save(quiz);
+//
+//        // 🔥 SAVE QUIZ FIRST
+//        Quiz savedQuiz = quizRepo.save(quiz);
+//
+//        // 🔥 MOST IMPORTANT LINE — ASSIGN TO STUDENTS
+//        assignQuizToTrainerStudents(
+//                savedQuiz.getId(),
+//                trainerEmail,
+//                savedQuiz.getBatchId()
+//        );
+//
+//        return savedQuiz;
 //    }
+//    // =========================
+//    // STUDENT — GET QUIZ
+//    // =========================
+//    public Quiz getQuiz(Long id) {
+//        return quizRepo.findByIdAndActiveTrue(id)
+//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+//    }
+//
+//    // =========================
+//    // STUDENT — LIST QUIZZES
+//    // =========================
+//    
+//    // =========================
+//    // TRAINER — SOFT DELETE
+//    // =========================
+//    @Transactional
+//    public void deleteQuizByTrainer(Long quizId, String trainerEmail) {
+//
+//        Quiz quiz = quizRepo.findById(quizId)
+//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+//
+//        // 🔐 Security check
+//        if (!quiz.getTrainerEmail().equals(trainerEmail)) {
+//            throw new RuntimeException("You are not allowed to delete this quiz");
+//        }
+//
+//        // Soft delete
+//        quiz.setActive(false);
+//        quizRepo.save(quiz);
+//    }
+//
+//    // =========================
+//    // SUBMIT — MUST SEE DELETED QUIZ
+//    // =========================
+//    public QuizResultResponse submitAnswers(SubmitAttemptRequest req) {
+//
+//        Quiz quiz = quizRepo.findById(req.getQuizId())
+//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+//
+//        int total = quiz.getQuestions().size();
+//        int correct = 0;
+//
+//        for (AnswerRequest ar : req.getAnswers()) {
+//            Option opt = optionRepo.findById(ar.getSelectedOptionId())
+//                    .orElseThrow(() -> new RuntimeException("Option not found"));
+//
+//            if (opt.isCorrect()) correct++;
+//        }
+//
+//        double percentage = (correct * 100.0) / total;
+//
+//        QuizResultResponse res = new QuizResultResponse();
+//        res.setTotalQuestions(total);
+//        res.setCorrectAnswers(correct);
+//        res.setPercentage(percentage);
+//
+//        return res;
+//    }
+//    public List<Quiz> getTrainerQuizzes(String email) {
+//        return quizRepo.findByTrainerEmailAndActiveTrue(email);
+//    }
+////    public List<Quiz> getStudentQuizzes(String studentEmail) {
+////        return quizRepo.findAssignedQuizzes(studentEmail);
+////    }
+////    public List<Quiz> getStudentQuizzes(String email) {
+////
+////        return quizRepo.findQuizzesAssignedToStudent(email);
+////    }
+//    public List<Quiz> getStudentQuizzes(String email) {
+//    	Long batchId = studentBatchMapRepository
+//    	        .findBatchIdByStudentEmail(email)
+//    	        .orElseThrow(() -> new RuntimeException("Student batch not found"));
+//    	return quizRepo.findByBatchIdAndActiveTrue(batchId);
+//    }
+//    
+//    public Quiz getQuizForStudent(Long quizId, String studentEmail) {
+//
+//        boolean allowed = studentQuizMapRepository
+//                .existsByQuizIdAndStudentEmail(quizId, studentEmail);
+//
+//        if(!allowed)
+//            throw new RuntimeException("You are not allowed to access this quiz");
+//
+//        return quizRepo.findByIdAndActiveTrue(quizId)
+//                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+//    }
+//    
+//    private void assignQuizToTrainerStudents(Long quizId, String trainerEmail, Long batchId) {
+//
+//        List<String> students = studentTrainerMapRepository
+//                .findActiveStudentsByTrainerAndBatch(trainerEmail, batchId);
+//
+//        for (String student : students) {
+//            StudentQuizMap map = new StudentQuizMap(quizId, student);
+//            studentQuizMapRepository.save(map);
+//        }
+//    }
+//}
+//
+
+package com.lms.assessment.service;
+
+import com.lms.assessment.dto.*;
+import com.lms.assessment.kafka.AssessmentEventProducer;
+import com.lms.assessment.model.*;
+import com.lms.assessment.repository.*;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class QuizService {
+
+    private final QuizRepository               quizRepo;
+    private final QuestionRepository           questionRepo;
+    private final OptionRepository             optionRepo;
+    private final AttemptRepository            attemptRepo;
+    private final AnswerRepository             answerRepo;
+    private final AssessmentEventProducer      producer;
+    private final TrainerBatchMapRepository    trainerBatchMapRepository;
+    private final StudentBatchMapRepository    studentBatchMapRepository;
+    private final StudentTrainerMapRepository  studentTrainerMapRepository;
+    private final StudentQuizMapRepository     studentQuizMapRepository;
+
+    public QuizService(
+            QuizRepository              quizRepo,
+            QuestionRepository          questionRepo,
+            OptionRepository            optionRepo,
+            AttemptRepository           attemptRepo,
+            AnswerRepository            answerRepo,
+            AssessmentEventProducer     producer,
+            TrainerBatchMapRepository   trainerBatchMapRepository,
+            StudentBatchMapRepository   studentBatchMapRepository,
+            StudentTrainerMapRepository studentTrainerMapRepository,
+            StudentQuizMapRepository    studentQuizMapRepository) {
+
+        this.quizRepo                   = quizRepo;
+        this.questionRepo               = questionRepo;
+        this.optionRepo                 = optionRepo;
+        this.attemptRepo                = attemptRepo;
+        this.answerRepo                 = answerRepo;
+        this.producer                   = producer;
+        this.trainerBatchMapRepository  = trainerBatchMapRepository;
+        this.studentBatchMapRepository  = studentBatchMapRepository;
+        this.studentTrainerMapRepository = studentTrainerMapRepository;
+        this.studentQuizMapRepository   = studentQuizMapRepository;
+    }
+
+    // ================= CREATE QUIZ (simple) =================
+
     @Transactional
-    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req, String trainerEmail) {
+    public Quiz createQuiz(Quiz quiz, String trainerEmail) {
+
+        quiz.setTrainerEmail(trainerEmail);
+        quiz.setActive(true);
+
+        Quiz savedQuiz = quizRepo.save(quiz);
+
+        assignQuizToTrainerStudents(
+                savedQuiz.getId(),
+                trainerEmail,
+                savedQuiz.getBatchId()
+        );
+
+        // publish Kafka event
+        try {
+            producer.publishQuizCreated(
+                    savedQuiz.getId(),
+                    savedQuiz.getTitle(),
+                    savedQuiz.getBatchId(),
+                    savedQuiz.getTrainerEmail()
+            );
+        } catch (Exception e) {
+            System.out.println("Kafka unavailable, skipping QUIZ_CREATED event");
+        }
+
+        return savedQuiz;
+    }
+
+    // ================= CREATE QUIZ WITH QUESTIONS =================
+
+    @Transactional
+    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req,
+                                         String trainerEmail) {
 
         Quiz quiz = new Quiz();
         quiz.setTitle(req.getTitle());
@@ -142,64 +336,65 @@ public class QuizService {
 
         quiz.setQuestions(questions);
 
-        // 🔥 SAVE QUIZ FIRST
         Quiz savedQuiz = quizRepo.save(quiz);
 
-        // 🔥 MOST IMPORTANT LINE — ASSIGN TO STUDENTS
         assignQuizToTrainerStudents(
                 savedQuiz.getId(),
                 trainerEmail,
                 savedQuiz.getBatchId()
         );
 
+        // publish Kafka event
+        try {
+            producer.publishQuizCreated(
+                    savedQuiz.getId(),
+                    savedQuiz.getTitle(),
+                    savedQuiz.getBatchId(),
+                    savedQuiz.getTrainerEmail()
+            );
+        } catch (Exception e) {
+            System.out.println("Kafka unavailable, skipping QUIZ_CREATED event");
+        }
+
         return savedQuiz;
     }
-    // =========================
-    // STUDENT — GET QUIZ
-    // =========================
+
+    // ================= GET QUIZ =================
+
     public Quiz getQuiz(Long id) {
         return quizRepo.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
     }
 
-    // =========================
-    // STUDENT — LIST QUIZZES
-    // =========================
-    
-    // =========================
-    // TRAINER — SOFT DELETE
-    // =========================
+    // ================= TRAINER — SOFT DELETE =================
+
     @Transactional
     public void deleteQuizByTrainer(Long quizId, String trainerEmail) {
 
         Quiz quiz = quizRepo.findById(quizId)
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
 
-        // 🔐 Security check
         if (!quiz.getTrainerEmail().equals(trainerEmail)) {
             throw new RuntimeException("You are not allowed to delete this quiz");
         }
 
-        // Soft delete
         quiz.setActive(false);
         quizRepo.save(quiz);
     }
 
-    // =========================
-    // SUBMIT — MUST SEE DELETED QUIZ
-    // =========================
+    // ================= SUBMIT =================
+
     public QuizResultResponse submitAnswers(SubmitAttemptRequest req) {
 
         Quiz quiz = quizRepo.findById(req.getQuizId())
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
 
-        int total = quiz.getQuestions().size();
+        int total   = quiz.getQuestions().size();
         int correct = 0;
 
         for (AnswerRequest ar : req.getAnswers()) {
             Option opt = optionRepo.findById(ar.getSelectedOptionId())
                     .orElseThrow(() -> new RuntimeException("Option not found"));
-
             if (opt.isCorrect()) correct++;
         }
 
@@ -212,44 +407,45 @@ public class QuizService {
 
         return res;
     }
+
+    // ================= GET BY TRAINER =================
+
     public List<Quiz> getTrainerQuizzes(String email) {
         return quizRepo.findByTrainerEmailAndActiveTrue(email);
     }
-//    public List<Quiz> getStudentQuizzes(String studentEmail) {
-//        return quizRepo.findAssignedQuizzes(studentEmail);
-//    }
-//    public List<Quiz> getStudentQuizzes(String email) {
-//
-//        return quizRepo.findQuizzesAssignedToStudent(email);
-//    }
+
+    // ================= GET BY STUDENT =================
+
     public List<Quiz> getStudentQuizzes(String email) {
-    	Long batchId = studentBatchMapRepository
-    	        .findBatchIdByStudentEmail(email)
-    	        .orElseThrow(() -> new RuntimeException("Student batch not found"));
-    	return quizRepo.findByBatchIdAndActiveTrue(batchId);
+        Long batchId = studentBatchMapRepository
+                .findBatchIdByStudentEmail(email)
+                .orElseThrow(() -> new RuntimeException("Student batch not found"));
+        return quizRepo.findByBatchIdAndActiveTrue(batchId);
     }
-    
+
     public Quiz getQuizForStudent(Long quizId, String studentEmail) {
 
         boolean allowed = studentQuizMapRepository
                 .existsByQuizIdAndStudentEmail(quizId, studentEmail);
 
-        if(!allowed)
+        if (!allowed)
             throw new RuntimeException("You are not allowed to access this quiz");
 
         return quizRepo.findByIdAndActiveTrue(quizId)
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
     }
-    
-    private void assignQuizToTrainerStudents(Long quizId, String trainerEmail, Long batchId) {
+
+    // ================= ASSIGN TO STUDENTS (private) =================
+
+    private void assignQuizToTrainerStudents(Long quizId,
+                                              String trainerEmail,
+                                              Long batchId) {
 
         List<String> students = studentTrainerMapRepository
                 .findActiveStudentsByTrainerAndBatch(trainerEmail, batchId);
 
         for (String student : students) {
-            StudentQuizMap map = new StudentQuizMap(quizId, student);
-            studentQuizMapRepository.save(map);
+            studentQuizMapRepository.save(new StudentQuizMap(quizId, student));
         }
     }
 }
-

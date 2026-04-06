@@ -70,17 +70,20 @@ public class AttendanceService {
 
             attendanceRepository.save(attendance);
 
-            // Kafka event (unchanged)
+         // ✅ NEW — pass trainerEmail so notification knows who to notify
             attendanceEventProducer.publish(
-                    new AttendanceMarkedEvent(
-                            batchId,
-                            sa.getStudentUserId(),
-                            sa.getStudentEmail(),
-                            sa.getStatus(),
-                            date
-                    )
+                new AttendanceMarkedEvent(
+                    batchId,
+                    sa.getStudentUserId(),
+                    sa.getStudentEmail(),
+                    sa.getStatus(),
+                    date,
+                    trainerEmail  // ✅ ADDED
+                )
             );
-        }
+            
+                   }
+        
     }
 
 

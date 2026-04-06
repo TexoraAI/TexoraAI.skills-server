@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
+import org.springframework.transaction.annotation.Transactional;
 @Service
 public class NotificationService {
 
@@ -50,6 +50,10 @@ public class NotificationService {
 
     public void markAllRead(String userId) {
         repo.markAllReadByUserId(userId);
+    }
+    @Transactional
+    public void clearAll(String email) {
+        repo.deleteAllByUserId(email);
     }
 
     public long getUnreadCount(String userId) {

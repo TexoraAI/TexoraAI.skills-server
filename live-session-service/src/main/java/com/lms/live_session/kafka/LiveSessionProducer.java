@@ -7,16 +7,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class LiveSessionProducer {
 
-    private final KafkaTemplate<String, LiveSessionEvent> kafkaTemplate;
+    // ✅ Object not String — same as batch producer
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public LiveSessionProducer(KafkaTemplate<String, LiveSessionEvent> kafkaTemplate) {
+    public LiveSessionProducer(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
     public void publishLiveStarted(LiveSessionEvent event) {
-
-        kafkaTemplate.send("live-session-events", event);
-
+        kafkaTemplate.send("live-session-events", event); // ✅ send object directly
         System.out.println("✅ Kafka Event Sent: " + event.getSessionId());
     }
 }

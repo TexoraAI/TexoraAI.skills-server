@@ -1,4 +1,4 @@
-package com.lms.course.config;
+package com.lms.assessment.config;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;

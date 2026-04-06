@@ -5,5 +5,5 @@ public enum Role {
     TRAINER,
     ADMIN,
     BUSINESS,
-    TENANT_ADMIN
+    
 }

@@ -26,6 +26,8 @@ public class SecurityConfig {
                     SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/ws/**",
+                		  "/ws/info",         // ✅ SockJS info endpoint
+                          "/ws/info/**",  
                                  "/api/notification/health").permitAll()
                 .anyRequest().authenticated()
             )

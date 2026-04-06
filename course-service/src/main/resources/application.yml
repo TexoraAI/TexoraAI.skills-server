@@ -33,6 +33,7 @@ spring:
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
+      # ✅ UNTOUCHED — already working for batch events
       group-id: ${KAFKA_CONSUMER_GROUP_ID:course-service-group}
       auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -44,6 +45,7 @@ spring:
         spring.json.use.type.headers: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # ✅ JsonSerializer — matches batch producer pattern
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false

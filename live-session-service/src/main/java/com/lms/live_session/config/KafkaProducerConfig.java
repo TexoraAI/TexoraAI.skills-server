@@ -1,4 +1,4 @@
-package com.lms.course.config;
+package com.lms.live_session.config;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;

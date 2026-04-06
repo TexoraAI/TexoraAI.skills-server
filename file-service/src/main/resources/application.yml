@@ -30,6 +30,7 @@ spring:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # ✅ JsonSerializer — same as batch producer pattern
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       group-id: file-service-group
@@ -39,6 +40,7 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
+        # ✅ FIXED — HashMap not Map (Map is interface, needs concrete class)
         spring.json.value.default.type: java.util.Map
     listener:
       missing-topics-fatal: false

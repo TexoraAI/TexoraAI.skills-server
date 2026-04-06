@@ -55,6 +55,7 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/admin/apply")
                     || path.startsWith("/live-chat")
                     || path.startsWith("/live-chat")
+                    || path.startsWith("/ws")   
                     || path.startsWith("/api/auth/resend-verification")
                     || path.startsWith("/api/courses/")
                     || path.startsWith("/api/content/student/course/")

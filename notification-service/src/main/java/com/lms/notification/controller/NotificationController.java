@@ -45,6 +45,13 @@ public class NotificationController {
         notificationService.markAllRead(getEmail());
         return ResponseEntity.noContent().build();
     }
+ // In NotificationController.java
+
+    @DeleteMapping("/clear-all")
+    public ResponseEntity<Void> clearAll() {
+        notificationService.clearAll(getEmail());
+        return ResponseEntity.noContent().build();
+    }
 
     private String getEmail() {
         Authentication auth = SecurityContextHolder

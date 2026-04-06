@@ -1,0 +1,20 @@
+# Upload folders
+uploads/
+files/
+videos/
+
+# Media
+*.mp4
+*.pdf
+*.zip
+
+# Java
+target/
+*.log
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

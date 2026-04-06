@@ -131,6 +131,17 @@ public class GatewayConfig {
             // ================= NOTIFICATION =================
             .route("notification-service", r -> r.path("/api/notification/**")
                     .uri(notificationService))
+            
+
+         // ================= NOTIFICATION WEBSOCKET =================
+         .route("notification-websocket", r -> r
+                 .path("/ws/**")
+                 .uri(notificationService.replace("http", "ws")))
+         
+      // ================= NOTIFICATION SOCKJS HTTP (SockJS info + polling) =================
+         .route("notification-sockjs", r -> r
+                 .path("/ws/info", "/ws/info/**", "/ws/**")
+                 .uri(notificationService))   // ✅ plain http:// for SockJS HTTP calls
 
             // ================= ANALYTICS =================
             .route("analytics-service", r -> r.path("/api/analytics/**")
