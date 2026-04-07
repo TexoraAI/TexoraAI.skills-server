@@ -15,6 +15,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.lms.auth.dto.AuthResponse;
+import com.lms.auth.dto.ChangePasswordRequest;
 import com.lms.auth.dto.RegisterRequest;
 import com.lms.auth.model.EmailVerificationToken;
 import com.lms.auth.model.Role;
@@ -28,6 +29,8 @@ import com.lms.auth.repository.UserRepository;
 import com.lms.auth.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -315,8 +318,42 @@ public class AuthService {
 
         emailService.sendVerificationMail(user.getEmail(), verifyLink);
     }
+//    public void changePassword(ChangePasswordRequest request) {
+//
+//        // 🔴 1. Validate
+//        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+//            throw new RuntimeException("Passwords do not match");
+//        }
+//
+//        // 🔴 2. Get logged-in user
+//        String email = SecurityContextHolder.getContext()
+//                .getAuthentication()
+//                .getName();
+//
+//        User user = userRepository.findByEmail(email)
+//                .orElseThrow(() -> new RuntimeException("User not found"));
+//
+//        // 🔴 3. Update password
+//        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+//
+//        userRepository.save(user);
+//    }
+    
+    public void changePassword(ChangePasswordRequest request, String email) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Passwords do not match");
+        }
 
-    // ================= GOOGLE USER CREATION =================
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+        // ================= GOOGLE USER CREATION =================
+    
+    
+    
     private User createGoogleUser(String email, String name, Role role) {
 
         User user = new User();

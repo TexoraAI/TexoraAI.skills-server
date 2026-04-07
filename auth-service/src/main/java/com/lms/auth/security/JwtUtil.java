@@ -44,6 +44,8 @@ package com.lms.auth.security;
 
 import com.lms.auth.model.Role;
 import com.lms.auth.model.User;
+
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -74,11 +76,20 @@ public class JwtUtil {
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
-
+    // ✅ ADD THIS METHOD
+    public String extractEmail(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.getSubject(); // email is stored as subject
+    }
     // ❌ You can REMOVE this if not used anymore
     public String generateToken(String email, Role role) {
         throw new UnsupportedOperationException(
             "Use generateToken(User user) instead"
         );
     }
+    
 }

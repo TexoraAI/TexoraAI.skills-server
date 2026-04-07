@@ -1,12 +1,13 @@
 package com.lms.auth.controller;
 
 import com.lms.auth.dto.AuthResponse;
-
+import com.lms.auth.dto.ChangePasswordRequest;
 import com.lms.auth.dto.ForgotPasswordRequest;
 import com.lms.auth.dto.GoogleLoginRequest;
 import com.lms.auth.dto.LoginRequest;
 import com.lms.auth.dto.RegisterRequest;
 import com.lms.auth.model.Role;
+import com.lms.auth.security.JwtUtil;
 import com.lms.auth.service.AuthService;
 
 import java.util.Map;
@@ -22,9 +23,11 @@ import com.lms.auth.dto.ResendVerificationRequest;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtUtil jwtUtil; 
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,JwtUtil jwtUtil) {
         this.authService = authService;
+        this.jwtUtil = jwtUtil;
     }
 
     // ================= REGISTER =================
@@ -93,5 +96,26 @@ public class AuthController {
                 Map.of("message", "Verification link sent again to your email")
         );
     }
+//    @PostMapping("/change-password")
+//    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+//
+//        authService.changePassword(request);
+//
+//        return ResponseEntity.ok(
+//            Map.of("message", "Password updated successfully")
+//        );
+//    }
+ // AuthController.java - change-password endpoint
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @RequestHeader("Authorization") String authHeader) {
 
+        // Extract email from JWT directly — don't rely on SecurityContext
+        String token = authHeader.replace("Bearer ", "");
+        String email = jwtUtil.extractEmail(token); // add this method to JwtUtil
+
+        authService.changePassword(request, email); // pass email explicitly
+        return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
+    }
 }

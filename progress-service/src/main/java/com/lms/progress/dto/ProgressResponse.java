@@ -6,7 +6,7 @@ import java.util.List;
 public class ProgressResponse {
 
     private Long progressId;
-    private Long userId;
+    private String studentEmail;   // ✅ FIXED
     private Long courseId;
     private List<Long> completedContentIds;
     private double progressPercentage;
@@ -17,8 +17,8 @@ public class ProgressResponse {
         return progressId;
     }
 
-    public Long getUserId() {
-        return userId;
+    public String getStudentEmail() {
+        return studentEmail;
     }
 
     public Long getCourseId() {
@@ -42,8 +42,8 @@ public class ProgressResponse {
         this.progressId = progressId;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setStudentEmail(String studentEmail) {
+        this.studentEmail = studentEmail;
     }
 
     public void setCourseId(Long courseId) {

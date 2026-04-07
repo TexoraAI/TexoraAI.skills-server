@@ -4,14 +4,14 @@ import java.util.List;
 
 public class ProgressRequest {
 
-    private Long userId;
+    private String studentEmail;   // ✅ FIXED
     private Long courseId;
     private List<Long> completedContentIds;
     private double progressPercentage;
 
     // ---- getters ----
-    public Long getUserId() {
-        return userId;
+    public String getStudentEmail() {
+        return studentEmail;
     }
 
     public Long getCourseId() {
@@ -27,8 +27,8 @@ public class ProgressRequest {
     }
 
     // ---- setters ----
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setStudentEmail(String studentEmail) {
+        this.studentEmail = studentEmail;
     }
 
     public void setCourseId(Long courseId) {

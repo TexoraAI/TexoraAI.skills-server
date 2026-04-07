@@ -176,6 +176,9 @@ public class UserService {
     @CacheEvict(value = "users", allEntries = true)
     public UserResponse updateByEmail(String email, UpdateUserRequest req) {
 
+        System.out.println(">>> updateByEmail | email=" + email 
+            + " | displayName=" + req.getDisplayName()
+            + " | roles=" + req.getRoles());
         User u = repo.findByEmail(email)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
