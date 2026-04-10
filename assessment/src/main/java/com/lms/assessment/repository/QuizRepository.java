@@ -55,4 +55,8 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     List<Quiz> findByTrainerEmailAndActiveTrue(String trainerEmail);
     
     List<Quiz> findByBatchIdAndActiveTrue(Long batchId);
+    
+    
+    @Query("SELECT q FROM Quiz q LEFT JOIN FETCH q.questions WHERE q.id = :id")
+    Optional<Quiz> findQuizWithQuestions(@Param("id") Long id);
 }

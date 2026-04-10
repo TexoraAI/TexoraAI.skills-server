@@ -1,6 +1,9 @@
 package com.lms.course.kafka;
 
 import com.lms.course.dto.ContentEvent;
+
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;

@@ -331,21 +331,156 @@ public class GatewaySecurityConfig {
             }
 
             // ================= PROGRESS SERVICE =================
+//           // ================= PROGRESS SERVICE =================
             if (path.startsWith("/api/progress")) {
 
-                if ("STUDENT".equalsIgnoreCase(role)
-                        && !path.startsWith("/api/progress/student")) {
-                    exchange.getResponse()
-                            .setStatusCode(HttpStatus.FORBIDDEN);
+                // ✅ STUDENT allowed endpoints
+                if ("STUDENT".equalsIgnoreCase(role)) {
+
+                    // Student can mark content complete
+                    if (path.startsWith("/api/progress/mark-complete")) {
+                        return chain.filter(exchange);
+                    }
+
+                    // Student can get their own progress
+                    if (path.startsWith("/api/progress/user")) {
+                        return chain.filter(exchange);
+                    }
+
+                    // Student can get by ID
+                    if (path.matches("/api/progress/\\d+")
+                            && exchange.getRequest().getMethod() == HttpMethod.GET) {
+                        return chain.filter(exchange);
+                    }
+
+                    // Block all other progress endpoints for student
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }
 
-                if (!"ADMIN".equalsIgnoreCase(role)
-                        && !"STUDENT".equalsIgnoreCase(role)) {
-                    exchange.getResponse()
-                            .setStatusCode(HttpStatus.FORBIDDEN);
+                // ✅ ADMIN has full access
+                if ("ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                // ❌ Everyone else blocked
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+            
+            
+            
+         // ================= PROGRESS-video  =================
+            if (path.startsWith("/api/video-progress")) {
+
+                if ("STUDENT".equalsIgnoreCase(role)) {
+
+                    // allow GET progress
+                    if (path.startsWith("/api/video-progress/user")) {
+                        return chain.filter(exchange);
+                    }
+
+                    // allow mark watched
+                    if (path.startsWith("/api/video-progress/mark-watched")) {
+                        return chain.filter(exchange);
+                    }
+
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }
+
+                if ("ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+            
+            
+            
+         // ================= FILE PROGRESS =================
+            if (path.startsWith("/api/file-progress")) {
+
+                if ("STUDENT".equalsIgnoreCase(role)) {
+
+                    // ✅ allow GET progress
+                    if (path.startsWith("/api/file-progress/user")) {
+                        return chain.filter(exchange);
+                    }
+
+                    // ✅ allow mark downloaded
+                    if (path.startsWith("/api/file-progress/mark-downloaded")) {
+                        return chain.filter(exchange);
+                    }
+
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // ✅ ADMIN full access
+                if ("ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+            
+            
+         // ================= ASSIGNMENT PROGRESS =================
+            if (path.startsWith("/api/assignment-progress")) {
+
+                if ("STUDENT".equalsIgnoreCase(role)) {
+
+                    // ✅ get progress
+                    if (path.startsWith("/api/assignment-progress/user")) {
+                        return chain.filter(exchange);
+                    }
+
+                    // ✅ mark complete
+                    if (path.startsWith("/api/assignment-progress/mark-complete")) {
+                        return chain.filter(exchange);
+                    }
+
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                if ("ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+            
+            
+         // ================= QUIZ PROGRESS =================
+            if (path.startsWith("/api/quiz-progress")) {
+
+                if ("STUDENT".equalsIgnoreCase(role)) {
+
+                    // ✅ get progress
+                    if (path.startsWith("/api/quiz-progress/user")) {
+                        return chain.filter(exchange);
+                    }
+
+                    // ✅ mark attempted
+                    if (path.startsWith("/api/quiz-progress/mark-attempted")) {
+                        return chain.filter(exchange);
+                    }
+
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                if ("ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
             }
             
          // ================= CERTIFICATE FILES =================
@@ -451,7 +586,7 @@ public class GatewaySecurityConfig {
                      && exchange.getRequest().getMethod() == HttpMethod.GET) {
                  return chain.filter(exchange);
              }
-//cfjkndjkfnjkn
+
              exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
              return exchange.getResponse().setComplete();
          }
@@ -636,11 +771,6 @@ public class GatewaySecurityConfig {
 
             
             
-            
-            
-            
-         // ================= BATCH SERVICE =================
-            
          // ================= BATCH & BRANCH SERVICE (FINAL CLEAN FIX) =================
 
          // ---------- BRANCH ----------
@@ -697,32 +827,8 @@ public class GatewaySecurityConfig {
 
              return chain.filter(exchange);
          }
-//
-//            
-//            
-        
-     
          
-               // ================= CHAT SERVICE =================
-     
-
          
-//         
-//         if (path.startsWith("/api/chat")) {
-//
-//             // ✅ Allow STUDENT, TRAINER, ADMIN
-//             if ("STUDENT".equalsIgnoreCase(role)
-//                     || "TRAINER".equalsIgnoreCase(role)
-//                     || "ADMIN".equalsIgnoreCase(role)) {
-//
-//                 return chain.filter(exchange);
-//             }
-//
-//             // ❌ Block anyone else
-//             exchange.getResponse()
-//                     .setStatusCode(HttpStatus.FORBIDDEN);
-//             return exchange.getResponse().setComplete();
-//         }
       // ---------- CHAT ----------
          if (path.startsWith("/api/chat")) {
 

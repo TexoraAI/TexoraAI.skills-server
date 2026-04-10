@@ -21,7 +21,6 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http.csrf(csrf -> csrf.disable());
 
         http.sessionManagement(session ->
@@ -29,12 +28,23 @@ public class SecurityConfig {
         );
 
         http.authorizeHttpRequests(auth ->
-                auth.requestMatchers("/error").permitAll()
+                auth
+                    .requestMatchers("/error").permitAll()
+
+                    // ✅ Student endpoints — gateway already validated role
+                    // so just let authenticated requests through here
+                    .requestMatchers("/api/progress/mark-complete").authenticated()
+                    .requestMatchers("/api/progress/user").authenticated()
+                    .requestMatchers("/api/video-progress/**").authenticated()
+                    .requestMatchers("/api/file-progress/**").authenticated()
+                    .requestMatchers("/api/assignment-progress/**").authenticated()
+                    .requestMatchers("/api/quiz-progress/**").authenticated()
+
+                    // Everything else — authenticated
                     .anyRequest().authenticated()
         );
 
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
         http.httpBasic(httpBasic -> httpBasic.disable());
         http.formLogin(form -> form.disable());
 

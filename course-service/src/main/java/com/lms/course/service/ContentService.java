@@ -2,7 +2,8 @@
 
 
 package com.lms.course.service;
-
+import com.lms.course.dto.ContentEvent;
+import java.util.Map;
 import com.lms.course.dto.ContentEvent;
 import com.lms.course.kafka.ContentEventProducer;
 import com.lms.course.model.ContentItem;
@@ -144,6 +145,31 @@ public class ContentService {
 
     public List<ContentItem> getByCourseForStudents(Long courseId) {
         return repo.findByCourseId(courseId);
+    }
+ // Add new method at bottom of ContentService
+    public void markContentComplete(Long contentId, String studentEmail) {
+
+        // 1. Find the content item
+        ContentItem item = repo.findById(contentId)
+                .orElseThrow(() -> new RuntimeException("Content not found"));
+
+        // 2. Get total content count for this course (you already have countByCourseId!)
+        long totalContent = repo.countByCourseId(item.getCourseId());
+
+        // 3. Fire Kafka event to progress-service
+        try {
+            producer.sendEvent(new ContentEvent(
+                    "CONTENT_COMPLETED",
+                    Map.of(
+                            "contentId",    item.getId(),
+                            "courseId",     item.getCourseId(),
+                            "studentEmail", studentEmail,
+                            "totalContent", totalContent
+                    )
+            ));
+        } catch (Exception e) {
+            System.out.println("Kafka unavailable, skipping CONTENT_COMPLETED event");
+        }
     }
 
 }

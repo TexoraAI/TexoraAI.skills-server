@@ -1,5 +1,5 @@
 package com.lms.course.controller;
-
+import org.springframework.http.ResponseEntity;
 import com.lms.course.model.ContentItem;
 import com.lms.course.service.ContentService;
 import org.springframework.security.core.Authentication;
@@ -69,5 +69,14 @@ public class ContentController {
             Authentication auth
     ) {
         return service.delete(id, auth.getName());
+    }
+ // Student marks a content item as completed
+    @PostMapping("/{contentId}/complete")
+    public ResponseEntity<String> markComplete(
+            @PathVariable Long contentId,
+            Authentication auth) {
+
+        service.markContentComplete(contentId, auth.getName());
+        return ResponseEntity.ok("Progress updated");
     }
 }

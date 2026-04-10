@@ -176,6 +176,7 @@ import com.lms.assessment.dto.CreateAssignmentRequest;
 import com.lms.assessment.kafka.AssessmentEventProducer;
 import com.lms.assessment.model.Assignment;
 import com.lms.assessment.model.StudentAssignmentMap;
+import com.lms.assessment.model.StudentBatchMap;
 import com.lms.assessment.repository.AssignmentRepository;
 import com.lms.assessment.repository.StudentAssignmentMapRepository;
 import com.lms.assessment.repository.StudentBatchMapRepository;
@@ -267,18 +268,36 @@ public class AssignmentService {
 
     // ================= GET BY STUDENT =================
 
+//    public List<AssignmentResponse> getStudentAssignments(String studentEmail) {
+//
+//        Long batchId = studentBatchMapRepo
+//                .findBatchIdByStudentEmail(studentEmail)
+//                .orElseThrow(() -> new RuntimeException("Student batch not found"));
+//
+//        return repository.findByBatchId(batchId)
+//                .stream()
+//                .map(this::mapToResponse)
+//                .collect(Collectors.toList());
+//    }
+
     public List<AssignmentResponse> getStudentAssignments(String studentEmail) {
 
-        Long batchId = studentBatchMapRepo
-                .findBatchIdByStudentEmail(studentEmail)
-                .orElseThrow(() -> new RuntimeException("Student batch not found"));
+        List<StudentBatchMap> list =
+                studentBatchMapRepo.findAllByStudentEmail(studentEmail);
+
+        if (list.isEmpty()) {
+            System.out.println("❌ No batch found for email: " + studentEmail);
+            return List.of();
+        }
+
+        Long batchId = list.get(0).getBatchId();
 
         return repository.findByBatchId(batchId)
                 .stream()
                 .map(this::mapToResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
-
+    
     // ================= GET BY TRAINER =================
 
     public List<AssignmentResponse> getAssignmentsByTrainer(String trainerEmail) {

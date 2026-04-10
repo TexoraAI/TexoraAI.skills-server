@@ -22,4 +22,6 @@ public interface StudentBatchMapRepository extends JpaRepository<StudentBatchMap
     Optional<Long> findBatchIdByStudentEmail(@Param("email") String email);
     
     List<StudentBatchMap> findByStudentEmail(String studentEmail);
+    
+    List<StudentBatchMap> findAllByStudentEmail(String studentEmail);
 }

@@ -162,9 +162,16 @@ public class GatewayConfig {
             .route("enrollment-service", r -> r.path("/api/enrollments/**")
                     .uri(enrollmentService))
 
-            // ================= PROGRESS =================
-            .route("progress-service", r -> r.path("/api/progress/**")
-                    .uri(progressService))
+//            // ================= PROGRESS =================
+//            .route("progress-service", r -> r.path("/api/progress/**")
+//                    .uri(progressService))
+            .route("progress-service", r -> r.path(
+                    "/api/progress/**",
+                    "/api/video-progress/**",  // ✅ ADD THIS
+                    "/api/file-progress/**",   
+                    "/api/assignment-progress/**",   // ✅ ADD
+                    "/api/quiz-progress/**"  
+            ).uri(progressService))
 
             // ================= SEARCH =================
             .route("search-service", r -> r.path("/api/search/**")

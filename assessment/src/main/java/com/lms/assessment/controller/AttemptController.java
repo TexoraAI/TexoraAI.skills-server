@@ -36,13 +36,16 @@
 //}
 
 package com.lms.assessment.controller;
+import java.util.Map;
 
+import com.lms.assessment.dto.AttemptHistoryResponse;
 import com.lms.assessment.dto.QuizResultResponse;
 import com.lms.assessment.dto.SubmitAttemptRequest;
 import com.lms.assessment.model.Attempt;
 import com.lms.assessment.service.AttemptService;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.HashMap;
+import java.util.List;
 @RestController
 @RequestMapping("/api/attempts")
 public class AttemptController {
@@ -54,27 +57,42 @@ public class AttemptController {
     }
 
     // ============================
-    // SUBMIT QUIZ
-    // ============================
-//    @PostMapping("/submit")
-//    public Attempt submit(@RequestBody SubmitAttemptRequest request) {
-//        return attemptService.submitAttempt(request);
-//    }
+   
 
+
+//    @PostMapping("/submit")
+//    public QuizResultResponse submit(@RequestBody SubmitAttemptRequest request) {
+//
+//        Map<Long, Boolean> correctnessMap = new HashMap<>();
+//
+//        // ✅ pass map to service
+//        Attempt attempt = attemptService.submitAttempt(request, correctnessMap);
+//
+//        int totalQuestions = attempt.getQuiz().getQuestions().size();
+//        int correctAnswers = attempt.getScore();
+//
+//        double percentage = (correctAnswers * 100.0) / totalQuestions;
+//
+//        // ✅ BUILD FULL RESPONSE
+//        QuizResultResponse res = new QuizResultResponse();
+//
+//        res.setAttemptId(attempt.getId());
+//        res.setScore(correctAnswers); // raw score
+//        res.setPercentage(percentage);
+//        res.setTotalQuestions(totalQuestions);
+//        res.setCorrectAnswers(correctAnswers);
+//        res.setPerQuestionCorrectness(correctnessMap);
+//
+//        return res;
+//    }
     @PostMapping("/submit")
     public QuizResultResponse submit(@RequestBody SubmitAttemptRequest request) {
 
-        Attempt attempt = attemptService.submitAttempt(request);
+        Map<Long, Boolean> correctnessMap = new HashMap<>();
 
-        int totalQuestions = attempt.getQuiz().getQuestions().size();
-        int score = attempt.getScore();
-
-        double percentage = (score * 100.0) / totalQuestions;
-
-        return new QuizResultResponse(percentage);
+        // ✅ service already builds full response
+        return attemptService.submitAttempt(request, correctnessMap);
     }
- 
-   
     // GET ATTEMPT
     // ============================
     @GetMapping("/{id}")
@@ -99,11 +117,14 @@ public class AttemptController {
 //============================
 //STUDENT: MY ATTEMPT HISTORY
 //============================
+// @GetMapping("/my")
+//public java.util.List<Attempt> myAttempts() {
+//  return attemptService.getMyAttempts();
+//}
+
  @GetMapping("/my")
-public java.util.List<Attempt> myAttempts() {
-  return attemptService.getMyAttempts();
-}
-
-
+ public List<AttemptHistoryResponse> myAttempts() {
+     return attemptService.getMyAttempts();
+ }
 }
 
