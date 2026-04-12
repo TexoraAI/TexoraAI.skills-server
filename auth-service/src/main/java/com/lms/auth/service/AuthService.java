@@ -6,8 +6,23 @@
 
 package com.lms.auth.service;
 import com.lms.auth.event.AuthEvent;
+
 import com.lms.auth.producer.AuthEventProducer;
 
+//Spring
+import org.springframework.http.ResponseEntity;
+
+//Java Utility
+import java.util.Map;
+import java.util.Collections;
+
+//Google Auth
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+
+//(Already needed in your class, agar use ho raha hai)
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
@@ -84,27 +99,64 @@ public class AuthService {
     }
 
     // ================= REGISTER =================
+//    public void register(RegisterRequest request) {
+//
+//        if (userRepository.existsByEmail(request.getEmail())) {
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+//        }
+//
+//        User user = new User();
+//        user.setName(request.getName());
+//        user.setEmail(request.getEmail());
+//        user.setPassword(passwordEncoder.encode(request.getPassword()));
+//        user.setRole(request.getRole() != null ? request.getRole() : Role.STUDENT);
+//
+//        user.setApproved(false);
+//        user.setEmailVerified(false);
+//
+//        User savedUser = userRepository.save(user);
+//
+//        // ✅ Send Verification Mail
+//        sendVerificationLink(savedUser);
+//    }
+
     public void register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
+            
+            // If this is a Google user re-submitting their profile form,
+            // the account may already exist (emailVerified=true, approved=false)
+            // Just update their details instead of throwing 409
+            User existing = userRepository.findByEmail(request.getEmail()).get();
+            
+            if (existing.isEmailVerified() && !existing.isApproved()) {
+                // Update profile fields and re-send verification / approval flow
+                existing.setName(request.getName());
+                existing.setRole(request.getRole() != null ? request.getRole() : existing.getRole());
+                userRepository.save(existing);
+                return; // ← success, no 409
+            }
+            
+            // Genuinely duplicate registration attempt
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setPassword(
+            request.getPassword() != null
+                ? passwordEncoder.encode(request.getPassword())
+                : passwordEncoder.encode(UUID.randomUUID().toString()) // Google user
+        );
         user.setRole(request.getRole() != null ? request.getRole() : Role.STUDENT);
-
         user.setApproved(false);
         user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);
-
-        // ✅ Send Verification Mail
         sendVerificationLink(savedUser);
     }
-
+    
     // ================= EMAIL LOGIN =================
     public AuthResponse authenticate(String email, String password) {
 
@@ -350,6 +402,38 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
+    
+    
+    // ================= CHECK GOOGLE USER (read-only, never writes to DB) =================
+    	    public ResponseEntity<Map<String, Object>> checkGoogleUser(String idToken) {
+    	        try {
+    	            GoogleIdTokenVerifier verifier =
+    	                    new GoogleIdTokenVerifier.Builder(HTTP_TRANSPORT, JSON_FACTORY)
+    	                            .setAudience(Collections.singletonList(googleClientId))
+    	                            .build();
+
+    	            GoogleIdToken googleIdToken = verifier.verify(idToken);
+    	            if (googleIdToken == null) {
+    	                return ResponseEntity.ok(Map.of("isNewUser", true));
+    	            }
+
+    	            String email = googleIdToken.getPayload().getEmail();
+
+    	            return userRepository.findByEmail(email)
+    	                    .filter(User::isApproved)
+    	                    .map(user -> ResponseEntity.ok(Map.<String, Object>of(
+    	                            "isNewUser", false,
+    	                            "role",      user.getRole().name(),
+    	                            "name",      user.getName(),
+    	                            "email",     user.getEmail()
+    	                    )))
+    	                    .orElse(ResponseEntity.ok(Map.of("isNewUser", true)));
+
+    	        } catch (Exception e) {
+    	            // On any error, treat as new user — safe fallback
+    	            return ResponseEntity.ok(Map.of("isNewUser", true));
+    	        }
+    	    }
         // ================= GOOGLE USER CREATION =================
     
     

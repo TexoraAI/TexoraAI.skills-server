@@ -118,4 +118,9 @@ public class AuthController {
         authService.changePassword(request, email); // pass email explicitly
         return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
     }
+ // ================= CHECK GOOGLE USER (read-only) =================
+    @PostMapping("/check-google")
+    public ResponseEntity<Map<String, Object>> checkGoogleUser(@RequestBody GoogleLoginRequest request) {
+        return authService.checkGoogleUser(request.getIdToken());
+    }
 }
