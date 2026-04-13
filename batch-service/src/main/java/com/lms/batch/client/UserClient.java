@@ -26,7 +26,7 @@ public interface UserClient {
     // 🆕 NEW — EMAIL BASED
     @GetMapping("/api/users/email/{email}")
     UserDTO getUserByEmail(@PathVariable String email);
-    
+    //heloo
     @GetMapping("/api/users/internal/trainers")
     List<TrainerDTO> getAllTrainers();
 }
