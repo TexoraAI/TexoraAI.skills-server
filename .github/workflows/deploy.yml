@@ -1,3 +1,122 @@
+# name: Deploy Backend
+# on:
+#   push:
+#     branches:
+#       - main
+# jobs:
+#   detect-changes:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       services: ${{ steps.filter.outputs.changes }}
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v3
+
+#       - name: Detect Changed Services
+#         uses: dorny/paths-filter@v2
+#         id: filter
+#         with:
+#           filters: |
+#             api-gateway:
+#               - 'api-gateway/**'
+#             auth-service:
+#               - 'auth-service/**'
+#             user-service:
+#               - 'user-service/**'
+#             course-service:
+#               - 'course-service/**'
+#             video-service:
+#               - 'video-service/**'
+#             notification-service:
+#               - 'notification-service/**'
+#             analytics-service:
+#               - 'analytics-service/**'
+#             assessment:
+#               - 'assessment/**'
+#             enrollment-service:
+#               - 'enrollment-service/**'
+#             progress-service:
+#               - 'progress-service/**'
+#             search-service:
+#               - 'search-service/**'
+#             payment-service:
+#               - 'payment-service/**'
+#             file-service:
+#               - 'file-service/**'
+#             student-service:
+#               - 'student-service/**'
+#             attendance-service:
+#               - 'attendance-service/**'
+#             batch-service:
+#               - 'batch-service/**'
+#             chat-service:
+#               - 'chat-service/**'
+#             live-session-service:
+#               - 'live-session-service/**'
+
+#   build-and-push:
+#     needs: detect-changes
+#     if: ${{ needs.detect-changes.outputs.services != '[]' }}
+#     runs-on: ubuntu-latest
+#     strategy:
+#       max-parallel: 1
+#       matrix:
+#         service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v3
+
+#       - name: Login to DockerHub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKER_USERNAME }}
+#           password: ${{ secrets.DOCKER_PASSWORD }}
+
+#       - name: Login to GitHub Container Registry
+#         uses: docker/login-action@v3
+#         with:
+#           registry: ghcr.io
+#           username: ${{ github.actor }}
+#           password: ${{ secrets.GITHUB_TOKEN }}
+
+#       - name: Clean Docker Cache
+#         run: docker system prune -af
+
+#       - name: Build Image
+#         run: |
+#           SERVICE=${{ matrix.service }}
+#           echo "Building $SERVICE"
+#           docker build -t shareef123/$SERVICE:latest ./$SERVICE
+
+#       - name: Push Image with Retry
+#         run: |
+#           SERVICE=${{ matrix.service }}
+#           for i in 1 2 3; do
+#             docker push shareef123/$SERVICE:latest && break
+#             echo "Retrying in 30s... ($i/3)"
+#             sleep 30
+#           done
+
+#       - name: Delay to Avoid Rate Limit
+#         run: sleep 60
+
+#   deploy:
+#     needs: build-and-push
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Deploy to EC2
+#         uses: appleboy/ssh-action@v1.0.0
+#         with:
+#           host: ${{ secrets.EC2_HOST }}
+#           username: ubuntu
+#           key: ${{ secrets.EC2_SSH_KEY }}
+#           script: |
+#             cd TexoraAI.skills-server
+#             git pull origin main
+#             docker compose down --remove-orphans
+#             docker compose pull
+#             docker compose up -d
+
 name: Deploy Backend
 on:
   push:
@@ -72,13 +191,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Clean Docker Cache
         run: docker system prune -af
 
@@ -101,7 +213,7 @@ jobs:
         run: sleep 60
 
   deploy:
-    needs: build-and-push
+    needs: [detect-changes, build-and-push]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
@@ -110,9 +222,18 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          # Pass changed services as an env variable
+          envs: CHANGED_SERVICES
           script: |
             cd TexoraAI.skills-server
             git pull origin main
-            docker compose down --remove-orphans
-            docker compose pull
-            docker compose up -d
+
+            # Loop over only the changed services
+            for SERVICE in $(echo "$CHANGED_SERVICES" | tr ',' ' '); do
+              echo "Updating $SERVICE..."
+              docker compose pull $SERVICE
+              docker compose up -d --no-deps $SERVICE
+            done
+        env:
+          # Convert JSON array ["auth-service","user-service"] → "auth-service,user-service"
+          CHANGED_SERVICES: ${{ join(fromJson(needs.detect-changes.outputs.services), ',') }}
