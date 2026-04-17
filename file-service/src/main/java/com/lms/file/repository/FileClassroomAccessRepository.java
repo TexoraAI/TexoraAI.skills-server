@@ -18,6 +18,7 @@ public interface FileClassroomAccessRepository extends JpaRepository<FileClassro
 
     void deleteByBatchId(Long batchId);
     Optional<FileClassroomAccess> findByStudentEmail(String email);
+    
   
-
+    boolean existsByStudentEmailAndBatchId(String email, Long batchId);
 }

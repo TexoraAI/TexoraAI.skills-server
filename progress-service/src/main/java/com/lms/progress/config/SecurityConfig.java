@@ -35,10 +35,13 @@ public class SecurityConfig {
                     // so just let authenticated requests through here
                     .requestMatchers("/api/progress/mark-complete").authenticated()
                     .requestMatchers("/api/progress/user").authenticated()
+                    .requestMatchers("/api/progress/reports/**").authenticated()
                     .requestMatchers("/api/video-progress/**").authenticated()
                     .requestMatchers("/api/file-progress/**").authenticated()
                     .requestMatchers("/api/assignment-progress/**").authenticated()
                     .requestMatchers("/api/quiz-progress/**").authenticated()
+                 // ✅ REPORT APIs
+                   
 
                     // Everything else — authenticated
                     .anyRequest().authenticated()

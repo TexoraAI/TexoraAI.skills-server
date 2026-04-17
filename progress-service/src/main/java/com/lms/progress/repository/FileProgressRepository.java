@@ -8,4 +8,5 @@ public interface FileProgressRepository extends JpaRepository<FileProgress, Long
  
     // find progress for a specific student in a specific batch
     Optional<FileProgress> findByStudentEmailAndBatchId(String email, Long batchId);
+    java.util.List<FileProgress> findByBatchId(Long batchId);
 }

@@ -8,4 +8,7 @@ public interface VideoProgressRepository extends JpaRepository<VideoProgress, Lo
  
     // find progress for a specific student in a specific batch
     Optional<VideoProgress> findByStudentEmailAndBatchId(String email, Long batchId);
+    
+    java.util.List<VideoProgress> findByBatchId(Long batchId);
+
 }

@@ -10,4 +10,5 @@ public interface ProgressRepository extends JpaRepository<Progress, Long> {
     Optional<Progress> findByStudentEmailAndCourseId(String email, Long courseId);
 
     void deleteByStudentEmail(String studentEmail);   // ✅ WORKS NOW
+    java.util.List<Progress> findByStudentEmail(String studentEmail);
 }

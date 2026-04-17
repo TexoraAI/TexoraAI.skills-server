@@ -330,6 +330,31 @@ public class GatewaySecurityConfig {
                 }
             }
 
+            
+         // ================= PROGRESS REPORTS =================
+            if (path.startsWith("/api/progress/reports")) {
+
+                if (path.startsWith("/api/progress/reports/batch")) {
+                    if ("TRAINER".equalsIgnoreCase(role)
+                            || "ADMIN".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                if (path.startsWith("/api/progress/reports/trainer")) {
+                    if ("ADMIN".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+            
             // ================= PROGRESS SERVICE =================
 //           // ================= PROGRESS SERVICE =================
             if (path.startsWith("/api/progress")) {
@@ -482,6 +507,9 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
+            
+            
+         
             
          // ================= CERTIFICATE FILES =================
             if (path.startsWith("/api/files/certificates")) {
@@ -870,6 +898,46 @@ public class GatewaySecurityConfig {
          }
 
          
+      // ================= FEEDBACK SERVICE =================
+         if (path.startsWith("/api/feedback")) {
+
+             // STUDENT endpoints
+             if (path.startsWith("/api/feedback/student")
+                     || path.equals("/api/feedback/submit")) {
+
+                 if (!role.equalsIgnoreCase("STUDENT")
+                         && !role.equalsIgnoreCase("ROLE_STUDENT")) {
+                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+
+                 return chain.filter(exchange);
+             }
+
+             // TRAINER endpoints
+             if (path.startsWith("/api/feedback/trainer")) {
+
+                 if (!role.equalsIgnoreCase("TRAINER")
+                         && !role.equalsIgnoreCase("ROLE_TRAINER")) {
+                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+
+                 return chain.filter(exchange);
+             }
+
+             // ADMIN endpoints
+             if (path.startsWith("/api/feedback/admin")) {
+
+                 if (!role.equalsIgnoreCase("ADMIN")) {
+                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                     return exchange.getResponse().setComplete();
+                 }
+
+                 return chain.filter(exchange);
+             }
+         }
+         
          
       // ================= LIVE SESSION SERVICE =================
          if (path.startsWith("/api/live-sessions")
@@ -923,4 +991,8 @@ public class GatewaySecurityConfig {
         };
     }
 }
+
+
+
+
 

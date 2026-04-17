@@ -10,4 +10,5 @@ public interface AssignmentProgressRepository
 
     Optional<AssignmentProgress>
     findByStudentEmailAndBatchId(String email, Long batchId);
+    java.util.List<AssignmentProgress> findByBatchId(Long batchId);
 }

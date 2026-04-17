@@ -10,4 +10,7 @@ public interface QuizProgressRepository
 
     Optional<QuizProgress>
     findByStudentEmailAndBatchId(String email, Long batchId);
+    
+    java.util.List<QuizProgress> findByBatchId(Long batchId);
+
 }

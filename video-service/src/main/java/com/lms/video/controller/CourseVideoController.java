@@ -1,3 +1,5 @@
+
+
 package com.lms.video.controller;
 
 import com.lms.video.model.CourseVideo;
@@ -16,7 +18,6 @@ public class CourseVideoController {
 
     private final CourseVideoService service;
 
-    // ✅ SAME DIRECTORY AS SERVICE
     private static final String VIDEO_DIR =
             System.getProperty("user.dir") + "/videos/course-content/";
 
@@ -24,6 +25,7 @@ public class CourseVideoController {
         this.service = service;
     }
 
+    // ================= UPLOAD =================
     @PostMapping("/upload")
     public CourseVideo upload(
             @RequestParam MultipartFile file,
@@ -32,22 +34,39 @@ public class CourseVideoController {
             @RequestParam Long batchId,
             Authentication auth
     ) throws IOException {
+        return service.upload(file, courseId, moduleId, batchId, auth.getName());
+    }
 
-        return service.upload(
+    // ================= EDIT =================
+    // Accepts multipart/form-data so a replacement file is optional.
+    // Frontend sends: file (optional), courseId, moduleId, batchId
+    @PutMapping("/{id}")
+    public CourseVideo update(
+            @PathVariable Long id,
+            @RequestParam(required = false) MultipartFile file,
+            @RequestParam(required = false) Long courseId,
+            @RequestParam(required = false) Long moduleId,
+            @RequestParam(required = false) Long batchId,
+            Authentication auth
+    ) throws IOException {
+        return service.update(
+                id,
                 file,
                 courseId,
                 moduleId,
                 batchId,
-                auth.getName()
+                auth != null ? auth.getName() : null
         );
     }
 
+    // ================= DELETE =================
     @DeleteMapping("/{id}")
-    public String delete(@PathVariable Long id) {
+    public ResponseEntity<String> delete(@PathVariable Long id) {
         service.deleteById(id);
-        return "Course video deleted successfully";
+        return ResponseEntity.ok("Course video deleted successfully");
     }
 
+    // ================= STREAM =================
     @GetMapping("/stream/{fileName:.+}")
     public ResponseEntity<Resource> streamVideo(
             @PathVariable String fileName,
@@ -60,7 +79,6 @@ public class CourseVideoController {
         }
 
         File file = new File(VIDEO_DIR + fileName);
-
         if (!file.exists()) {
             return ResponseEntity.notFound().build();
         }
@@ -82,12 +100,10 @@ public class CourseVideoController {
         long end = ranges.length > 1 && !ranges[1].isEmpty()
                 ? Long.parseLong(ranges[1])
                 : fileLength - 1;
-
         long contentLength = end - start + 1;
 
         HttpHeaders responseHeaders = new HttpHeaders();
-        responseHeaders.add("Content-Range",
-                "bytes " + start + "-" + end + "/" + fileLength);
+        responseHeaders.add("Content-Range", "bytes " + start + "-" + end + "/" + fileLength);
         responseHeaders.add("Accept-Ranges", "bytes");
 
         InputStream inputStream = new FileInputStream(file);

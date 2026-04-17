@@ -83,6 +83,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/batch/student").hasRole("STUDENT")
                 .requestMatchers("/api/batch/trainer/**").hasRole("TRAINER")
+                
+                .requestMatchers("/api/feedback/submit").hasRole("STUDENT")
+                .requestMatchers("/api/feedback/student/**").hasRole("STUDENT")
+                .requestMatchers("/api/feedback/trainer/**").hasRole("TRAINER")
+                .requestMatchers("/api/feedback/admin/**").hasRole("ADMIN")
+
                 .anyRequest().authenticated()
             )
 

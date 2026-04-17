@@ -204,8 +204,9 @@ public class GatewayConfig {
             ).uri(batchService))
             
          // ================= CHAT SERVICE (✅ NEW) =================
-            .route("chat-service", r -> r.path("/api/chat/**")
+            .route("chat-service", r -> r.path("/api/chat/**","/api/feedback/**")
                     .uri(chatService))
+           
 //         // ================= LIVE SESSION SERVICE =================
 //            .route("live-session-service", r -> r.path(
 //                    "/api/live-sessions/**",

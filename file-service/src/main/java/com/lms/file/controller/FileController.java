@@ -108,7 +108,10 @@ public class FileController {
     public List<FileResource> studentFiles() {
         return service.getStudentFiles();
     }
-
+    
+    
+    
+    
     // ================= DOWNLOAD =================
     @GetMapping("/download/{name}")
     public ResponseEntity<byte[]> download(@PathVariable String name) throws Exception {
