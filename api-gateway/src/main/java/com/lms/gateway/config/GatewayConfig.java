@@ -148,6 +148,15 @@ public class GatewayConfig {
                     .uri(analyticsService))
 
             // ================= ASSESSMENT =================
+            .route("assessment-upload-bulk", r -> r
+            	    .path("/api/quizzes/upload-bulk")
+            	    .filters(f -> f
+            	        .preserveHostHeader()
+            	    )
+            	    .uri(assessmentService))
+            
+            
+            
             .route("assessment-service", r -> r.path(
                     "/api/quizzes/**",
                     "/api/questions/**",
@@ -157,6 +166,7 @@ public class GatewayConfig {
                     "/api/assignment-files/**",     // ✅ ADD THIS
                     "/api/submissions/**" 
             ).uri(assessmentService))
+            
 
             // ================= ENROLLMENT =================
             .route("enrollment-service", r -> r.path("/api/enrollments/**")
