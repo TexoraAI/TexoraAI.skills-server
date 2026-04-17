@@ -653,20 +653,24 @@ public class GatewaySecurityConfig {
          }
      
          
-         if (path.equals("/api/quizzes/upload-bulk")
-        	        && exchange.getRequest().getMethod() == HttpMethod.POST) {
-
-        	    if ("TRAINER".equalsIgnoreCase(role)
-        	            || "ADMIN".equalsIgnoreCase(role)) {
-        	        return chain.filter(exchange);
-        	    }
-
-        	    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-        	    return exchange.getResponse().setComplete();
-        	}
+         
          
          
             // ================= QUIZZES =================
+         
+      // ✅ MUST be before /api/quizzes check
+         if (path.equals("/api/quizzes/upload-bulk")
+                 && exchange.getRequest().getMethod() == HttpMethod.POST) {
+             if ("TRAINER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+
+         // Then the general quizzes block below
+         
+         
          // ================= QUIZ READ =================
             if (path.startsWith("/api/quizzes")) {
 
