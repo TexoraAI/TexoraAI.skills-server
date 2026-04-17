@@ -39,8 +39,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/options/**").authenticated()
                 .requestMatchers("/api/attempts/**").authenticated()
                 // ✅ FIX: Bulk Upload only trainer can access
-                .requestMatchers(HttpMethod.POST, "/api/quizzes/upload-bulk")
-                .hasRole("TRAINER")
+                .requestMatchers("/api/quizzes/upload-bulk")
+                .authenticated()
 
 
                 /* ================= ASSIGNMENT ================= */
