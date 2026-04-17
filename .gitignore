@@ -8,6 +8,9 @@ videos/
 *.pdf
 *.zip
 
+#env
+.env
+
 # Java
 target/
 *.log
