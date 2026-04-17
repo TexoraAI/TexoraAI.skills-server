@@ -12,6 +12,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      SPRING_CODEC_MAX_IN_MEMORY_SIZE: 10485760
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
