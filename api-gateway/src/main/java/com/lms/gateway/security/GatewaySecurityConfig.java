@@ -652,9 +652,23 @@ public class GatewaySecurityConfig {
              return exchange.getResponse().setComplete();
          }
      
+         
+         if (path.equals("/api/quizzes/upload-bulk")
+        	        && exchange.getRequest().getMethod() == HttpMethod.POST) {
+
+        	    if ("TRAINER".equalsIgnoreCase(role)
+        	            || "ADMIN".equalsIgnoreCase(role)) {
+        	        return chain.filter(exchange);
+        	    }
+
+        	    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+        	    return exchange.getResponse().setComplete();
+        	}
+         
+         
             // ================= QUIZZES =================
          // ================= QUIZ READ =================
-            if (path.matches("/api/quizzes(/.*)?")) {
+            if (path.startsWith("/api/quizzes")) {
 
                 // STUDENT can READ quizzes
                 if ("STUDENT".equalsIgnoreCase(role)
