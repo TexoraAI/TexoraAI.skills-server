@@ -172,4 +172,36 @@ public class NotificationController {
             return null;
         }
     }
+ // Add to NotificationController.java
+
+//    @PostMapping("/register-token")
+//    public ResponseEntity<Void> registerToken(
+//            @RequestBody Map<String, String> body) {
+//
+//        String email = getEmail();
+//        String fcmToken = body.get("fcmToken");
+//        String deviceType = body.getOrDefault("deviceType", "WEB");
+//
+//        notificationService.registerDeviceToken(email, fcmToken, deviceType);
+//        return ResponseEntity.ok().build();
+//    }
+
+    @PostMapping("/register-token")
+    public ResponseEntity<Void> registerToken(@RequestBody Map<String, String> body) {
+        String email = getEmail();
+        String role = getUserRole(); // extract from JWT same way you extract email
+        String fcmToken = body.get("fcmToken");
+        String deviceType = body.getOrDefault("deviceType", "WEB");
+
+        notificationService.registerDeviceToken(email, fcmToken, deviceType, role);
+        return ResponseEntity.ok().build();
+    }
+    
+    
+    @DeleteMapping("/remove-token")
+    public ResponseEntity<Void> removeToken(
+            @RequestBody Map<String, String> body) {
+        notificationService.removeDeviceToken(body.get("fcmToken"));
+        return ResponseEntity.ok().build();
+    }
 }

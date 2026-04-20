@@ -10,6 +10,8 @@ videos/
 
 #env
 .env
+notification-service/src/main/resources/firebase-service-account.json
+
 
 # Java
 target/
