@@ -127,6 +127,10 @@ services:
     depends_on:
       - postgres-video
       - kafka
+    
+    env_file:
+    - .env   # ✅ THIS LINE FIXES YOUR ERROR
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
@@ -138,7 +142,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
-      FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64}
+      #FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64}
 
   analytics-service:
     image: shareef123/analytics-service:latest
@@ -170,6 +174,10 @@ services:
     depends_on:
       - postgres-video
       - kafka
+    
+    env_file:
+    - .env   # ✅ THIS LINE FIXES YOUR ERROR
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
