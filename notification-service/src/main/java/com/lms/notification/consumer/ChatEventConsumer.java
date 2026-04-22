@@ -34,11 +34,10 @@ public class ChatEventConsumer {
             String preview       = (String) payload.get("preview");
             
             
-            // ✅ FIX 1: Skip if sender and receiver are the same person
-//            if (senderEmail != null && senderEmail.equalsIgnoreCase(receiverEmail)) {
-//                System.out.println("⏭️ Skipping self-notification for: " + senderEmail);
-//                return;
-//            }
+            if (senderEmail != null && senderEmail.equalsIgnoreCase(receiverEmail)) {
+                System.out.println("⏭️ Skipping self-notification for: " + senderEmail);
+                return;
+            }
 
             NotificationDTO dto = new NotificationDTO();
             dto.setType("NEW_CHAT");
