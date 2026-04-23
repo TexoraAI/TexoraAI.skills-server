@@ -1,10 +1,105 @@
-
-
+//
+//
+//package com.lms.assessment.model;
+//
+//import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+//import jakarta.persistence.*;
+//
+//import java.util.ArrayList;
+//import java.util.List;
+//
+//@Entity
+//@Table(name = "quizzes")
+//@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+//public class Quiz {
+//
+//    @Id
+//    @GeneratedValue(strategy = GenerationType.IDENTITY)
+//    private Long id;
+//
+//    private String title;
+//    private String courseId;
+//
+//    // ✅ NEW: Soft delete flag
+//    @Column(nullable = false)
+//    private boolean active = true;
+//
+//    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+//    @JsonIgnoreProperties({"quiz"})
+//    private List<Question> questions = new ArrayList<>();
+//    
+//    @Column(name = "batch_id", nullable = false)
+//    private Long batchId;
+//
+//    
+//    
+//    @Column(name = "trainer_email", nullable = false)
+//    private String trainerEmail;
+//
+//    public String getTrainerEmail() {
+//        return trainerEmail;
+//    }
+//
+//    public void setTrainerEmail(String trainerEmail) {
+//        this.trainerEmail = trainerEmail;
+//    }
+//    // =========================
+//    // GETTERS & SETTERS
+//    // =========================
+//
+//    public Long getBatchId()
+//    {
+//    	return batchId;
+//    }
+//    public void setBatchId(Long batchId)
+//    {
+//    	this.batchId=batchId;
+//    }
+//    public Long getId() {
+//        return id;
+//    }
+//
+//    public void setId(Long id) {
+//        this.id = id;
+//    }
+//
+//    public String getTitle() {
+//        return title;
+//    }
+//
+//    public void setTitle(String title) {
+//        this.title = title;
+//    }
+//
+//    public String getCourseId() {
+//        return courseId;
+//    }
+//
+//    public void setCourseId(String courseId) {
+//        this.courseId = courseId;
+//    }
+//
+//    public List<Question> getQuestions() {
+//        return questions;
+//    }
+//
+//    public void setQuestions(List<Question> questions) {
+//        this.questions = questions;
+//    }
+//
+//    // ✅ NEW getters for active flag
+//    public boolean isActive() {
+//        return active;
+//    }
+//
+//    public void setActive(boolean active) {
+//        this.active = active;
+//    }
+//}
+//
 package com.lms.assessment.model;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,88 +107,75 @@ import java.util.List;
 @Table(name = "quizzes")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Quiz {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String title;
     private String courseId;
 
-    // ✅ NEW: Soft delete flag
     @Column(nullable = false)
     private boolean active = true;
 
     @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonIgnoreProperties({"quiz"})
     private List<Question> questions = new ArrayList<>();
-    
+
     @Column(name = "batch_id", nullable = false)
     private Long batchId;
 
-    
-    
     @Column(name = "trainer_email", nullable = false)
     private String trainerEmail;
 
-    public String getTrainerEmail() {
-        return trainerEmail;
-    }
+    // ✅ NEW FIELDS
+    @Column(name = "quiz_type")
+    private String quizType;
 
-    public void setTrainerEmail(String trainerEmail) {
-        this.trainerEmail = trainerEmail;
-    }
-    // =========================
-    // GETTERS & SETTERS
-    // =========================
+    @Column(name = "difficulty")
+    private String difficulty;
 
-    public Long getBatchId()
-    {
-    	return batchId;
-    }
-    public void setBatchId(Long batchId)
-    {
-    	this.batchId=batchId;
-    }
-    public Long getId() {
-        return id;
-    }
+    @Column(name = "category")
+    private String category;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    @Column(name = "time_limit")
+    private Integer timeLimit;
 
-    public String getTitle() {
-        return title;
-    }
+    @Column(name = "total_marks")
+    private Integer totalMarks;
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+    // ── Getters & Setters ──────────────────────────────────
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public String getCourseId() {
-        return courseId;
-    }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
-    public void setCourseId(String courseId) {
-        this.courseId = courseId;
-    }
+    public String getCourseId() { return courseId; }
+    public void setCourseId(String courseId) { this.courseId = courseId; }
 
-    public List<Question> getQuestions() {
-        return questions;
-    }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 
-    public void setQuestions(List<Question> questions) {
-        this.questions = questions;
-    }
+    public List<Question> getQuestions() { return questions; }
+    public void setQuestions(List<Question> questions) { this.questions = questions; }
 
-    // ✅ NEW getters for active flag
-    public boolean isActive() {
-        return active;
-    }
+    public Long getBatchId() { return batchId; }
+    public void setBatchId(Long batchId) { this.batchId = batchId; }
 
-    public void setActive(boolean active) {
-        this.active = active;
-    }
+    public String getTrainerEmail() { return trainerEmail; }
+    public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
+
+    public String getQuizType() { return quizType; }
+    public void setQuizType(String quizType) { this.quizType = quizType; }
+
+    public String getDifficulty() { return difficulty; }
+    public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public Integer getTimeLimit() { return timeLimit; }
+    public void setTimeLimit(Integer timeLimit) { this.timeLimit = timeLimit; }
+
+    public Integer getTotalMarks() { return totalMarks; }
+    public void setTotalMarks(Integer totalMarks) { this.totalMarks = totalMarks; }
 }
-

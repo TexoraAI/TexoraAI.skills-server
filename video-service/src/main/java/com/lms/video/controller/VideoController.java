@@ -24,16 +24,58 @@ public class VideoController {
     }
 
     // 🔥 NOW TRAINER MUST PROVIDE batchId
+//    @PostMapping("/upload")
+//    public Video uploadVideo(
+//            @RequestParam("file") MultipartFile file,
+//            @RequestParam("title") String title,
+//            @RequestParam("description") String description,
+//            @RequestParam("batchId") Long batchId
+//    ) throws Exception {
+//
+//        return service.uploadVideo(file, title, description, batchId);
+//    }
+ // 🔥 FILE UPLOAD — now accepts 7 new optional params
     @PostMapping("/upload")
     public Video uploadVideo(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
-            @RequestParam("description") String description,
-            @RequestParam("batchId") Long batchId
+            @RequestParam(value = "description", defaultValue = "") String description,
+            @RequestParam("batchId") Long batchId,
+            @RequestParam(value = "tags",        defaultValue = "") String tags,
+            @RequestParam(value = "category",    defaultValue = "") String category,
+            @RequestParam(value = "language",    defaultValue = "English") String language,
+            @RequestParam(value = "visibility",  defaultValue = "public") String visibility,
+            @RequestParam(value = "audience",    defaultValue = "not-kids") String audience,
+            @RequestParam(value = "ageRestrict", defaultValue = "false") boolean ageRestrict,
+            @RequestParam(value = "course",      defaultValue = "") String course
     ) throws Exception {
-
-        return service.uploadVideo(file, title, description, batchId);
+        return service.uploadVideo(
+                file, title, description, batchId,
+                tags, category, language, visibility, audience, ageRestrict, course
+        );
     }
+
+    // 🔗 URL-BASED UPLOAD — new endpoint
+    @PostMapping("/upload-url")
+    public Video uploadVideoUrl(
+            @RequestParam("videoUrl") String videoUrl,
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", defaultValue = "") String description,
+            @RequestParam("batchId") Long batchId,
+            @RequestParam(value = "tags",        defaultValue = "") String tags,
+            @RequestParam(value = "category",    defaultValue = "") String category,
+            @RequestParam(value = "language",    defaultValue = "English") String language,
+            @RequestParam(value = "visibility",  defaultValue = "public") String visibility,
+            @RequestParam(value = "audience",    defaultValue = "not-kids") String audience,
+            @RequestParam(value = "ageRestrict", defaultValue = "false") boolean ageRestrict,
+            @RequestParam(value = "course",      defaultValue = "") String course
+    ) throws Exception {
+        return service.uploadVideoByUrl(
+                videoUrl, title, description, batchId,
+                tags, category, language, visibility, audience, ageRestrict, course
+        );
+    }
+    
 
     @GetMapping("/play/{fileName}")
     public ResponseEntity<byte[]> playVideo(@PathVariable String fileName) throws Exception {

@@ -83,10 +83,67 @@ public class QuizService {
 
     // ================= CREATE QUIZ WITH QUESTIONS =================
 
+//    @Transactional
+//    public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req,
+//                                         String trainerEmail) {
+//
+//        Quiz quiz = new Quiz();
+//        quiz.setTitle(req.getTitle());
+//        quiz.setCourseId(req.getCourseId());
+//        quiz.setBatchId(req.getBatchId());
+//        quiz.setTrainerEmail(trainerEmail);
+//        quiz.setActive(true);
+//
+//        List<Question> questions = new ArrayList<>();
+//
+//        for (CreateQuizWithQuestionsRequest.QuestionRequest qReq : req.getQuestions()) {
+//
+//            Question question = new Question();
+//            question.setText(qReq.getText());
+//            question.setQuiz(quiz);
+//
+//            List<Option> options = new ArrayList<>();
+//
+//            for (CreateOptionRequest oReq : qReq.getOptions()) {
+//                Option option = new Option();
+//                option.setText(oReq.getText());
+//                option.setCorrect(oReq.isCorrect());
+//                option.setQuestion(question);
+//                options.add(option);
+//            }
+//
+//            question.setOptions(options);
+//            questions.add(question);
+//        }
+//
+//        quiz.setQuestions(questions);
+//
+//        Quiz savedQuiz = quizRepo.save(quiz);
+//
+//        assignQuizToTrainerStudents(
+//                savedQuiz.getId(),
+//                trainerEmail,
+//                savedQuiz.getBatchId()
+//        );
+//
+//        // publish Kafka event
+//        try {
+//            producer.publishQuizCreated(
+//                    savedQuiz.getId(),
+//                    savedQuiz.getTitle(),
+//                    savedQuiz.getBatchId(),
+//                    savedQuiz.getTrainerEmail()
+//            );
+//        } catch (Exception e) {
+//            System.out.println("Kafka unavailable, skipping QUIZ_CREATED event");
+//        }
+//
+//        return savedQuiz;
+//    }
+
     @Transactional
     public Quiz createQuizWithQuestions(CreateQuizWithQuestionsRequest req,
                                          String trainerEmail) {
-
         Quiz quiz = new Quiz();
         quiz.setTitle(req.getTitle());
         quiz.setCourseId(req.getCourseId());
@@ -94,16 +151,21 @@ public class QuizService {
         quiz.setTrainerEmail(trainerEmail);
         quiz.setActive(true);
 
+        // ✅ NEW FIELDS
+        quiz.setQuizType(req.getQuizType());
+        quiz.setDifficulty(req.getDifficulty());
+        quiz.setCategory(req.getCategory());
+        quiz.setTimeLimit(req.getTimeLimit());
+        quiz.setTotalMarks(req.getTotalMarks());
+
         List<Question> questions = new ArrayList<>();
 
         for (CreateQuizWithQuestionsRequest.QuestionRequest qReq : req.getQuestions()) {
-
             Question question = new Question();
             question.setText(qReq.getText());
             question.setQuiz(quiz);
 
             List<Option> options = new ArrayList<>();
-
             for (CreateOptionRequest oReq : qReq.getOptions()) {
                 Option option = new Option();
                 option.setText(oReq.getText());
@@ -111,13 +173,11 @@ public class QuizService {
                 option.setQuestion(question);
                 options.add(option);
             }
-
             question.setOptions(options);
             questions.add(question);
         }
 
         quiz.setQuestions(questions);
-
         Quiz savedQuiz = quizRepo.save(quiz);
 
         assignQuizToTrainerStudents(
@@ -126,7 +186,6 @@ public class QuizService {
                 savedQuiz.getBatchId()
         );
 
-        // publish Kafka event
         try {
             producer.publishQuizCreated(
                     savedQuiz.getId(),
@@ -140,7 +199,8 @@ public class QuizService {
 
         return savedQuiz;
     }
-
+    
+    
     // ================= GET QUIZ =================
 
 //    public Quiz getQuiz(Long id) {

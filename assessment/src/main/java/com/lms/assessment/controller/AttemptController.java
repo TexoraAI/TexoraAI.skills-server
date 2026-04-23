@@ -1,39 +1,4 @@
-//package com.lms.assessment.controller;
-//
-//import com.lms.assessment.dto.SubmitAttemptRequest;
-//import com.lms.assessment.dto.QuizResultResponse;
-//import com.lms.assessment.model.Attempt;
-//import com.lms.assessment.service.AttemptService;
-//import com.lms.assessment.service.QuizService;
-//import org.springframework.web.bind.annotation.*;
-//
-//@RestController
-//@RequestMapping("/api/attempts")
-//public class AttemptController {
-//
-//    private final AttemptService attemptService;
-//    private final QuizService quizService;
-//
-//    public AttemptController(AttemptService attemptService, QuizService quizService) {
-//        this.attemptService = attemptService;
-//        this.quizService = quizService;
-//    }
-//
-//    @PostMapping("/submit")
-//    public QuizResultResponse submit(@RequestBody SubmitAttemptRequest req) {
-//        return quizService.submitAnswers(req);
-//    }
-//
-//    @GetMapping("/{id}")
-//    public Attempt get(@PathVariable Long id) {
-//        return attemptService.getAttempt(id);
-//    }
-//    @GetMapping("/has-attempted/{quizId}")
-//    public boolean hasAttempted(@PathVariable Long quizId) {
-//        return attemptService.hasUserAttempted(quizId);
-//    }
-//
-//}
+
 
 package com.lms.assessment.controller;
 import java.util.Map;
