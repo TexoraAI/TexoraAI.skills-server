@@ -1,4 +1,5 @@
 //
+
 //package com.lms.assessment.config;
 //
 //import com.lms.assessment.security.JwtFilter;
@@ -93,9 +94,9 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                /* ── Specific rules FIRST ── */
-                .requestMatchers(HttpMethod.POST, "/api/quizzes/upload-bulk")
-                    .hasAuthority("TRAINER")
+//                /* ── Specific rules FIRST ── */
+            		.requestMatchers(HttpMethod.POST, "/api/quizzes/upload-bulk")
+            	    .hasRole("TRAINER")   // ← was hasAuthority("TRAINER")
 
                 /* ── Wildcards AFTER ── */
                 .requestMatchers("/api/quizzes/**").authenticated()
