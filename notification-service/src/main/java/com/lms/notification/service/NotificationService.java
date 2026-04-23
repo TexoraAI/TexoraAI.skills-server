@@ -1,6 +1,3 @@
-//
-//
-//
 //package com.lms.notification.service;
 //
 //import com.lms.notification.dto.NotificationDTO;
@@ -24,97 +21,62 @@
 //    private final FcmService fcmService;
 //    private final DeviceTokenRepository deviceTokenRepo;
 //
-////    public NotificationService(NotificationRepository repo,
-////                                SimpMessagingTemplate messagingTemplateFcmService fcmService) {
-////        this.repo = repo;
-////        this.messagingTemplate = messagingTemplate;
-////    }
 //    public NotificationService(NotificationRepository repo,
 //            SimpMessagingTemplate messagingTemplate,
-//            FcmService fcmService,DeviceTokenRepository deviceTokenRepo) {
-//this.repo = repo;
-//this.messagingTemplate = messagingTemplate;
-//this.fcmService = fcmService;
-//this.deviceTokenRepo = deviceTokenRepo;
+//            FcmService fcmService,
+//            DeviceTokenRepository deviceTokenRepo) {
+//        this.repo = repo;
+//        this.messagingTemplate = messagingTemplate;
+//        this.fcmService = fcmService;
+//        this.deviceTokenRepo = deviceTokenRepo;
+//    }
 //
-//}
-//
-//    
-//    
-//    // called by every Kafka consumer
-////    public void createAndPush(NotificationDTO dto) {
-////
-////        if (dto.getTargetUserIds() != null && !dto.getTargetUserIds().isEmpty()) {
-////            for (String userId : dto.getTargetUserIds()) {
-////                Notification saved = saveToDb(userId, null, dto);
-////                messagingTemplate.convertAndSend(
-////                        "/topic/notifications/user/" + userId,
-////                        toClientDTO(saved));
-////                fcmService.sendToUser(userId, dto.getTitle(), dto.getMessage(), dto.getType());
-////            }
-////        } else if (dto.getTargetRole() != null) {
-////            Notification saved = saveToDb(null, dto.getTargetRole(), dto);
-////            messagingTemplate.convertAndSend(
-////                    "/topic/notifications/role/" + dto.getTargetRole().toUpperCase(),
-////                    toClientDTO(saved));
-////            // 3. FCM — fetch all tokens for this role from DB and send
-////            // You need a query: deviceTokenRepo.findByUserRole(dto.getTargetRole())
-////            // For now log it
-////            System.out.println("📢 Role-based FCM push for: " + dto.getTargetRole());
-////        }
-////    }
 //    public void createAndPush(NotificationDTO dto) {
 //
 //        if (dto.getTargetUserIds() != null && !dto.getTargetUserIds().isEmpty()) {
-//            // Per-user notifications
 //            for (String userId : dto.getTargetUserIds()) {
 //                Notification saved = saveToDb(userId, null, dto);
 //                messagingTemplate.convertAndSend(
 //                        "/topic/notifications/user/" + userId,
 //                        toClientDTO(saved));
-//                // FCM push to this specific user
 //                fcmService.sendToUser(userId, dto.getTitle(), dto.getMessage(), dto.getType());
 //            }
 //
 //        } else if (dto.getTargetRole() != null) {
-//            // Role-based notification — save once to DB
 //            Notification saved = saveToDb(null, dto.getTargetRole(), dto);
 //            messagingTemplate.convertAndSend(
 //                    "/topic/notifications/role/" + dto.getTargetRole().toUpperCase(),
 //                    toClientDTO(saved));
 //
-//            // ✅ FIX: Fetch ALL device tokens for this role and send FCM
-////            List<DeviceToken> tokens = deviceTokenRepo.findAll(); // get all tokens
 //            List<DeviceToken> tokens = deviceTokenRepo.findByUserRole(dto.getTargetRole());
 //            List<String> fcmTokens = tokens.stream()
 //                    .map(DeviceToken::getFcmToken)
-//                    .collect(java.util.stream.Collectors.toList());
+//                    .collect(Collectors.toList());
 //
 //            if (!fcmTokens.isEmpty()) {
-//                fcmService.sendToTokenList(fcmTokens, dto.getTitle(), 
+//                fcmService.sendToTokenList(fcmTokens, dto.getTitle(),
 //                                           dto.getMessage(), dto.getType());
-//                System.out.println("📢 Role-based FCM push sent to " 
+//                System.out.println("📢 Role-based FCM push sent to "
 //                                   + fcmTokens.size() + " devices");
 //            } else {
 //                System.out.println("⚠️ No FCM tokens found for role: " + dto.getTargetRole());
 //            }
 //        }
 //    }
+//
 //    public List<NotificationDTO> getMyNotifications(String userId, String userRole) {
 //        System.out.println("🔍 getMyNotifications called - userId: " + userId + ", userRole: " + userRole);
-//        
+//
 //        List<Notification> all = new ArrayList<>();
 //
-//        // Get notifications sent to this specific user
 //        List<Notification> byUser = repo.findByUserIdOrderByCreatedAtDesc(userId);
 //        System.out.println("📬 Notifications by userId: " + byUser.size());
 //        all.addAll(byUser);
 //
-//        // Get notifications broadcast to their role (for admin/trainer)
 //        if (userRole != null && !userRole.isEmpty()) {
 //            List<Notification> roleNotifications = repo.findByUserRoleOrderByCreatedAtDesc(userRole);
 //            System.out.println("📢 Notifications by role (" + userRole + "): " + roleNotifications.size());
-//            
+//
 //            for (Notification n : roleNotifications) {
 //                if (!all.stream().anyMatch(x -> x.getId().equals(n.getId()))) {
 //                    all.add(n);
@@ -124,7 +86,6 @@
 //            System.out.println("⚠️ No userRole provided!");
 //        }
 //
-//        // Sort by createdAt DESC
 //        all.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
 //
 //        System.out.println("✅ Total notifications: " + all.size());
@@ -136,11 +97,9 @@
 //    public long getUnreadCount(String userId, String userRole) {
 //        long countByUser = repo.countByUserIdAndReadFalse(userId);
 //        long countByRole = 0;
-//
 //        if (userRole != null && !userRole.isEmpty()) {
 //            countByRole = repo.countByUserRoleAndReadFalse(userRole);
 //        }
-//
 //        return countByUser + countByRole;
 //    }
 //
@@ -153,7 +112,6 @@
 //
 //    public void markAllRead(String userId, String userRole) {
 //        repo.markAllReadByUserId(userId);
-//
 //        if (userRole != null && !userRole.isEmpty()) {
 //            repo.markAllReadByUserRole(userRole);
 //        }
@@ -162,40 +120,54 @@
 //    @Transactional
 //    public void clearAll(String userId, String userRole) {
 //        repo.deleteAllByUserId(userId);
-//
 //        if (userRole != null && !userRole.isEmpty()) {
 //            repo.deleteAllByUserRole(userRole);
 //        }
 //    }
-////    public void registerDeviceToken(String email, String fcmToken, String deviceType) {
-////        // Avoid duplicates
-////        deviceTokenRepo.findByFcmToken(fcmToken).ifPresentOrElse(
-////            existing -> System.out.println("Token already registered"),
-////            () -> {
-////                DeviceToken dt = new DeviceToken();
-////                dt.setUserEmail(email);
-////                dt.setFcmToken(fcmToken);
-////                dt.setDeviceType(deviceType);
-////                deviceTokenRepo.save(dt);
-////                System.out.println("✅ Device token registered for: " + email);
-////            }
-////        );
-////    }
-//    public void registerDeviceToken(String email, String fcmToken, 
+//
+//    public void registerDeviceToken(String email, String fcmToken,
 //            String deviceType, String userRole) {
-//deviceTokenRepo.findByFcmToken(fcmToken).ifPresentOrElse(
-//existing -> System.out.println("Token already registered"),
-//() -> {
-//DeviceToken dt = new DeviceToken();
-//dt.setUserEmail(email);
-//dt.setFcmToken(fcmToken);
-//dt.setDeviceType(deviceType);
-//dt.setUserRole(userRole);   // ← save role
-//deviceTokenRepo.save(dt);
-//System.out.println("✅ Device token registered for: " + email);
-//}
-//);
-//}
+//
+//        deviceTokenRepo.findByFcmToken(fcmToken).ifPresentOrElse(
+//            existing -> {
+//                // ✅ FIX: token exists but may belong to old email/role
+//                // Always update to current logged-in user's email and role
+//                boolean changed = false;
+//
+//                if (email != null && !email.equalsIgnoreCase(existing.getUserEmail())) {
+//                    existing.setUserEmail(email);
+//                    changed = true;
+//                    System.out.println("🔄 FCM token email updated: "
+//                        + existing.getUserEmail() + " → " + email);
+//                }
+//
+//                if (userRole != null && !userRole.equalsIgnoreCase(existing.getUserRole())) {
+//                    existing.setUserRole(userRole);
+//                    changed = true;
+//                    System.out.println("🔄 FCM token role updated: "
+//                        + existing.getUserRole() + " → " + userRole);
+//                }
+//
+//                if (changed) {
+//                    deviceTokenRepo.save(existing);
+//                    System.out.println("✅ FCM token updated for: " + email);
+//                } else {
+//                    System.out.println("✅ Token already registered and up to date for: " + email);
+//                }
+//            },
+//            () -> {
+//                // New token — save fresh
+//                DeviceToken dt = new DeviceToken();
+//                dt.setUserEmail(email);
+//                dt.setFcmToken(fcmToken);
+//                dt.setDeviceType(deviceType);
+//                dt.setUserRole(userRole);
+//                deviceTokenRepo.save(dt);
+//                System.out.println("✅ New FCM token registered for: " + email
+//                    + " role: " + userRole);
+//            }
+//        );
+//    }
 //
 //    public void removeDeviceToken(String fcmToken) {
 //        deviceTokenRepo.deleteByFcmToken(fcmToken);
@@ -223,13 +195,6 @@
 //        return dto;
 //    }
 //}
-
-
-
-
-
-
-
 
 
 package com.lms.notification.service;
@@ -273,16 +238,24 @@ public class NotificationService {
                 messagingTemplate.convertAndSend(
                         "/topic/notifications/user/" + userId,
                         toClientDTO(saved));
+                // ✅ FcmService.sendToUser now uses case-insensitive lookup
                 fcmService.sendToUser(userId, dto.getTitle(), dto.getMessage(), dto.getType());
             }
 
         } else if (dto.getTargetRole() != null) {
-            Notification saved = saveToDb(null, dto.getTargetRole(), dto);
+            // ✅ FIX: normalize role to UPPERCASE before saving and querying
+            String normalizedRole = dto.getTargetRole().toUpperCase();
+
+            Notification saved = saveToDb(null, normalizedRole, dto);
             messagingTemplate.convertAndSend(
-                    "/topic/notifications/role/" + dto.getTargetRole().toUpperCase(),
+                    "/topic/notifications/role/" + normalizedRole,
                     toClientDTO(saved));
 
-            List<DeviceToken> tokens = deviceTokenRepo.findByUserRole(dto.getTargetRole());
+            // ✅ FIX: query tokens with BOTH uppercase and lowercase
+            //         in case DB has mixed case from old registrations
+            List<DeviceToken> tokens = deviceTokenRepo
+                    .findByUserRoleIgnoreCase(normalizedRole);
+
             List<String> fcmTokens = tokens.stream()
                     .map(DeviceToken::getFcmToken)
                     .collect(Collectors.toList());
@@ -291,48 +264,50 @@ public class NotificationService {
                 fcmService.sendToTokenList(fcmTokens, dto.getTitle(),
                                            dto.getMessage(), dto.getType());
                 System.out.println("📢 Role-based FCM push sent to "
-                                   + fcmTokens.size() + " devices");
+                                   + fcmTokens.size() + " devices for role: "
+                                   + normalizedRole);
             } else {
-                System.out.println("⚠️ No FCM tokens found for role: " + dto.getTargetRole());
+                System.out.println("⚠️ No FCM tokens found for role: " + normalizedRole);
             }
         }
     }
 
     public List<NotificationDTO> getMyNotifications(String userId, String userRole) {
-        System.out.println("🔍 getMyNotifications called - userId: " + userId + ", userRole: " + userRole);
+        System.out.println("🔍 getMyNotifications - userId: " + userId
+                           + ", userRole: " + userRole);
 
         List<Notification> all = new ArrayList<>();
 
         List<Notification> byUser = repo.findByUserIdOrderByCreatedAtDesc(userId);
-        System.out.println("📬 Notifications by userId: " + byUser.size());
+        System.out.println("📬 By userId: " + byUser.size());
         all.addAll(byUser);
 
         if (userRole != null && !userRole.isEmpty()) {
-            List<Notification> roleNotifications = repo.findByUserRoleOrderByCreatedAtDesc(userRole);
-            System.out.println("📢 Notifications by role (" + userRole + "): " + roleNotifications.size());
+            // ✅ FIX: normalize role to uppercase for consistent DB query
+            String normalizedRole = userRole.toUpperCase();
+            List<Notification> roleNotifs =
+                    repo.findByUserRoleOrderByCreatedAtDesc(normalizedRole);
+            System.out.println("📢 By role (" + normalizedRole + "): "
+                               + roleNotifs.size());
 
-            for (Notification n : roleNotifications) {
-                if (!all.stream().anyMatch(x -> x.getId().equals(n.getId()))) {
+            for (Notification n : roleNotifs) {
+                if (all.stream().noneMatch(x -> x.getId().equals(n.getId()))) {
                     all.add(n);
                 }
             }
-        } else {
-            System.out.println("⚠️ No userRole provided!");
         }
 
         all.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        System.out.println("✅ Total: " + all.size());
 
-        System.out.println("✅ Total notifications: " + all.size());
-        return all.stream()
-                .map(this::toClientDTO)
-                .collect(Collectors.toList());
+        return all.stream().map(this::toClientDTO).collect(Collectors.toList());
     }
 
     public long getUnreadCount(String userId, String userRole) {
         long countByUser = repo.countByUserIdAndReadFalse(userId);
         long countByRole = 0;
         if (userRole != null && !userRole.isEmpty()) {
-            countByRole = repo.countByUserRoleAndReadFalse(userRole);
+            countByRole = repo.countByUserRoleAndReadFalse(userRole.toUpperCase());
         }
         return countByUser + countByRole;
     }
@@ -347,7 +322,7 @@ public class NotificationService {
     public void markAllRead(String userId, String userRole) {
         repo.markAllReadByUserId(userId);
         if (userRole != null && !userRole.isEmpty()) {
-            repo.markAllReadByUserRole(userRole);
+            repo.markAllReadByUserRole(userRole.toUpperCase());
         }
     }
 
@@ -355,50 +330,54 @@ public class NotificationService {
     public void clearAll(String userId, String userRole) {
         repo.deleteAllByUserId(userId);
         if (userRole != null && !userRole.isEmpty()) {
-            repo.deleteAllByUserRole(userRole);
+            repo.deleteAllByUserRole(userRole.toUpperCase());
         }
     }
 
     public void registerDeviceToken(String email, String fcmToken,
             String deviceType, String userRole) {
 
+        // ✅ FIX: always normalize role to UPPERCASE before saving
+        String normalizedRole = (userRole != null) ? userRole.toUpperCase() : null;
+        // ✅ FIX: always normalize email to lowercase before saving
+        String normalizedEmail = (email != null) ? email.toLowerCase() : null;
+
         deviceTokenRepo.findByFcmToken(fcmToken).ifPresentOrElse(
             existing -> {
-                // ✅ FIX: token exists but may belong to old email/role
-                // Always update to current logged-in user's email and role
                 boolean changed = false;
 
-                if (email != null && !email.equalsIgnoreCase(existing.getUserEmail())) {
-                    existing.setUserEmail(email);
+                if (normalizedEmail != null
+                        && !normalizedEmail.equalsIgnoreCase(existing.getUserEmail())) {
+                    System.out.println("🔄 Token email: "
+                        + existing.getUserEmail() + " → " + normalizedEmail);
+                    existing.setUserEmail(normalizedEmail);
                     changed = true;
-                    System.out.println("🔄 FCM token email updated: "
-                        + existing.getUserEmail() + " → " + email);
                 }
 
-                if (userRole != null && !userRole.equalsIgnoreCase(existing.getUserRole())) {
-                    existing.setUserRole(userRole);
+                if (normalizedRole != null
+                        && !normalizedRole.equalsIgnoreCase(existing.getUserRole())) {
+                    System.out.println("🔄 Token role: "
+                        + existing.getUserRole() + " → " + normalizedRole);
+                    existing.setUserRole(normalizedRole);
                     changed = true;
-                    System.out.println("🔄 FCM token role updated: "
-                        + existing.getUserRole() + " → " + userRole);
                 }
 
                 if (changed) {
                     deviceTokenRepo.save(existing);
-                    System.out.println("✅ FCM token updated for: " + email);
+                    System.out.println("✅ FCM token updated for: " + normalizedEmail);
                 } else {
-                    System.out.println("✅ Token already registered and up to date for: " + email);
+                    System.out.println("✅ Token up to date for: " + normalizedEmail);
                 }
             },
             () -> {
-                // New token — save fresh
                 DeviceToken dt = new DeviceToken();
-                dt.setUserEmail(email);
+                dt.setUserEmail(normalizedEmail);
                 dt.setFcmToken(fcmToken);
                 dt.setDeviceType(deviceType);
-                dt.setUserRole(userRole);
+                dt.setUserRole(normalizedRole);
                 deviceTokenRepo.save(dt);
-                System.out.println("✅ New FCM token registered for: " + email
-                    + " role: " + userRole);
+                System.out.println("✅ New FCM token saved: "
+                    + normalizedEmail + " role=" + normalizedRole);
             }
         );
     }
