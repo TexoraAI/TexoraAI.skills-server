@@ -174,7 +174,7 @@ services:
     depends_on:
       - postgres-video
       - kafka
-
+      - mysql-codeexec # ✅ ADDED: wait for MySQL sandbox to be ready before starting
     env_file:
       - .env # ✅ THIS LINE FIXES YOUR ERROR
 
@@ -190,6 +190,10 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # ✅ ADDED: tells CodeExecutionService where the MySQL sandbox is
+      CODE_EXEC_MYSQL_HOST: mysql-codeexec
+      CODE_EXEC_MYSQL_USER: lms_runner
+      CODE_EXEC_MYSQL_PASS: Runner@Str0ng!
 
   enrollment-service:
     image: shareef123/enrollment-service:latest
@@ -424,6 +428,23 @@ services:
     volumes:
       - postgres_video_data:/var/lib/postgresql/data
 
+  # ✅ ADDED: dedicated MySQL container for student code execution sandboxes
+  # This is completely separate from postgres-video — student SQL practice DBs live here
+  # Each student gets their own DB named student_<id> inside this container
+  mysql-codeexec:
+    image: mysql:8.0
+    container_name: mysql-codeexec
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Root@Str0ng!
+      MYSQL_USER: lms_runner
+      MYSQL_PASSWORD: Runner@Str0ng!
+      MYSQL_ROOT_HOST: "%" # allows root login from any host inside docker network
+    ports:
+      - "3307:3306" # 3307 on host to avoid conflict if MySQL is installed locally
+    volumes:
+      - mysql_codeexec_data:/var/lib/mysql # ✅ student DBs persist across container restarts
+
   redis:
     image: redis:7
     container_name: redis
@@ -469,3 +490,4 @@ services:
 
 volumes:
   postgres_video_data:
+  mysql_codeexec_data: # ✅ ADDED: persistent volume for student sandbox databases
