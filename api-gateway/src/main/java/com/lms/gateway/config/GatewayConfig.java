@@ -164,7 +164,11 @@ public class GatewayConfig {
                     "/api/attempts/**",
                     "/api/assignments/**",          // ✅ ADD THIS
                     "/api/assignment-files/**",     // ✅ ADD THIS
-                    "/api/submissions/**" 
+                    "/api/submissions/**" ,
+                    "/api/v1/code/**",
+                    "/api/v1/code-files/**", 
+                    "/api/v1/problems/**",
+                    "/api/v1/assignments/**"
             ).uri(assessmentService))
             
 
@@ -214,7 +218,7 @@ public class GatewayConfig {
             ).uri(batchService))
             
          // ================= CHAT SERVICE (✅ NEW) =================
-            .route("chat-service", r -> r.path("/api/chat/**","/api/feedback/**")
+            .route("chat-service", r -> r.path("/api/chat/**","/api/feedback/**","/api/notebooks/**")
                     .uri(chatService))
            
 //         // ================= LIVE SESSION SERVICE =================

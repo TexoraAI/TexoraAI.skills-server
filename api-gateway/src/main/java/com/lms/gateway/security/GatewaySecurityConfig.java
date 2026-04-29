@@ -508,7 +508,21 @@ public class GatewaySecurityConfig {
                 return exchange.getResponse().setComplete();
             }
             
-            
+         // ================= CODING COMPILER =================
+            if (path.startsWith("/api/v1/code")
+            		||path.startsWith("/api/v1/code-files")
+                    || path.startsWith("/api/v1/problems")
+                    || path.startsWith("/api/v1/assignments")) {
+
+                if ("STUDENT".equalsIgnoreCase(role)
+                        || "TRAINER".equalsIgnoreCase(role)
+                        || "ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
          
             
          // ================= CERTIFICATE FILES =================
@@ -955,6 +969,25 @@ public class GatewaySecurityConfig {
                  return chain.filter(exchange);
              }
          }
+         
+      // =================  Chat-servcie-NOTEBOOK SERVICE =================
+         if (path.startsWith("/api/notebooks")) {
+
+             // Only authenticated users (STUDENT / TRAINER / ADMIN)
+             if (role.equalsIgnoreCase("STUDENT")
+                     || role.equalsIgnoreCase("TRAINER")
+                     || role.equalsIgnoreCase("ADMIN")
+                     || role.equalsIgnoreCase("ROLE_STUDENT")
+                     || role.equalsIgnoreCase("ROLE_TRAINER")) {
+
+                 return chain.filter(exchange);
+             }
+
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
+         
+         
          
          
       // ================= LIVE SESSION SERVICE =================

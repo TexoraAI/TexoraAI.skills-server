@@ -1,54 +1,4 @@
-//package com.lms.chat.config;
-//import com.lms.chat.security.JwtAuthFilter;
-//
-//import org.springframework.context.annotation.Bean;
-//import org.springframework.context.annotation.Configuration;
-//import org.springframework.http.HttpMethod;
-//import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-//import org.springframework.security.config.http.SessionCreationPolicy;
-//import org.springframework.security.web.SecurityFilterChain;
-//import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-//
-//@Configuration
-//public class SecurityConfig {
-//
-//    private final JwtAuthFilter jwtAuthFilter;
-//
-//    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
-//        this.jwtAuthFilter = jwtAuthFilter;
-//    }
-//
-//    @Bean
-//    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-//
-//        http
-//            // no csrf (microservice)
-//            .csrf(csrf -> csrf.disable())
-//
-//            // VERY IMPORTANT (otherwise anonymousUser happens)
-//            .sessionManagement(session ->
-//                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-//            )
-//
-//            .authorizeHttpRequests(auth -> auth
-//
-//                // gateway preflight
-//                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-//
-//                // chat endpoints → any logged user
-//                .requestMatchers("/api/chat/**")
-//                    .hasAnyRole("STUDENT", "TRAINER", "ADMIN")
-//
-//                // everything else blocked
-//                .anyRequest().authenticated()
-//            )
-//
-//            // JWT FILTER MUST RUN BEFORE SPRING AUTH
-//            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-//
-//        return http.build();
-//    }
-//}
+
 
 package com.lms.chat.config;
 
@@ -89,6 +39,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/feedback/trainer/**").hasRole("TRAINER")
                 .requestMatchers("/api/feedback/admin/**").hasRole("ADMIN")
 
+             // ================= NOTEBOOKS (✅ ADD THIS) =================
+                .requestMatchers("/api/notebooks/**")
+                    .hasAnyRole("STUDENT", "TRAINER", "ADMIN")
+
+                
                 .anyRequest().authenticated()
             )
 
