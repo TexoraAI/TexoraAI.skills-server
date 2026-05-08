@@ -16,7 +16,7 @@ public class AttendanceController {
     public AttendanceController(AttendanceService attendanceService) {
         this.attendanceService = attendanceService;
     }
-
+////
     // ✅ JOIN SESSION (email from JWT)
     @PostMapping("/join")
     public SessionParticipant joinSession(
