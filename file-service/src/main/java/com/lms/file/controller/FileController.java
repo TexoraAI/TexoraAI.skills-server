@@ -121,19 +121,20 @@ public class FileController {
         this.service = service;
     }
 
-    // ================= TRAINER UPLOAD =================
+//    }
+ // ================= TRAINER UPLOAD — batchId now optional =================
     @PostMapping("/upload")
     public FileResource upload(
             @RequestParam MultipartFile file,
-            @RequestParam Long batchId,
+            @RequestParam(required = false) Long batchId,    // ✅ optional now
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) Long courseId,
-            @RequestParam(required = false) String category
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "draft") String status  // ✅ new
     ) throws Exception {
-        return service.upload(file, batchId, title, description, courseId, category);
+        return service.upload(file, batchId, title, description, courseId, category, status);
     }
-
     // ================= TRAINER FILES =================
     @GetMapping("/trainer")
     public List<FileResource> trainerFiles() {
@@ -156,9 +157,7 @@ public class FileController {
                 .body(data);
     }
 
-    // ================= VIEW / PREVIEW =================
-    // PDFs → inline (browser renders them)
-    // DOCX, ZIP, PPT, images, etc. → attachment (force download)
+    
  // ================= VIEW / PREVIEW =================
     @GetMapping("/view/{id}")
     public ResponseEntity<byte[]> view(@PathVariable Long id) throws Exception {
@@ -200,5 +199,36 @@ public class FileController {
     public ResponseEntity<Void> delete(@PathVariable Long id) throws Exception {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+ // ✅ ADD — publish a draft file that already has a batch
+    @PatchMapping("/{id}/publish")
+    public ResponseEntity<FileResource> publishFile(@PathVariable Long id) {
+        return ResponseEntity.ok(service.publishFile(id));
+    }
+
+    // ✅ ADD — assign batch to a no-batch draft (also sets published)
+    @PatchMapping("/{id}/assign-batch")
+    public ResponseEntity<FileResource> assignBatch(
+            @PathVariable Long id,
+            @RequestParam Long batchId
+    ) {
+        return ResponseEntity.ok(service.assignBatch(id, batchId));
+    }
+    
+    @PutMapping(value = "/{id}/edit", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<FileResource> editFile(
+            @PathVariable Long id,
+            @RequestParam(value = "file",        required = false) MultipartFile file,
+            @RequestParam(value = "title",        required = false) String title,
+            @RequestParam(value = "description",  defaultValue = "") String description,
+            @RequestParam(value = "batchId",      required = false) Long batchId,
+            @RequestParam(value = "courseId",     required = false) Long courseId,
+            @RequestParam(value = "category",     defaultValue = "") String category,
+            @RequestParam(value = "status",       defaultValue = "draft") String status
+    ) throws Exception {
+        FileResource updated = service.editFile(
+                id, file, title, description, batchId, courseId, category, status
+        );
+        return ResponseEntity.ok(updated);
     }
 }

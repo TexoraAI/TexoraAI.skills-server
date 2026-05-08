@@ -40,6 +40,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/file-progress/**").authenticated()
                     .requestMatchers("/api/assignment-progress/**").authenticated()
                     .requestMatchers("/api/quiz-progress/**").authenticated()
+                    .requestMatchers("/api/skill-map/**").authenticated()
                  // ✅ REPORT APIs
                    
 

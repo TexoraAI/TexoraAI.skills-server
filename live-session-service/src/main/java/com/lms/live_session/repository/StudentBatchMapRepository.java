@@ -12,4 +12,7 @@ public interface StudentBatchMapRepository extends JpaRepository<StudentBatchMap
     void deleteByBatchId(Long batchId);
 
     void deleteByStudentEmailAndBatchId(String email, Long batchId);
+    
+ // StudentBatchMapRepository
+    List<StudentBatchMap> findByBatchId(Long batchId);  
 }

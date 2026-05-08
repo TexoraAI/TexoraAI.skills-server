@@ -12,4 +12,7 @@ public interface TrainerBatchMapRepository extends JpaRepository<TrainerBatchMap
     void deleteByBatchId(Long batchId);
 
     void deleteByTrainerEmailAndBatchId(String email, Long batchId);
+    
+ // TrainerBatchMapRepository
+    List<TrainerBatchMap> findByBatchId(Long batchId);  // ← ad
 }

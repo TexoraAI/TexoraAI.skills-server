@@ -39,3 +39,12 @@ logging:
   level:
     org.springframework.security: ${LOGGING_SECURITY_LEVEL:INFO}
     org.hibernate.SQL: ${LOGGING_HIBERNATE_SQL_LEVEL:DEBUG}
+
+# ── OpenAI — set OPENAI_API_KEY in Run Configurations → Environment ──────────
+openai:
+  api:
+    key: ${OPENAI_API_KEY:}
+
+# ── RapidAPI LinkedIn Scraper — set in Run Configurations → Environment ───────
+# RAPIDAPI_KEY  = your key from rapidapi.com
+# No LinkedIn Client ID or Secret needed — RapidAPI handles everything

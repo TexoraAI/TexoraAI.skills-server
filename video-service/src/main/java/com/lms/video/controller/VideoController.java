@@ -23,60 +23,54 @@ public class VideoController {
         this.service = service;
     }
 
-    // 🔥 NOW TRAINER MUST PROVIDE batchId
-//    @PostMapping("/upload")
-//    public Video uploadVideo(
-//            @RequestParam("file") MultipartFile file,
-//            @RequestParam("title") String title,
-//            @RequestParam("description") String description,
-//            @RequestParam("batchId") Long batchId
-//    ) throws Exception {
-//
-//        return service.uploadVideo(file, title, description, batchId);
-//    }
- // 🔥 FILE UPLOAD — now accepts 7 new optional params
+  
+ // ✅ FILE UPLOAD — batchId is now Optional
     @PostMapping("/upload")
     public Video uploadVideo(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam(value = "description", defaultValue = "") String description,
-            @RequestParam("batchId") Long batchId,
+            @RequestParam(value = "batchId", required = false) Long batchId,  // ✅ required=false
             @RequestParam(value = "tags",        defaultValue = "") String tags,
             @RequestParam(value = "category",    defaultValue = "") String category,
             @RequestParam(value = "language",    defaultValue = "English") String language,
             @RequestParam(value = "visibility",  defaultValue = "public") String visibility,
             @RequestParam(value = "audience",    defaultValue = "not-kids") String audience,
             @RequestParam(value = "ageRestrict", defaultValue = "false") boolean ageRestrict,
-            @RequestParam(value = "course",      defaultValue = "") String course
+            @RequestParam(value = "course",      defaultValue = "") String course,
+            @RequestParam(value = "status",      defaultValue = "published") String status
     ) throws Exception {
         return service.uploadVideo(
                 file, title, description, batchId,
-                tags, category, language, visibility, audience, ageRestrict, course
+                tags, category, language, visibility, audience, ageRestrict, course, status
         );
     }
 
-    // 🔗 URL-BASED UPLOAD — new endpoint
+    // ✅ URL UPLOAD — batchId is now Optional
     @PostMapping("/upload-url")
     public Video uploadVideoUrl(
             @RequestParam("videoUrl") String videoUrl,
             @RequestParam("title") String title,
             @RequestParam(value = "description", defaultValue = "") String description,
-            @RequestParam("batchId") Long batchId,
+            @RequestParam(value = "batchId", required = false) Long batchId,  // ✅ required=false
             @RequestParam(value = "tags",        defaultValue = "") String tags,
             @RequestParam(value = "category",    defaultValue = "") String category,
             @RequestParam(value = "language",    defaultValue = "English") String language,
             @RequestParam(value = "visibility",  defaultValue = "public") String visibility,
             @RequestParam(value = "audience",    defaultValue = "not-kids") String audience,
             @RequestParam(value = "ageRestrict", defaultValue = "false") boolean ageRestrict,
-            @RequestParam(value = "course",      defaultValue = "") String course
+            @RequestParam(value = "course",      defaultValue = "") String course,
+            @RequestParam(value = "status",      defaultValue = "published") String status
     ) throws Exception {
         return service.uploadVideoByUrl(
                 videoUrl, title, description, batchId,
-                tags, category, language, visibility, audience, ageRestrict, course
+                tags, category, language, visibility, audience, ageRestrict, course, status
         );
     }
-    
 
+    
+    
+    
     @GetMapping("/play/{fileName}")
     public ResponseEntity<byte[]> playVideo(@PathVariable String fileName) throws Exception {
 
@@ -119,4 +113,79 @@ public class VideoController {
         service.deleteVideo(id);
         return ResponseEntity.noContent().build();
     }
+ // ✅ NEW — trainer assigns a batch to an existing video
+    @PatchMapping("/{id}/assign-batch")
+    public ResponseEntity<Video> assignBatch(
+            @PathVariable Long id,
+            @RequestParam("batchId") Long batchId
+    ) {
+        Video updated = service.assignBatchToVideo(id, batchId);
+        return ResponseEntity.ok(updated);
+    }
+    @PatchMapping("/{id}/publish")
+    public ResponseEntity<Video> publishVideo(@PathVariable Long id) {
+        Video updated = service.publishVideo(id);
+        return ResponseEntity.ok(updated);
+    }
+ // ═══════════════════════════════════════════════════════════════════
+//  ADD THESE TWO ENDPOINTS to your existing VideoController.java
+//  (paste anywhere after the existing @PatchMapping("/{id}/publish") endpoint)
+// ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * PUT /api/video/{id}/edit
+     * Edit a file-upload video. Send as multipart/form-data.
+     * "file" part is OPTIONAL — omit it to keep the existing stored file.
+     */
+    @PutMapping(value = "/{id}/edit", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Video> editVideo(
+            @PathVariable Long id,
+            @RequestParam(value = "file",        required = false) MultipartFile file,
+            @RequestParam("title")         String title,
+            @RequestParam(value = "description",  defaultValue = "") String description,
+            @RequestParam(value = "batchId",      required = false)  Long batchId,
+            @RequestParam(value = "tags",         defaultValue = "") String tags,
+            @RequestParam(value = "category",     defaultValue = "") String category,
+            @RequestParam(value = "language",     defaultValue = "English") String language,
+            @RequestParam(value = "visibility",   defaultValue = "public")  String visibility,
+            @RequestParam(value = "audience",     defaultValue = "not-kids") String audience,
+            @RequestParam(value = "ageRestrict",  defaultValue = "false")   boolean ageRestrict,
+            @RequestParam(value = "course",       defaultValue = "") String course,
+            @RequestParam(value = "status",       defaultValue = "draft")   String status
+    ) throws Exception {
+        Video updated = service.editVideo(
+                id, file, title, description, batchId,
+                tags, category, language, visibility, audience, ageRestrict, course, status
+        );
+        return ResponseEntity.ok(updated);
+    }
+
+    /**
+     * PUT /api/video/{id}/edit-url
+     * Edit a URL-based video. Send as multipart/form-data (or application/x-www-form-urlencoded).
+     * "videoUrl" is OPTIONAL — omit to keep the existing URL.
+     */
+    @PutMapping("/{id}/edit-url")
+    public ResponseEntity<Video> editVideoUrl(
+            @PathVariable Long id,
+            @RequestParam(value = "videoUrl",    required = false)   String videoUrl,
+            @RequestParam("title")                                    String title,
+            @RequestParam(value = "description",  defaultValue = "")  String description,
+            @RequestParam(value = "batchId",      required = false)   Long batchId,
+            @RequestParam(value = "tags",         defaultValue = "")  String tags,
+            @RequestParam(value = "category",     defaultValue = "")  String category,
+            @RequestParam(value = "language",     defaultValue = "English") String language,
+            @RequestParam(value = "visibility",   defaultValue = "public")  String visibility,
+            @RequestParam(value = "audience",     defaultValue = "not-kids") String audience,
+            @RequestParam(value = "ageRestrict",  defaultValue = "false")    boolean ageRestrict,
+            @RequestParam(value = "course",       defaultValue = "")  String course,
+            @RequestParam(value = "status",       defaultValue = "draft")    String status
+    ) throws Exception {
+        Video updated = service.editVideoByUrl(
+                id, videoUrl, title, description, batchId,
+                tags, category, language, visibility, audience, ageRestrict, course, status
+        );
+        return ResponseEntity.ok(updated);
+    }
+    
 }

@@ -17,4 +17,8 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 	List<Video> findByBatchIdIn(List<Long> batchIds);
 	List<Video> findByUploadedBy(String uploadedBy);
 
+	
+	List<Video> findByBatchIdInAndBatchIdIsNotNull(List<Long> batchIds);
+	// Add this line — that's it
+	List<Video> findByBatchIdInAndStatus(List<Long> batchIds, String status);
 }

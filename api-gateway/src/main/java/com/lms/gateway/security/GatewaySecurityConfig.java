@@ -61,6 +61,8 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/content/student/course/")
                     || path.startsWith("/api/content/course/")
                     || path.startsWith("/api/organizations/")
+                    || path.startsWith("/api/live-sessions/public/")
+                    || path.startsWith("/api/live-sessions/public/upcoming")
                     ||path.startsWith("/api/files/view/")) {
 
                 return chain.filter(exchange);
@@ -508,6 +510,47 @@ public class GatewaySecurityConfig {
                 return exchange.getResponse().setComplete();
             }
             
+            
+         // ================= SKILL MAP =================
+            if (path.startsWith("/api/skill-map")) {
+
+                // STUDENT
+                if (path.startsWith("/api/skill-map/student")) {
+                    if ("STUDENT".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // TRAINER
+                if (path.startsWith("/api/skill-map/trainer")) {
+                    if ("TRAINER".equalsIgnoreCase(role)
+                            || "ADMIN".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // ADMIN
+                if (path.startsWith("/api/skill-map/admin")) {
+                    if ("ADMIN".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // UPSERT (internal call from services)
+                if (path.startsWith("/api/skill-map/upsert")) {
+                    return chain.filter(exchange); // allow internal
+                }
+            }
+            
+            
+            
+            
          // ================= CODING COMPILER =================
             if (path.startsWith("/api/v1/code")
             		||path.startsWith("/api/v1/code-files")
@@ -525,6 +568,37 @@ public class GatewaySecurityConfig {
             }
          
             
+         // ================= STUDY PLAN =================
+         // ================= STUDY PLAN =================
+            if (path.startsWith("/api/v1/study-plans")) {
+
+                // ✅ ADD THIS FIRST — students must be able to mark progress
+                if (path.startsWith("/api/v1/study-plans/progress/mark")
+                        && exchange.getRequest().getMethod() == HttpMethod.POST) {
+                    if ("STUDENT".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // STUDENT read endpoints
+                if (path.startsWith("/api/v1/study-plans/student")) {
+                    if ("STUDENT".equalsIgnoreCase(role)) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+
+                // TRAINER / ADMIN endpoints
+                if ("TRAINER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
          // ================= CERTIFICATE FILES =================
             if (path.startsWith("/api/files/certificates")) {
 
@@ -727,6 +801,10 @@ public class GatewaySecurityConfig {
                         .setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
+            
+            
+            
+            
             
          // ================= ASSIGNMENTS =================
 

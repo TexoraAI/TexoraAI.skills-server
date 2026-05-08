@@ -2,6 +2,7 @@ package com.lms.live_session.controller;
 
 import com.lms.live_session.entity.SessionParticipant;
 import com.lms.live_session.service.AttendanceService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,21 +17,29 @@ public class AttendanceController {
         this.attendanceService = attendanceService;
     }
 
+    // ✅ JOIN SESSION (email from JWT)
     @PostMapping("/join")
     public SessionParticipant joinSession(
             @RequestParam Long sessionId,
-            @RequestParam Long studentId) {
+            Authentication auth) {
 
-        return attendanceService.joinSession(sessionId, studentId);
+        String studentEmail = auth.getName();   // ✅ from JWT
+
+        return attendanceService.joinSession(sessionId, studentEmail);
     }
 
+    // ✅ LEAVE SESSION (email from JWT)
     @PostMapping("/leave")
     public SessionParticipant leaveSession(
-            @RequestParam Long participantId) {
+            @RequestParam Long sessionId,
+            Authentication auth) {
 
-        return attendanceService.leaveSession(participantId);
+        String studentEmail = auth.getName();   // ✅ from JWT
+
+        return attendanceService.leaveSession(sessionId, studentEmail);
     }
 
+    // ✅ GET ALL PARTICIPANTS
     @GetMapping("/session/{sessionId}")
     public List<SessionParticipant> getSessionParticipants(
             @PathVariable Long sessionId) {

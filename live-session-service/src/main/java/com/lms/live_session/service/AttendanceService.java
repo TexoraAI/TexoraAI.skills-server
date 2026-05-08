@@ -16,29 +16,45 @@ public class AttendanceService {
         this.participantRepository = participantRepository;
     }
 
-    public SessionParticipant joinSession(Long sessionId, Long studentId) {
+    // ✅ JOIN SESSION (EMAIL-BASED)
+    public SessionParticipant joinSession(Long sessionId, String studentEmail) {
+
+        // 🔒 Prevent duplicate join
+        boolean alreadyJoined =
+                participantRepository.existsBySessionIdAndStudentEmailAndLeaveTimeIsNull(
+                        sessionId, studentEmail
+                );
+
+        if (alreadyJoined) {
+            throw new RuntimeException("Student already joined this session");
+        }
 
         SessionParticipant participant = new SessionParticipant();
         participant.setSessionId(sessionId);
-        participant.setStudentId(studentId);
+        participant.setStudentEmail(studentEmail);
         participant.setJoinTime(LocalDateTime.now());
+        participant.setStatus("JOINED");
 
         return participantRepository.save(participant);
     }
 
-    public SessionParticipant leaveSession(Long participantId) {
+    // ✅ LEAVE SESSION (EMAIL-BASED)
+    public SessionParticipant leaveSession(Long sessionId, String studentEmail) {
 
         SessionParticipant participant = participantRepository
-                .findById(participantId)
-                .orElseThrow(() -> new RuntimeException("Participant not found"));
+                .findBySessionIdAndStudentEmailAndLeaveTimeIsNull(sessionId, studentEmail)
+                .orElseThrow(() ->
+                        new RuntimeException("Active participant not found")
+                );
 
         participant.setLeaveTime(LocalDateTime.now());
+        participant.setStatus("LEFT");
 
         return participantRepository.save(participant);
     }
 
+    // ✅ GET ALL PARTICIPANTS
     public List<SessionParticipant> getSessionParticipants(Long sessionId) {
-
         return participantRepository.findBySessionId(sessionId);
     }
 }

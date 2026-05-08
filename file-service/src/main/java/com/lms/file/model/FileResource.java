@@ -107,11 +107,16 @@ public class FileResource {
     private String uploadedByRole;
     private Instant uploadedAt;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Long batchId;
 
     @Column(nullable = false)
     private String trainerEmail;
+    
+ // Add this new field after courseId:
+    @Column(length = 20)
+    private String status;   // "draft" | "published"
+
 
     // ===== GETTERS & SETTERS =====
 
@@ -153,4 +158,8 @@ public class FileResource {
 
     public String getTrainerEmail() { return trainerEmail; }
     public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
+    
+ // Add getter/setter:
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

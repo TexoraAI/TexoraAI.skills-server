@@ -8,5 +8,10 @@ public interface FileRepository extends JpaRepository<FileResource, Long> {
 	List<FileResource> findByTrainerEmail(String trainerEmail);
 	List<FileResource> findByBatchId(Long batchId);
 	List<FileResource> findByBatchIdAndTrainerEmail(Long batchId, String trainerEmail);
+	
+	
+	// ✅ ADD THESE TWO
+    List<FileResource> findByBatchIdInAndStatus(List<Long> batchIds, String status);
+    List<FileResource> findByBatchIdIn(List<Long> batchIds);
 }
 

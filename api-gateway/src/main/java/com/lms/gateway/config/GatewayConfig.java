@@ -96,7 +96,7 @@ public class GatewayConfig {
             ).uri(authService))
 
             // ================= USER =================
-            .route("user-service", r -> r.path("/api/users/**")
+            .route("user-service", r -> r.path("/api/users/**","/api/v1/resume/**" )
                     .uri(userService))
 
             // ================= COURSE =================
@@ -168,7 +168,8 @@ public class GatewayConfig {
                     "/api/v1/code/**",
                     "/api/v1/code-files/**", 
                     "/api/v1/problems/**",
-                    "/api/v1/assignments/**"
+                    "/api/v1/assignments/**",
+                    "/api/v1/study-plans/**" 
             ).uri(assessmentService))
             
 
@@ -184,7 +185,8 @@ public class GatewayConfig {
                     "/api/video-progress/**",  // ✅ ADD THIS
                     "/api/file-progress/**",   
                     "/api/assignment-progress/**",   // ✅ ADD
-                    "/api/quiz-progress/**"  
+                    "/api/quiz-progress/**", 
+                    "/api/skill-map/**"
             ).uri(progressService))
 
             // ================= SEARCH =================

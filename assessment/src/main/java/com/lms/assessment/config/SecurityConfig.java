@@ -52,6 +52,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/problems/**").authenticated()
                 .requestMatchers("/api/v1/assignments/**").authenticated()
                 
+                .requestMatchers("/api/v1/study-plans/**").authenticated()
+                
                 /* Everything else */
                 .anyRequest().authenticated()
             )

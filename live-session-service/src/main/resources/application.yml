@@ -26,7 +26,6 @@ spring:
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      # ✅ UNTOUCHED — already working for batch events
       group-id: live-session-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -38,7 +37,6 @@ spring:
         spring.json.use.type.headers: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      # ✅ JsonSerializer — matches batch producer pattern
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
@@ -67,6 +65,21 @@ topics:
   live-session: live-session-events
   live-session-started: live-session-started
   student-joined: student-joined-session
+  session-notifications: session-notifications
+  live-session-events: live-session-events
+
+# ✅ NEW: Dynamic Base URLs
+app:
+  base-url: ${APP_BASE_URL:http://localhost:5173}
+  api-base-url: ${APP_API_BASE_URL:http://localhost:9000/api}
+
+# ✅ AWS S3 Configuration
+aws:
+  access-key: ${AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY}
+  region: ${AWS_REGION}
+  s3:
+    bucket: ${AWS_S3_BUCKET}
 
 logging:
   level:

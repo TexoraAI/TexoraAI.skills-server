@@ -32,6 +32,10 @@ public class SecurityConfig {
                     .requestMatchers("/live-chat/**").permitAll()
                     .requestMatchers("/live-chat-sockjs/**").permitAll()
                     .requestMatchers("/live-chat/**").permitAll()
+                    .requestMatchers("/api/live-sessions/public/**").permitAll()
+                    .requestMatchers("/api/live-sessions/public/upcoming").permitAll()
+                    // ✅ single session details — needed for booking form
+                    .requestMatchers("/api/live-sessions/{id}").permitAll()
                     // everything else requires authentication
                     .anyRequest().authenticated()
             );
