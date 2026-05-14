@@ -16,6 +16,12 @@ spring:
       max-file-size: 5GB
       max-request-size: 5GB
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
   cloud:
     gateway:
       httpclient:
@@ -42,3 +48,6 @@ services:
   batch: ${BATCH_SERVICE_URL:http://localhost:8095}
   chat: ${CHAT_SERVICE_URL:http://localhost:8096}
   live-session: ${LIVE_SESSION_SERVICE_URL:http://localhost:8097}
+
+rate-limit:
+  fail-open: true

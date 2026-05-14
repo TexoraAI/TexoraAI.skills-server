@@ -1105,6 +1105,22 @@ public class GatewaySecurityConfig {
                 }
             }
             
+            
+         // ================= AI COMPANION + WHITEBOARD (v1) =================
+            if (path.startsWith("/api/v1/ai-companion")
+                    || path.startsWith("/api/v1/live-sessions")) {
+
+                if ("ADMIN".equalsIgnoreCase(role)
+                        || "TRAINER".equalsIgnoreCase(role)
+                        || "STUDENT".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+            
+            
          // ================= ORGANIZATION SERVICE =================
             if (path.startsWith("/api/organizations")) {
                 // public already handled above

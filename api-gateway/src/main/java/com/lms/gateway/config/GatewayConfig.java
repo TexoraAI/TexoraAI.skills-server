@@ -1,6 +1,3 @@
-
-
-
 package com.lms.gateway.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -236,7 +233,9 @@ public class GatewayConfig {
             .route("live-session-service", r -> r.path(
                     "/api/live-sessions/**",
                     "/api/recordings/**",
-                    "/api/attendance/**"
+                    "/api/attendance/**",
+                    "/api/v1/live-sessions/**",    // ← ADD: whiteboard endpoints
+                    "/api/v1/ai-companion/**"      // ← ADD: AI companion endpoints
             ).uri(liveSessionService))
  
             .build();
