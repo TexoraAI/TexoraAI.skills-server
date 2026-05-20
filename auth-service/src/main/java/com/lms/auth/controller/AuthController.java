@@ -96,16 +96,7 @@ public class AuthController {
                 Map.of("message", "Verification link sent again to your email")
         );
     }
-//    @PostMapping("/change-password")
-//    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
-//
-//        authService.changePassword(request);
-//
-//        return ResponseEntity.ok(
-//            Map.of("message", "Password updated successfully")
-//        );
-//    }
- // AuthController.java - change-password endpoint
+
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(
             @RequestBody ChangePasswordRequest request,

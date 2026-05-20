@@ -63,7 +63,10 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/organizations/")
                     || path.startsWith("/api/live-sessions/public/")
                     || path.startsWith("/api/live-sessions/public/upcoming")
-                    ||path.startsWith("/api/files/view/")) {
+                    ||path.startsWith("/api/files/view/")
+                    || path.equals("/api/v1/notification/newsletter/subscribe")
+                    || path.equals("/api/v1/notification/newsletter/unsubscribe")
+                    || path.equals("/api/v1/notification/contact")) {
 
                 return chain.filter(exchange);
             }

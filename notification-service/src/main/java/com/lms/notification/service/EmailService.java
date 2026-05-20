@@ -5,16 +5,103 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.internet.MimeMessage;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 @Service
 public class EmailService {
-
+	private static final Logger log = LoggerFactory.getLogger(EmailService.class);
     private final JavaMailSender mailSender;
 
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
-
+ // ═══════════════════════════════════════════════════════════════════════════
+    //  GENERIC EMAIL METHOD - Used by all features
+    // ═══════════════════════════════════════════════════════════════════════════
+ 
+    /**
+     * Generic email sender used by newsletter, contact form, and booking confirmations
+     * 
+     * @param toEmail Recipient email address
+     * @param subject Email subject
+     * @param htmlContent HTML body content
+     */
+    private void sendEmailInternal(String toEmail, String subject, String htmlContent) {
+        try {
+            log.debug("📧 Preparing email for: {} | Subject: {}", toEmail, subject);
+            
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+ 
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+ 
+            mailSender.send(message);
+            
+            log.info("✅ EMAIL SENT SUCCESSFULLY");
+            log.info("   To: {}", toEmail);
+            log.info("   Subject: {}", subject);
+ 
+        } catch (jakarta.mail.AuthenticationFailedException e) {
+            log.error("❌ SMTP AUTHENTICATION FAILED");
+            log.error("   Error: {}", e.getMessage());
+            log.error("   💡 Check SMTP username/password in application.properties");
+            
+        } catch (Exception e) {
+            log.error("❌ UNEXPECTED ERROR sending email to {}", toEmail);
+            log.error("   Subject: {}", subject);
+            log.error("   Error: {}", e.getMessage(), e);
+        }
+    }
+ 
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  NEWSLETTER EMAILS
+    // ═══════════════════════════════════════════════════════════════════════════
+ 
+    /**
+     * Send welcome email to new newsletter subscriber
+     */
+    public void sendWelcomeEmail(String toEmail) {
+        log.info("📬 Sending welcome email to: {}", toEmail);
+        
+        String htmlContent = "<html><body style=\"font-family:sans-serif;background:#fbeee0;padding:32px;\">"
+             + "<div style=\"max-width:520px;margin:0 auto;background:#ffffff;"
+             +      "border-radius:16px;padding:32px;\">"
+             + "<h2 style=\"color:#1a2340;margin-bottom:8px;\">Welcome to "
+             +    "<span style=\"color:#16a34a;\">ILM</span>"
+             +    "<span style=\"color:#F97316;\"> ORA</span>!</h2>"
+             + "<p style=\"color:#5a6173;\">You're now subscribed to our newsletter.</p>"
+             + "<p style=\"color:#5a6173;\">You'll be the first to know about new courses, "
+             +    "mentors, and platform updates.</p>"
+             + "<hr style=\"border:none;border-top:1px solid #e8d9c4;margin:24px 0;\"/>"
+             + "<p style=\"font-size:12px;color:#8a93a8;\">"
+             +    "To unsubscribe, reply with UNSUBSCRIBE or visit your account settings."
+             + "</p>"
+             + "</div></body></html>";
+ 
+        sendEmailInternal(toEmail, "Welcome to ILM ORA Newsletter!", htmlContent);
+    }
+ 
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  CONTACT FORM EMAILS
+    // ═══════════════════════════════════════════════════════════════════════════
+ 
+    /**
+     * Send auto-reply to contact form submitter
+     */
+    public void sendAutoReplyEmail(String toEmail, String subject, String htmlContent) {
+        log.info("📬 Sending auto-reply to: {}", toEmail);
+        sendEmailInternal(toEmail, subject, htmlContent);
+    }
+ 
+    /**
+     * Send alert to support team about new contact submission
+     */
+    public void sendSupportAlertEmail(String toEmail, String subject, String htmlContent) {
+        log.info("📬 Sending support alert to: {}", toEmail);
+        sendEmailInternal(toEmail, subject, htmlContent);
+    }
     // ─────────────────────────────────────────────────────────────────
     // PUBLIC BOOKING CONFIRMATION
     // Sent immediately after a public user books a session

@@ -63,6 +63,9 @@ public class CreateSessionRequest {
     private String meetingType;       // "CUSTOM" or "EXTERNAL"
     private String externalMeetingUrl;
     private Boolean isPublished;
+    
+    //new feild for time zone 
+    private String timezone;
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -103,4 +106,7 @@ public class CreateSessionRequest {
 
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean p) { this.isPublished = p; }
+    
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
 }

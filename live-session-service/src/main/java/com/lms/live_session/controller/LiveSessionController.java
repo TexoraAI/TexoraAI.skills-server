@@ -13,7 +13,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -32,7 +31,7 @@ public class LiveSessionController {
     private final PublicBookingService bookingService;
     private final UrlBuilderService urlBuilderService;
     private final RecordingService recordingService;
-
+    
     public LiveSessionController(
             LiveSessionService service,
             LiveKitTokenService tokenService,

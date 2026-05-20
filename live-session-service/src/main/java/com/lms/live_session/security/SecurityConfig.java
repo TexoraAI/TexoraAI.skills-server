@@ -36,6 +36,10 @@ public class SecurityConfig {
                     .requestMatchers("/api/live-sessions/public/upcoming").permitAll()
                     // ✅ single session details — needed for booking form
                     .requestMatchers("/api/live-sessions/{id}").permitAll()
+                    
+                    .requestMatchers("/api/v1/ai-companion/**").permitAll()      // ← ADD
+                    .requestMatchers("/api/v1/live-sessions/*/whiteboard/**").permitAll()
+//                    .requestMatchers("/api/v1/live-sessions/**/whiteboard/**").permitAll() //
                     // everything else requires authentication
                     .anyRequest().authenticated()
             );

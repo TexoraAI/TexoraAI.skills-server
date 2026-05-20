@@ -1,6 +1,7 @@
 package com.lms.live_session.service;
 
 import com.lms.live_session.entity.LiveSession;
+import java.time.ZoneId;
 import com.lms.live_session.event.LiveSessionEvent;
 import com.lms.live_session.event.SessionNotificationEvent;
 import com.lms.live_session.kafka.LiveSessionProducer;
@@ -159,7 +160,11 @@ public class LiveSessionService {
         LocalDateTime scheduledAt = LocalDateTime.of(
             session.getScheduledDate(), session.getScheduledTime()
         );
-        LocalDateTime now = LocalDateTime.now();
+//        LocalDateTime now = LocalDateTime.now();
+        ZoneId zone = ZoneId.of(
+        	    session.getTimezone() != null ? session.getTimezone() : "UTC"
+        	);
+        	LocalDateTime now = LocalDateTime.now(zone);
         long diffMinutes = ChronoUnit.MINUTES.between(now, scheduledAt);
 
         // ✅ BUG 1 FIX: If session was scheduled < 15 min from creation,

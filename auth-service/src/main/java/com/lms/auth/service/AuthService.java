@@ -1,9 +1,3 @@
-
-
-
-
-
-
 package com.lms.auth.service;
 import com.lms.auth.event.AuthEvent;
 
@@ -98,27 +92,7 @@ public class AuthService {
         this.authEventProducer = authEventProducer;
     }
 
-    // ================= REGISTER =================
-//    public void register(RegisterRequest request) {
-//
-//        if (userRepository.existsByEmail(request.getEmail())) {
-//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
-//        }
-//
-//        User user = new User();
-//        user.setName(request.getName());
-//        user.setEmail(request.getEmail());
-//        user.setPassword(passwordEncoder.encode(request.getPassword()));
-//        user.setRole(request.getRole() != null ? request.getRole() : Role.STUDENT);
-//
-//        user.setApproved(false);
-//        user.setEmailVerified(false);
-//
-//        User savedUser = userRepository.save(user);
-//
-//        // ✅ Send Verification Mail
-//        sendVerificationLink(savedUser);
-//    }
+    
 
     public void register(RegisterRequest request) {
 
@@ -370,26 +344,7 @@ public class AuthService {
 
         emailService.sendVerificationMail(user.getEmail(), verifyLink);
     }
-//    public void changePassword(ChangePasswordRequest request) {
-//
-//        // 🔴 1. Validate
-//        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-//            throw new RuntimeException("Passwords do not match");
-//        }
-//
-//        // 🔴 2. Get logged-in user
-//        String email = SecurityContextHolder.getContext()
-//                .getAuthentication()
-//                .getName();
-//
-//        User user = userRepository.findByEmail(email)
-//                .orElseThrow(() -> new RuntimeException("User not found"));
-//
-//        // 🔴 3. Update password
-//        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-//
-//        userRepository.save(user);
-//    }
+
     
     public void changePassword(ChangePasswordRequest request, String email) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {

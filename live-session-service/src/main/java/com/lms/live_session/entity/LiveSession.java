@@ -72,6 +72,10 @@ public class LiveSession {
 
     @Column(name = "is_published", columnDefinition = "boolean default false")
     private Boolean isPublished = false;
+    
+    //new for time zone 
+    @Column
+    private String timezone;
 
     // ── ADD Getters & Setters ──────────────────────────────────────
 
@@ -146,4 +150,9 @@ public class LiveSession {
 
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean isPublished) { this.isPublished = isPublished; }
+    
+ // ADD getter/setter
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
+
 }

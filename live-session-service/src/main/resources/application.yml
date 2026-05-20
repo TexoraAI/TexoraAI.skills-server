@@ -87,3 +87,9 @@ logging:
     com.lms: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# ✅ OpenAI Configuration (used by AiCompanionService)
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: gpt-4o
+  max-tokens: 3000

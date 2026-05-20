@@ -59,3 +59,8 @@ topics:
   batch-lifecycle: ${TOPIC_BATCH_LIFECYCLE:batch-lifecycle}
   course: ${TOPIC_COURSE:course-events}
   content: ${TOPIC_CONTENT:content-events}
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+  model: gpt-4o-mini

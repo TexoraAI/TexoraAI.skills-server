@@ -126,7 +126,7 @@ public class GatewayConfig {
             ).uri(videoService))
             
             // ================= NOTIFICATION =================
-            .route("notification-service", r -> r.path("/api/notification/**")
+            .route("notification-service", r -> r.path("/api/notification/**","/api/v1/notification/**")
                     .uri(notificationService))
             
 

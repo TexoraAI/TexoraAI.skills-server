@@ -7,7 +7,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
+import org.springframework.http.HttpMethod;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -29,6 +29,23 @@ public class SecurityConfig {
                 		  "/ws/info",         // ✅ SockJS info endpoint
                           "/ws/info/**",  
                                  "/api/notification/health").permitAll()
+             // ✅ Homepage newsletter public
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/notification/newsletter/subscribe"
+                ).permitAll()
+
+                // ✅ Newsletter unsubscribe public
+                .requestMatchers(
+                    HttpMethod.DELETE,
+                    "/api/v1/notification/newsletter/unsubscribe"
+                ).permitAll()
+
+                // ✅ Contact-us public
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/notification/contact"
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter,
