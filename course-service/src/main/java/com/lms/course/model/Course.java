@@ -2,8 +2,21 @@ package com.lms.course.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+
+// OPTIMIZATION: Added @Index annotations for all columns used in WHERE/ORDER BY:
+//   ownerEmail  — findByOwnerEmail (trainer's course list, HIGH TRAFFIC)
+//   batchId     — findByBatchId, findByBatchIdIn (student course list, HIGH TRAFFIC)
+//   organization_id — findByOrganizationId (org admin queries)
+//   batchId+ownerEmail — findByBatchIdAndOwnerEmail (composite saves second index scan)
+//   created_at  — findAllByOrderByCreatedAtDesc (admin listing)
 @Entity
-@Table(name = "courses")
+@Table(name = "courses", indexes = {
+    @Index(name = "idx_course_owner_email", columnList = "ownerEmail"),
+    @Index(name = "idx_course_batch_id",    columnList = "batchId"),
+    @Index(name = "idx_course_org_id",      columnList = "organization_id"),
+    @Index(name = "idx_course_batch_owner", columnList = "batchId, ownerEmail"),
+    @Index(name = "idx_course_created_at",  columnList = "created_at")
+})
 public class Course {
 
     @Id
@@ -18,39 +31,38 @@ public class Course {
     private String category;
 
     @Column(nullable = false)
-    private String ownerEmail; // 🔐 linked to JWT
+    private String ownerEmail;
 
     private Long batchId;
-    
+
+    @Column(name = "organization_id")
+    private String organizationId;
+
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
     public Course() {}
 
-    // getters & setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId()                            { return id; }
+    public void setId(Long id)                     { this.id = id; }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public String getTitle()                       { return title; }
+    public void setTitle(String title)             { this.title = title; }
 
-    public String getDescription() { return description; }
+    public String getDescription()                 { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
+    public String getCategory()                    { return category; }
+    public void setCategory(String category)       { this.category = category; }
 
-    public String getOwnerEmail() { return ownerEmail; }
-    public void setOwnerEmail(String ownerEmail) { this.ownerEmail = ownerEmail; }
+    public String getOwnerEmail()                  { return ownerEmail; }
+    public void setOwnerEmail(String ownerEmail)   { this.ownerEmail = ownerEmail; }
 
-    public Long getBatchId() { 
-        return batchId; 
-    }
+    public Long getBatchId()                       { return batchId; }
+    public void setBatchId(Long batchId)           { this.batchId = batchId; }
 
-    public void setBatchId(Long batchId) { 
-        this.batchId = batchId; 
-    }
-    
-    
-    public Instant getCreatedAt() { return createdAt; }
+    public String getOrganizationId()              { return organizationId; }
+    public void setOrganizationId(String orgId)    { this.organizationId = orgId; }
+
+    public Instant getCreatedAt()                  { return createdAt; }
 }

@@ -49,6 +49,7 @@ topics:
   batch-assignment: batch-assignment
   batch-lifecycle: batch-lifecycle
   file-uploaded: file-uploaded
+  content: content-events
 
 file:
   storage-dir: files

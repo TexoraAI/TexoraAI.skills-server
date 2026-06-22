@@ -1,14 +1,23 @@
 package com.lms.user.service;
 
 import com.lms.user.dto.*;
+
 import com.lms.user.exception.ResumeNotFoundException;
 import com.lms.user.model.*;
 import com.lms.user.repo.ResumeRepository;
+
+
+
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Service
 @Transactional
@@ -50,12 +59,20 @@ public class ResumeService {
     }
 
     // ===================== GET ALL =====================
+//    @Transactional(readOnly = true)
+//    public List<ResumeResponseDTO> getAllResumes(Long userId) {
+//        return resumeRepository.findByUserIdOrderByUpdatedAtDesc(userId)
+//                .stream()
+//                .map(this::mapToResponse)
+//                .collect(Collectors.toList());
+//    }
+ // OPTIMIZATION: Added Pageable to getAllResumes — user with 50 resumes was loading all with collections
+    // WHY: Resume list page shows card grid — frontend never needs all resumes at once
     @Transactional(readOnly = true)
-    public List<ResumeResponseDTO> getAllResumes(Long userId) {
-        return resumeRepository.findByUserIdOrderByUpdatedAtDesc(userId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public Page<ResumeResponseDTO> getAllResumes(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        return resumeRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)
+                .map(this::mapToResponse);
     }
 
     // ===================== GET BY ID =====================

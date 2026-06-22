@@ -21,4 +21,12 @@ public interface BatchRepository extends JpaRepository<Batch, Long> {
 
     // 🆕 NEW EMAIL BASED AUTHORIZATION
     Optional<Batch> findByIdAndTrainerEmail(Long id, String trainerEmail);
+    
+    List<Batch> findByOrganizationId(String organizationId);
+    
+    List<Batch> findByOrganizationIdIsNull();
+    
+    long countByBranchId(Long branchId);
+    
+    long countByOrganizationId(String organizationId);
 }

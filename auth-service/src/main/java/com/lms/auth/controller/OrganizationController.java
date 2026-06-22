@@ -1,23 +1,20 @@
+
+
+
+
 package com.lms.auth.controller;
 
+import com.lms.auth.dto.AdminOrgUpdateRequest;
 import com.lms.auth.dto.CreateOrganizationRequest;
 import com.lms.auth.dto.OrganizationResponse;
 import com.lms.auth.dto.PublicOrgResponse;
 import com.lms.auth.service.OrganizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,41 +27,40 @@ public class OrganizationController {
         this.organizationService = organizationService;
     }
 
-    // POST /api/organizations
+    // Super admin: create
     @PostMapping
     public ResponseEntity<OrganizationResponse> createOrganization(
             @RequestBody CreateOrganizationRequest request) {
-        OrganizationResponse response = organizationService.createOrganization(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(organizationService.createOrganization(request));
     }
 
-    // GET /api/organizations
+    // Super admin: get all
     @GetMapping
     public ResponseEntity<List<OrganizationResponse>> getAllOrganizations() {
         return ResponseEntity.ok(organizationService.getAllOrganizations());
     }
 
-    // GET /api/organizations/{id}
+    // Super admin + Admin: get single
     @GetMapping("/{id}")
-    public ResponseEntity<OrganizationResponse> getOrganizationById(
-            @PathVariable UUID id) {
+    public ResponseEntity<OrganizationResponse> getOrganizationById(@PathVariable UUID id) {
         return ResponseEntity.ok(organizationService.getOrganizationById(id));
     }
 
-    // GET /api/organizations/public  — no auth, student signup dropdown
+    // Public: student signup dropdown
     @GetMapping("/public")
     public ResponseEntity<List<PublicOrgResponse>> getPublicOrgs() {
         return ResponseEntity.ok(organizationService.getPublicOrgs());
     }
 
-    // PATCH /api/organizations/{id}/status?status=suspended
+    // Super admin: update status
     @PatchMapping("/{id}/status")
     public ResponseEntity<OrganizationResponse> updateOrgStatus(
-            @PathVariable UUID id,
-            @RequestParam String status) {
+            @PathVariable UUID id, @RequestParam String status) {
         return ResponseEntity.ok(organizationService.updateOrgStatus(id, status));
     }
- // PUT /api/organizations/{id} — edit org details
+
+    // Super admin: full update
     @PutMapping("/{id}")
     public ResponseEntity<OrganizationResponse> updateOrganization(
             @PathVariable UUID id,
@@ -72,11 +68,24 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationService.updateOrganization(id, request));
     }
 
-    // DELETE /api/organizations/{id}
+    // ✅ Admin self-update: only their profile fields, locked fields untouched
+    @PatchMapping("/{id}/profile")
+    public ResponseEntity<OrganizationResponse> updateOrgProfile(
+            @PathVariable UUID id,
+            @RequestBody AdminOrgUpdateRequest request) {
+        return ResponseEntity.ok(organizationService.updateOrgProfile(id, request));
+    }
+
+    // Super admin + Admin: get capacity + full profile
+    @GetMapping("/{id}/capacity")
+    public ResponseEntity<Map<String, Object>> getOrgCapacity(@PathVariable UUID id) {
+        return ResponseEntity.ok(organizationService.getOrgCapacity(id));
+    }
+
+    // Super admin: delete
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrganization(@PathVariable UUID id) {
         organizationService.deleteOrganization(id);
         return ResponseEntity.noContent().build();
     }
-    
 }

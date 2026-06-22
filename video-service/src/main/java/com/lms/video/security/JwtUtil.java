@@ -37,4 +37,10 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
+    
+ // ADD
+    public String extractOrganizationId(String token) {
+        Object orgId = getClaims(token).get("organizationId");
+        return orgId != null ? orgId.toString() : null;
+    }
 }

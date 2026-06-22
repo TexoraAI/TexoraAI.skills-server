@@ -10,7 +10,7 @@ public class RegisterRequest {
     private String email;
     private String password;
     private Role role; // STUDENT / TRAINER / ADMIN / BUSINESS
-
+    private String organizationId;
     // Getter & Setter for name
     public String getName() {
         return name;
@@ -44,4 +44,6 @@ public class RegisterRequest {
     public void setRole(Role role) {
         this.role = role;
     }
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
 }

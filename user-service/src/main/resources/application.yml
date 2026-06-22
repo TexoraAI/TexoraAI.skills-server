@@ -2,18 +2,28 @@ server:
   port: ${PORT:8082}
 
 spring:
+  application:
+    name: user-service
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/usersdb}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:10}
+      minimum-idle: ${HIKARI_MIN_IDLE:2}
+      connection-timeout: 20000
+      idle-timeout: 300000
 
   jpa:
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
-    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
     properties:
       hibernate:
-        dialect: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -25,26 +35,22 @@ spring:
 
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:localhost}
-      port: ${SPRING_REDIS_PORT:6379}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
   cache:
-    type: ${SPRING_CACHE_TYPE:redis}
+    type: redis
 
 jwt:
-  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+  secret: ${JWT_SECRET:}
   expiration: ${JWT_EXPIRATION:3600000}
 
-logging:
-  level:
-    org.springframework.security: ${LOGGING_SECURITY_LEVEL:INFO}
-    org.hibernate.SQL: ${LOGGING_HIBERNATE_SQL_LEVEL:DEBUG}
-
-# ── OpenAI — set OPENAI_API_KEY in Run Configurations → Environment ──────────
 openai:
   api:
     key: ${OPENAI_API_KEY:}
 
-# ── RapidAPI LinkedIn Scraper — set in Run Configurations → Environment ───────
-# RAPIDAPI_KEY  = your key from rapidapi.com
-# No LinkedIn Client ID or Secret needed — RapidAPI handles everything
+logging:
+  level:
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO

@@ -1,8 +1,5 @@
 
 
-
-
-
 package com.lms.course.service;
 
 import com.lms.course.dto.CourseEvent;
@@ -14,11 +11,12 @@ import com.lms.course.repository.StudentBatchMapRepository;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class CourseService {
@@ -34,27 +32,46 @@ public class CourseService {
             TrainerBatchMapRepository trainerBatchRepo,
             StudentBatchMapRepository studentBatchRepo) {
 
-        this.repo = repo;
-        this.producer = producer;
+        this.repo             = repo;
+        this.producer         = producer;
         this.trainerBatchRepo = trainerBatchRepo;
         this.studentBatchRepo = studentBatchRepo;
     }
 
     // ============================
-    // CREATE COURSE (Trainer Validation)
+    // CREATE COURSE
     // ============================
+    // NEW — accepts organizationId extracted from JWT in CourseController.
+    // For org-based trainers  : validates trainerEmail + batchId + organizationId (tenant isolation).
+    // For non-org trainers     : falls back to existing trainerEmail + batchId check (no change in behavior).
     @CacheEvict(value = "coursesByEmail", key = "#email")
-    public Course create(Course course, String email) {
+    public Course create(Course course, String email, String organizationId) {
 
         course.setOwnerEmail(email);
 
-        boolean assigned =
-                trainerBatchRepo.existsByTrainerEmailAndBatchId(
-                        email, course.getBatchId());
+        if (organizationId != null) {
+            // Org-based trainer — enforce tenant isolation
+            boolean assigned = trainerBatchRepo
+                    .existsByTrainerEmailAndBatchIdAndOrganizationId(
+                            email, course.getBatchId(), organizationId);
 
-        if (!assigned) {
-            throw new RuntimeException("Trainer not assigned to this batch");
+            if (!assigned) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Trainer not assigned to this batch in your organization");
+            }
+        } else {
+            // Non-org trainer (super admin / Google / self-registered) — existing behavior
+            boolean assigned = trainerBatchRepo
+                    .existsByTrainerEmailAndBatchId(email, course.getBatchId());
+
+            if (!assigned) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Trainer not assigned to this batch");
+            }
         }
+
+        // NEW — store organizationId on the course (null for non-org users)
+        course.setOrganizationId(organizationId);
 
         Course saved = repo.save(course);
 
@@ -62,10 +79,13 @@ public class CourseService {
             producer.send(new CourseEvent(
                     "COURSE_CREATED",
                     Map.of(
-                            "courseId", saved.getId(),
-                            "title", saved.getTitle(),
-                            "ownerEmail", saved.getOwnerEmail(),
-                            "batchId", saved.getBatchId()
+                            "courseId",        saved.getId(),
+                            "title",           saved.getTitle(),
+                            "ownerEmail",      saved.getOwnerEmail(),
+                            "batchId",         saved.getBatchId(),
+                            "organizationId",  saved.getOrganizationId() != null
+                                                   ? saved.getOrganizationId()
+                                                   : ""   // downstream consumers handle empty string as no-org
                     )
             ));
         } catch (Exception e) {
@@ -84,15 +104,7 @@ public class CourseService {
     }
 
     // ============================
-//    // LIST ALL (Optional - Keep Global)
-//    // ============================
-//    @Cacheable(value = "allCourses")
-//    public List<Course> listAll() {
-//        return repo.findAll();
-//    }
-
-    // ============================
-    // GET BY ID (Student Validation Added)
+    // GET BY ID (Student Validation)
     // ============================
     @Cacheable(value = "courseById", key = "#id")
     public Course getById(Long id, String email, String role) {
@@ -100,13 +112,9 @@ public class CourseService {
         Course course = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Course not found with id " + id));
 
-        // 🔐 If STUDENT → validate batch access
         if ("STUDENT".equalsIgnoreCase(role)) {
-
-            boolean allowed =
-                    studentBatchRepo.existsByStudentEmailAndBatchId(
-                            email, course.getBatchId());
-
+            boolean allowed = studentBatchRepo
+                    .existsByStudentEmailAndBatchId(email, course.getBatchId());
             if (!allowed) {
                 throw new RuntimeException("Student not assigned to this batch");
             }
@@ -117,25 +125,7 @@ public class CourseService {
 
     // ============================
     // UPDATE COURSE
-//    // ============================
-//    @CacheEvict(value = {"courseById", "coursesByEmail", "allCourses"}, allEntries = true)
-//    public Course update(Long id, Course updated) {
-//
-//        Course existing = repo.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Course not found"));
-//
-//        if (updated.getTitle() != null)
-//            existing.setTitle(updated.getTitle());
-//
-//        if (updated.getDescription() != null)
-//            existing.setDescription(updated.getDescription());
-//
-//        if (updated.getCategory() != null)
-//            existing.setCategory(updated.getCategory());
-//
-//        return repo.save(existing);
-//    }
-
+    // ============================
     @CacheEvict(value = {"courseById", "coursesByEmail", "allCourses"}, allEntries = true)
     public Course update(Long id, Course updated) {
 
@@ -153,22 +143,14 @@ public class CourseService {
 
         Course saved = repo.save(existing);
 
-        // 🔥 Publish Kafka event
         producer.publishCourseUpdated(saved.getId());
 
         return saved;
     }
-    
-    
-    
+
     // ============================
     // DELETE COURSE
-//    // ============================
-//    @CacheEvict(value = {"courseById", "coursesByEmail", "allCourses"}, allEntries = true)
-//    public String delete(Long id) {
-//        repo.deleteById(id);
-//        return "Course deleted successfully";
-//    }
+    // ============================
     @CacheEvict(value = {"courseById", "coursesByEmail", "allCourses"}, allEntries = true)
     public String delete(Long id) {
 
@@ -176,14 +158,16 @@ public class CourseService {
             return "Course not found";
         }
 
-        // 1️⃣ Delete from DB
         repo.deleteById(id);
 
-        // 2️⃣ Publish Kafka event for cleanup
         producer.publishCourseDeleted(id);
 
         return "Course deleted successfully";
     }
+
+    // ============================
+    // GET TRAINER COURSES
+    // ============================
     public List<Course> getTrainerCourses(String email) {
 
         List<Long> batchIds = trainerBatchRepo
@@ -194,6 +178,10 @@ public class CourseService {
 
         return repo.findByBatchIdIn(batchIds);
     }
+
+    // ============================
+    // GET STUDENT COURSES
+    // ============================
     public List<Course> getStudentCourses(String studentEmail) {
 
         List<Long> batchIds = studentBatchRepo
@@ -208,25 +196,50 @@ public class CourseService {
 
         return repo.findByBatchIdIn(batchIds);
     }
+
+//    // ============================
+//    // ADMIN - LIST ALL COURSES
+//    // ============================
+//    @Cacheable(value = "allCourses")
+//    public List<Course> getAllCoursesForAdmin() {
+//        return repo.findAllByOrderByCreatedAtDesc();
+//    }
+//
+//    // ============================
+//    // ADMIN - GET COURSES BY CATEGORY
+//    // ============================
+//    @Cacheable(value = "coursesByCategory", key = "#category")
+//    public List<Course> getByCategory(String category) {
+//
+//        if (category == null || category.isBlank()) {
+//            throw new RuntimeException("Category is required");
+//        }
+//
+//        return repo.findByCategoryIgnoreCase(category);
+//    }
     
+ // GET COURSES BY ORGANIZATION
  // ============================
- // ADMIN - LIST ALL COURSES
- // ============================
- @Cacheable(value = "allCourses")
-	 public List<Course> getAllCoursesForAdmin() {
-		    return repo.findAllByOrderByCreatedAtDesc();
+ public List<Course> getCoursesByOrganization(String organizationId) {
+     if (organizationId == null || organizationId.isBlank())
+         throw new RuntimeException("organizationId is required");
+     return repo.findByOrganizationId(organizationId);
  }
  
+//GET ALL CATEGORIES (super admin)
 //============================
-//ADMIN - GET COURSES BY CATEGORY
+public List<String> getAllCategories() {
+  return repo.findAllDistinctCategories();
+}
+
 //============================
-@Cacheable(value = "coursesByCategory", key = "#category")
-public List<Course> getByCategory(String category) {
-
-  if (category == null || category.isBlank()) {
-      throw new RuntimeException("Category is required");
-  }
-
-  return repo.findByCategoryIgnoreCase(category);
+//SUPER ADMIN — independent trainer courses only (organizationId IS NULL)
+//============================
+public List<Course> getIndependentTrainerCourses() {
+return repo.findByOrganizationIdIsNull();
+}
+//SUPER ADMIN — categories from independent trainer courses only
+public List<String> getIndependentTrainerCategories() {
+ return repo.findDistinctCategoryByOrganizationIdIsNull();
 }
 }

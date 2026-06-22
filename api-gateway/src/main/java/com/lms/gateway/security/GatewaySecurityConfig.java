@@ -49,6 +49,8 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/auth/forgot-password")
                     || path.startsWith("/api/auth/reset-password")
                     || path.startsWith("/api/auth/verify-email")
+                    || path.startsWith("/api/auth/check-google") 
+                     
                     || path.startsWith("/api/student/apply")
                     || path.startsWith("/api/trainer/apply")
                     || path.startsWith("/api/business/apply")
@@ -63,6 +65,7 @@ public class GatewaySecurityConfig {
                     || path.startsWith("/api/organizations/")
                     || path.startsWith("/api/live-sessions/public/")
                     || path.startsWith("/api/live-sessions/public/upcoming")
+                    || path.startsWith("/api/live-sessions/v1/booking/public/")
                     ||path.startsWith("/api/files/view/")
                     || path.equals("/api/v1/notification/newsletter/subscribe")
                     || path.equals("/api/v1/notification/newsletter/unsubscribe")
@@ -142,6 +145,11 @@ public class GatewaySecurityConfig {
 
             String role = claims.get("role", String.class);
 
+         // ================= SUPER_ADMIN — full access to everything =================
+            if ("SUPER_ADMIN".equalsIgnoreCase(role)) {
+                return chain.filter(exchange);
+            }
+            
             // ================= MISSING LOGIC #2 =================
             // ✅ SEARCH SERVICE (no role restriction)
             if (path.startsWith("/api/search")) {
@@ -915,15 +923,23 @@ public class GatewaySecurityConfig {
          // ================= BATCH & BRANCH SERVICE (FINAL CLEAN FIX) =================
 
          // ---------- BRANCH ----------
+//         if (path.startsWith("/api/branch")) {
+//
+//             // Only ADMIN can manage branches
+//             if (!"ADMIN".equalsIgnoreCase(role)) {
+//                 exchange.getResponse()
+//                         .setStatusCode(HttpStatus.FORBIDDEN);
+//                 return exchange.getResponse().setComplete();
+//             }
+//
+//             return chain.filter(exchange);
+//         }
+      // ---------- BRANCH ----------
          if (path.startsWith("/api/branch")) {
-
-             // Only ADMIN can manage branches
-             if (!"ADMIN".equalsIgnoreCase(role)) {
-                 exchange.getResponse()
-                         .setStatusCode(HttpStatus.FORBIDDEN);
+             if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role)) {
+                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                  return exchange.getResponse().setComplete();
              }
-
              return chain.filter(exchange);
          }
 
@@ -938,6 +954,15 @@ public class GatewaySecurityConfig {
 
         		        exchange.getResponse()
         		                .setStatusCode(HttpStatus.FORBIDDEN);
+        		        return exchange.getResponse().setComplete();
+        		    }
+
+        		    return chain.filter(exchange);
+        		}
+        	 if (path.startsWith("/api/departments")) {
+
+        		    if (!"ADMIN".equalsIgnoreCase(role)) {
+        		        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
         		        return exchange.getResponse().setComplete();
         		    }
 
@@ -960,16 +985,21 @@ public class GatewaySecurityConfig {
              }
 
              // ADMIN → create / manage batches
-             if (!"ADMIN".equalsIgnoreCase(role)) {
-                 exchange.getResponse()
-                         .setStatusCode(HttpStatus.FORBIDDEN);
-                 return exchange.getResponse().setComplete();
-             }
-
-             return chain.filter(exchange);
+//             if (!"ADMIN".equalsIgnoreCase(role)) {
+//                 exchange.getResponse()
+//                         .setStatusCode(HttpStatus.FORBIDDEN);
+//                 return exchange.getResponse().setComplete();
+//             }
+//
+//             return chain.filter(exchange);
+//         }
+             if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role)) {
+            	    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+            	    return exchange.getResponse().setComplete();
+            	}
+            	return chain.filter(exchange);
+         
          }
-         
-         
       // ---------- CHAT ----------
          if (path.startsWith("/api/chat")) {
 

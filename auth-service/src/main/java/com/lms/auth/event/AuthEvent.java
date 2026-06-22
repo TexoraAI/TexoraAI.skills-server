@@ -1,8 +1,6 @@
 
 
 
-
-
 package com.lms.auth.event;
 
 public class AuthEvent {
@@ -12,65 +10,65 @@ public class AuthEvent {
     private String email;
     private String role;
     private String displayName;
+    private String organizationId;
 
-    // ✅ REQUIRED by Jackson
-    public AuthEvent() {
+    // NEW — batch limit fields (null for all non-org events)
+    private Integer maxDepartments;
+    private Integer maxBranchesPerDept;
+    private Integer maxBatchesPerBranch;
+
+    // ── EXISTING constructor — DO NOT TOUCH, used everywhere ──
+    public AuthEvent(String eventType, Long userId, String email,
+                     String role, String displayName, String organizationId) {
+        this.eventType      = eventType;
+        this.userId         = userId;
+        this.email          = email;
+        this.role           = role;
+        this.displayName    = displayName;
+        this.organizationId = organizationId;
     }
 
-    // ✅ REQUIRED by your service code
-    public AuthEvent(
-            String eventType,
-            Long userId,
-            String email,
-            String role,
-            String displayName
-    ) {
-        this.eventType = eventType;
-        this.userId = userId;
-        this.email = email;
-        this.role = role;
-        this.displayName = displayName;
+    // ── NEW constructor — used only for ORG_CREATED / ORG_UPDATED with limits ──
+    public AuthEvent(String eventType, Long userId, String email,
+                     String role, String displayName, String organizationId,
+                     Integer maxDepartments, Integer maxBranchesPerDept,
+                     Integer maxBatchesPerBranch) {
+        this.eventType           = eventType;
+        this.userId              = userId;
+        this.email               = email;
+        this.role                = role;
+        this.displayName         = displayName;
+        this.organizationId      = organizationId;
+        this.maxDepartments      = maxDepartments;
+        this.maxBranchesPerDept  = maxBranchesPerDept;
+        this.maxBatchesPerBranch = maxBatchesPerBranch;
     }
 
-    // -------- getters & setters --------
+    // ── Getters & Setters ──
+    public String getEventType()      { return eventType; }
+    public void setEventType(String v){ this.eventType = v; }
 
-    public String getEventType() {
-        return eventType;
-    }
+    public Long getUserId()           { return userId; }
+    public void setUserId(Long v)     { this.userId = v; }
 
-    public Long getUserId() {
-        return userId;
-    }
+    public String getEmail()          { return email; }
+    public void setEmail(String v)    { this.email = v; }
 
-    public String getEmail() {
-        return email;
-    }
+    public String getRole()           { return role; }
+    public void setRole(String v)     { this.role = v; }
 
-    public String getRole() {
-        return role;
-    }
+    public String getDisplayName()    { return displayName; }
+    public void setDisplayName(String v){ this.displayName = v; }
 
-    public String getDisplayName() {
-        return displayName;
-    }
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String v){ this.organizationId = v; }
 
-    public void setEventType(String eventType) {
-        this.eventType = eventType;
-    }
+    public Integer getMaxDepartments()       { return maxDepartments; }
+    public void setMaxDepartments(Integer v) { this.maxDepartments = v; }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+    public Integer getMaxBranchesPerDept()       { return maxBranchesPerDept; }
+    public void setMaxBranchesPerDept(Integer v) { this.maxBranchesPerDept = v; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
+    public Integer getMaxBatchesPerBranch()       { return maxBatchesPerBranch; }
+    public void setMaxBatchesPerBranch(Integer v) { this.maxBatchesPerBranch = v; }
 }

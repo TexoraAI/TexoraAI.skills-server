@@ -2,28 +2,62 @@ server:
   port: ${PORT:8081}
 
 spring:
+  application:
+    name: auth-service
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/authdb}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      pool-name: AuthHikariPool
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:15}
+      minimum-idle: ${HIKARI_MIN_IDLE:5}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT:20000}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT:300000}
+      max-lifetime: ${HIKARI_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${HIKARI_LEAK_DETECTION:60000}
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: ${SHOW_SQL:false}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
 
-  cache:
-    type: ${SPRING_CACHE_TYPE:redis}
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:localhost}
-      port: ${SPRING_REDIS_PORT:6379}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:2000ms}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:10}
+          max-idle: ${REDIS_POOL_MAX_IDLE:5}
+          min-idle: ${REDIS_POOL_MIN_IDLE:2}
+          max-wait: ${REDIS_POOL_MAX_WAIT:1000ms}
+
+  cache:
+    type: redis
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: ${KAFKA_PRODUCER_ACKS:1}
+      retries: ${KAFKA_PRODUCER_RETRIES:3}
+      properties:
+        max.block.ms: 5000
+        request.timeout.ms: 5000
     consumer:
       group-id: auth-service-group
       auto-offset-reset: earliest
@@ -35,8 +69,8 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:sk5881998@gmail.com}
-    password: ${MAIL_PASSWORD:yztg xbim ggyw qmyj}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -48,11 +82,25 @@ spring:
           writetimeout: 5000
 
 jwt:
-  secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:3600000}
 
 google:
-  client-id: ${GOOGLE_CLIENT_ID:572421778240-akk3kkb4f60ukuv9pcfrpg2ielm09thk.apps.googleusercontent.com}
+  client-id: ${GOOGLE_CLIENT_ID}
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+
+seed:
+  admin:
+    email: ${SEED_ADMIN_EMAIL}
+    password: ${SEED_ADMIN_PASSWORD}
+  reset:
+    password: ${SEED_RESET_PASSWORD:false}
+
+aws:
+  region: ${AWS_REGION_SES:us-east-1}
+  access-key-id: ${AWS_ACCESS_KEY:}
+  secret-access-key: ${AWS_SECRET_KEY:}
+  ses:
+    sender: ${SES_FROM_EMAIL:no-reply@texora.ai}

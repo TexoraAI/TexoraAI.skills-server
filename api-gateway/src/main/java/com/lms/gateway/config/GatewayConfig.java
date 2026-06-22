@@ -88,7 +88,7 @@ public class GatewayConfig {
                     "/api/student/**",
                     "/api/trainer/**",
                     "/api/business/**",
-                    "/api/admin/**",
+//                    "/api/admin/**",
                     "/api/organizations/**"
             ).uri(authService))
 
@@ -102,7 +102,8 @@ public class GatewayConfig {
          // ================= COURSE =================
             .route("course-service", r -> r.path(
                     "/api/courses/**",
-                    "/api/featured-courses/**"   // ✅ ADD THIS
+                    "/api/featured-courses/**",   // ✅ ADD THIS
+                    "/api/course-feature-flags/**"
             ).uri(courseService))
             // ================= CONTENT =================
             .route("content-service", r -> r.path("/api/content/**")
@@ -213,7 +214,9 @@ public class GatewayConfig {
             // ================= BATCH + BRANCH (✅ FIXED) =================
             .route("batch-service", r -> r.path(
                     "/api/batch/**",
-                    "/api/branch/**"
+                    "/api/branch/**",
+                    "/api/departments/**",
+                    "/api/feature-flags/**"
             ).uri(batchService))
             
          // ================= CHAT SERVICE (✅ NEW) =================
@@ -236,8 +239,7 @@ public class GatewayConfig {
                     "/api/attendance/**",
                     "/api/v1/live-sessions/**",    // ← ADD: whiteboard endpoints
                     "/api/v1/ai-companion/**"      // ← ADD: AI companion endpoints
-            ).uri(liveSessionService))
- 
-            .build();
+            )
+            		.uri(liveSessionService)).build();
     }
 }

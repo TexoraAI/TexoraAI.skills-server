@@ -1,10 +1,86 @@
+//package com.lms.auth.model;
+//
+//import jakarta.persistence.*;
+//import java.time.LocalDateTime;
+//
+//@Entity
+//@Table(name = "email_verification_tokens")
+//public class EmailVerificationToken {
+//
+//    @Id
+//    @GeneratedValue(strategy = GenerationType.IDENTITY)
+//    private Long id;
+//
+//    @Column(nullable = false, unique = true, length = 200)
+//    private String token;
+//
+//    @Column(nullable = false)
+//    private LocalDateTime expiryTime;
+//
+//    @OneToOne
+//    @JoinColumn(name = "user_id", nullable = false, unique = true)
+//    private User user;
+//
+//    public EmailVerificationToken() {
+//    }
+//
+//    public EmailVerificationToken(String token, LocalDateTime expiryTime, User user) {
+//        this.token = token;
+//        this.expiryTime = expiryTime;
+//        this.user = user;
+//    }
+//
+//    public Long getId() {
+//        return id;
+//    }
+//
+//    public String getToken() {
+//        return token;
+//    }
+//
+//    public LocalDateTime getExpiryTime() {
+//        return expiryTime;
+//    }
+//
+//    public User getUser() {
+//        return user;
+//    }
+//
+//    public void setId(Long id) {
+//        this.id = id;
+//    }
+//
+//    public void setToken(String token) {
+//        this.token = token;
+//    }
+//
+//    public void setExpiryTime(LocalDateTime expiryTime) {
+//        this.expiryTime = expiryTime;
+//    }
+//
+//    public void setUser(User user) {
+//        this.user = user;
+//    }
+//}
+// OPTIMIZATION: Added @Index on token (unique) and user_id (unique).
+// Added FetchType.LAZY on @OneToOne to prevent loading full User
+// entity on every token lookup.
+
 package com.lms.auth.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "email_verification_tokens")
+@Table(
+    name = "email_verification_tokens",
+    indexes = {
+        @Index(name = "idx_evt_token",
+               columnList = "token", unique = true),
+        @Index(name = "idx_evt_user_id",
+               columnList = "user_id", unique = true)
+    }
+)
 public class EmailVerificationToken {
 
     @Id
@@ -17,12 +93,13 @@ public class EmailVerificationToken {
     @Column(nullable = false)
     private LocalDateTime expiryTime;
 
-    @OneToOne
+    // OPTIMIZATION: Changed to LAZY — previously EAGER by default on @OneToOne.
+    // findByToken/findByUserId no longer loads the full User entity.
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    public EmailVerificationToken() {
-    }
+    public EmailVerificationToken() {}
 
     public EmailVerificationToken(String token, LocalDateTime expiryTime, User user) {
         this.token = token;
@@ -30,35 +107,12 @@ public class EmailVerificationToken {
         this.user = user;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public LocalDateTime getExpiryTime() {
-        return expiryTime;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
-    }
-
-    public void setExpiryTime(LocalDateTime expiryTime) {
-        this.expiryTime = expiryTime;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
+    public Long getId() { return id; }
+    public String getToken() { return token; }
+    public LocalDateTime getExpiryTime() { return expiryTime; }
+    public User getUser() { return user; }
+    public void setId(Long id) { this.id = id; }
+    public void setToken(String token) { this.token = token; }
+    public void setExpiryTime(LocalDateTime expiryTime) { this.expiryTime = expiryTime; }
+    public void setUser(User user) { this.user = user; }
 }

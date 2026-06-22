@@ -1,5 +1,5 @@
 package com.lms.video.repository;
-
+import java.util.Optional;
 import com.lms.video.model.CourseVideo;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -14,4 +14,5 @@ public interface CourseVideoRepository extends JpaRepository<CourseVideo, Long> 
     void deleteByModuleId(Long moduleId);
 
     void deleteByCourseId(Long courseId);
+    Optional<CourseVideo> findByUrl(String url);
 }

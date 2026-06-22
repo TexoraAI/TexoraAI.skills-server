@@ -23,16 +23,30 @@ public class JwtUtil {
             Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
     // ✅ UPDATED: NOW INCLUDES userId
+//    public String generateToken(User user) {
+//
+//        return Jwts.builder()
+//                .setSubject(user.getEmail())
+//                .claim("role", user.getRole().name())
+//                .claim("userId", user.getId())     // 🔥 THIS LINE FIXES EVERYTHING
+//                .setIssuedAt(new Date())
+//                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
+//                .signWith(key, SignatureAlgorithm.HS256)
+//                .compact();
+//    }
     public String generateToken(User user) {
-
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(user.getEmail())
                 .claim("role", user.getRole().name())
-                .claim("userId", user.getId())     // 🔥 THIS LINE FIXES EVERYTHING
+                .claim("userId", user.getId())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_MS));
+
+        if (user.getOrganizationId() != null) {
+            builder.claim("organizationId", user.getOrganizationId().toString());
+        }
+
+        return builder.signWith(key, SignatureAlgorithm.HS256).compact();
     }
     // ✅ ADD THIS METHOD
     public String extractEmail(String token) {

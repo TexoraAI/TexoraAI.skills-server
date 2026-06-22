@@ -13,16 +13,17 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 @Service
 public class AIResumeService {
-
+	
     private static final Logger log = LoggerFactory.getLogger(AIResumeService.class);
 
     @Value("${openai.api.key:}")
@@ -32,7 +33,7 @@ public class AIResumeService {
     private static final String RESPONSES_URL = "https://api.openai.com/v1/responses";
     private static final String MODEL         = "gpt-4o";
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = buildRestTemplate();
     private final ObjectMapper objectMapper  = new ObjectMapper();
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -887,4 +888,13 @@ public class AIResumeService {
 
     private String nvl(String v)               { return v != null ? v.trim() : ""; }
     private String nvl(String v, String defVal){ return (v != null && !v.isBlank()) ? v.trim() : defVal; }
+    
+ // OPTIMIZATION: RestTemplate with explicit timeouts — OpenAI can take 5-30 seconds
+    // WHY: Without timeout, a slow OpenAI call holds a Tomcat thread indefinitely, exhausting thread pool
+    private RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);   // 5s to establish connection
+        factory.setReadTimeout(120_000);    // 120s max for OpenAI to respond (PDF parse can be slow)
+        return new RestTemplate(factory);
+    }
 }

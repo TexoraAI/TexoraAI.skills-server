@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
-
+import org.springframework.data.domain.Page;
 @RestController
 @RequestMapping("/api/v1/resume")
 public class ResumeController {
@@ -50,14 +50,22 @@ public class ResumeController {
                 .body(resumeService.createResume(userId, request));
     }
 
-    // GET ALL
+//    // GET ALL
+//    @GetMapping("/{userId}")
+//    public ResponseEntity<List<ResumeResponseDTO>> getAllResumes(
+//            @PathVariable Long userId) {
+//
+//        return ResponseEntity.ok(resumeService.getAllResumes(userId));
+//    }
+ // GET ALL
     @GetMapping("/{userId}")
-    public ResponseEntity<List<ResumeResponseDTO>> getAllResumes(
-            @PathVariable Long userId) {
+    public ResponseEntity<Page<ResumeResponseDTO>> getAllResumes(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
 
-        return ResponseEntity.ok(resumeService.getAllResumes(userId));
+        return ResponseEntity.ok(resumeService.getAllResumes(userId, page, size));
     }
-
     // GET ONE
     @GetMapping("/{userId}/{resumeId}")
     public ResponseEntity<ResumeResponseDTO> getResume(
