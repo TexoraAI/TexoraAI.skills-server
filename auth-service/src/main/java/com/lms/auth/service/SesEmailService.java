@@ -83,7 +83,7 @@ public class SesEmailService {
                     </div>
 
                     <div style="text-align:center;margin-top:24px;">
-                        <a href="https://ilmora.com/upgrade"
+                        <a href="https://ilm.ora.texora.ai/pricing"
                            style="background:linear-gradient(135deg,#6366f1,#8b5cf6);
                                   color:white;padding:14px 36px;border-radius:9px;
                                   text-decoration:none;font-weight:bold;
