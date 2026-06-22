@@ -11,13 +11,13 @@ import software.amazon.awssdk.services.ses.model.*;
 @Service
 public class SesEmailService {
 
-    @Value("${aws.access-key-id}")
+    @Value("${aws.ses.access-key-id}")
     private String accessKey;
 
-    @Value("${aws.secret-access-key}")
+    @Value("${aws.ses.secret-access-key}")
     private String secretKey;
 
-    @Value("${aws.region}")
+    @Value("${aws.ses.region}")
     private String region;
 
     @Value("${aws.ses.sender}")

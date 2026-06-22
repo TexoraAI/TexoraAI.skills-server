@@ -98,9 +98,20 @@ seed:
   reset:
     password: ${SEED_RESET_PASSWORD:false}
 
+# -----------------------------------------------------------------------------
+# AWS / SES config — namespaced under aws.ses.* (NOT aws.region / aws.access-key-id)
+# on purpose. Spring Boot's relaxed env-var binding will auto-map an env var
+# named AWS_REGION directly to a property named "aws.region" regardless of
+# what placeholder you write here, and env vars outrank this yml file. Other
+# services in this stack use AWS_REGION for S3 (ap-south-1), which was
+# silently overriding this SES config's intended us-east-1. Nesting under
+# aws.ses.* makes the canonical property name "aws.ses.region", which no
+# AWS-conventional env var (AWS_REGION, AWS_ACCESS_KEY_ID, etc.) can collide
+# with. Do not flatten this back to aws.region / aws.access-key-id.
+# -----------------------------------------------------------------------------
 aws:
-  region: ${AWS_REGION_SES:us-east-1}
-  access-key-id: ${AWS_ACCESS_KEY:}
-  secret-access-key: ${AWS_SECRET_KEY:}
   ses:
+    region: ${AWS_REGION_SES:us-east-1}
+    access-key-id: ${AWS_ACCESS_KEY:}
+    secret-access-key: ${AWS_SECRET_KEY:}
     sender: ${SES_FROM_EMAIL:no-reply@texora.ai}
