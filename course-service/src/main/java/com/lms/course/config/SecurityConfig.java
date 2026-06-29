@@ -37,7 +37,8 @@ public class SecurityConfig {
                         "/api/content/course/**",
                         "/api/content/student/course/**",
                         "/api/featured-courses/**",
-                       " /api/course-feature-flags/**"
+                       " /api/course-feature-flags/**",
+                       "/api/course/v1/featurecourse/**" 
                 ).permitAll()
 
                 // 🔐 Everything else requires JWT

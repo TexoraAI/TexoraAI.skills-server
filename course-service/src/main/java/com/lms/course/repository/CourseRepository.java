@@ -34,4 +34,15 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Query("SELECT DISTINCT c.category FROM Course c WHERE c.organizationId IS NULL AND c.category IS NOT NULL ORDER BY c.category")
     List<String> findDistinctCategoryByOrganizationIdIsNull();
 //    List<String> findDistinctCategoryByOrganizationIdIsNull();
+    
+ // Trainer sees courses assigned to them by admin
+    List<Course> findByAssignedTrainerEmailAndOrganizationId(
+            String assignedTrainerEmail, String organizationId);
+
+    // Admin clicks trainer email → all courses in org belonging to that trainer
+    List<Course> findByOrganizationIdAndAssignedTrainerEmail(
+            String organizationId, String assignedTrainerEmail);
+  
+
+   
 }

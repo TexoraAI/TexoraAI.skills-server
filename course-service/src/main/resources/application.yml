@@ -70,6 +70,9 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:3600000}
 
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:8082}
+
 topics:
   batch-assignment: ${TOPIC_BATCH_ASSIGNMENT:batch-assignment}
   batch-lifecycle: ${TOPIC_BATCH_LIFECYCLE:batch-lifecycle}

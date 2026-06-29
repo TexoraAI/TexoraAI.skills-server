@@ -103,7 +103,8 @@ public class GatewayConfig {
             .route("course-service", r -> r.path(
                     "/api/courses/**",
                     "/api/featured-courses/**",   // ✅ ADD THIS
-                    "/api/course-feature-flags/**"
+                    "/api/course-feature-flags/**",
+                    "/api/course/v1/featurecourse/**" 
             ).uri(courseService))
             // ================= CONTENT =================
             .route("content-service", r -> r.path("/api/content/**")
@@ -118,7 +119,9 @@ public class GatewayConfig {
             .route("video-service", r -> r.path(
                     "/api/video/**",
                     "/api/course-videos/**",
-                    "/api/upload-course/**"   // ✅ ADD THIS
+                    "/api/v1/watch-now/**",   // ✅ ADD THIS
+                    "/api/video-feature-flags/**"
+                    
             ).uri(videoService))
          
          // ================= VIDEO STATIC FILES =================

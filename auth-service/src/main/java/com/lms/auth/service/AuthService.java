@@ -61,7 +61,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
-
+import com.lms.auth.dto.AdminUpdateUserRequest;
+import com.lms.auth.dto.AdminUserViewDTO;
 @Service
 public class AuthService {
 
@@ -126,16 +127,119 @@ public class AuthService {
     }
 
     // OPTIMIZATION: Added @Transactional — if Kafka send fails or org lookup throws,
-    // the user save is rolled back, preventing orphaned auth users.
+ 
+//
+ // CHANGE: When admin creates a user (organizationId is set on the request),
+//  send "Set your password" email instead of the welcome email.
+//  Welcome email fires in resetPassword() after they set their password.
+//When a user self-registers (no organizationId), welcome fires immediately
+//  as before (they already chose their own password).
+
+//
+//    
+//    @Transactional
+//    public void register(RegisterRequest request, String requesterEmail) {
+//        if (userRepository.existsByEmail(request.getEmail())) {
+//            User existing = userRepository.findByEmail(request.getEmail()).get();
+//            if (existing.isEmailVerified() && !existing.isApproved()) {
+//                existing.setName(request.getName());
+//                existing.setRole(request.getRole() != null ? request.getRole() : existing.getRole());
+//                userRepository.save(existing);
+//                return;
+//            }
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+//        }
+//
+//        User user = new User();
+//        user.setName(request.getName());
+//        user.setEmail(request.getEmail());
+//        user.setPassword(
+//            request.getPassword() != null
+//                ? passwordEncoder.encode(request.getPassword())
+//                : passwordEncoder.encode(UUID.randomUUID().toString())
+//        );
+//        user.setRole(request.getRole() != null ? request.getRole() : Role.STUDENT);
+//        user.setApproved(true);
+//        user.setEmailVerified(true);
+//
+//        // ── Admin-created is decided by the CALLER's role, not by organizationId.
+//        // Fixes SUPER_ADMIN (no org) and TENANT_ADMIN creating an org-less user.
+//        boolean createdByAdmin = false;
+//        if (requesterEmail != null) {
+//            User requester = userRepository.findByEmail(requesterEmail).orElse(null);
+//            if (requester != null &&
+//                    (requester.getRole() == Role.TENANT_ADMIN || requester.getRole() == Role.SUPER_ADMIN)) {
+//                createdByAdmin = true;
+//            }
+//        }
+//        user.setPasswordSet(!createdByAdmin);
+//
+//        if (request.getOrganizationId() != null) {
+//            user.setOrganizationId(UUID.fromString(request.getOrganizationId()));
+//        }
+//
+//        if (user.getOrganizationId() != null) {
+//            Organization org = organizationRepository
+//                .findById(user.getOrganizationId())
+//                .orElse(null);
+//
+//            if (org != null) {
+//                if (user.getRole() == Role.STUDENT && org.getMaxStudents() != null) {
+//                    long count = userRepository.countByOrganizationIdAndRole(
+//                        org.getId(), Role.STUDENT);
+//                    if (count >= org.getMaxStudents()) {
+//                        throw new ResponseStatusException(
+//                            HttpStatus.FORBIDDEN,
+//                            "Student limit reached. Max allowed: " + org.getMaxStudents());
+//                    }
+//                }
+//                if (user.getRole() == Role.TRAINER && org.getMaxTrainers() != null) {
+//                    long count = userRepository.countByOrganizationIdAndRole(
+//                        org.getId(), Role.TRAINER);
+//                    if (count >= org.getMaxTrainers()) {
+//                        throw new ResponseStatusException(
+//                            HttpStatus.FORBIDDEN,
+//                            "Trainer limit reached. Max allowed: " + org.getMaxTrainers());
+//                    }
+//                }
+//            }
+//        }
+//
+//        User savedUser = userRepository.save(user);
+//
+//        authEventProducer.sendEvent(new AuthEvent(
+//            "USER_CREATED",
+//            savedUser.getId(),
+//            savedUser.getEmail(),
+//            savedUser.getRole().name(),
+//            savedUser.getName(),
+//            savedUser.getOrganizationId() != null
+//                ? savedUser.getOrganizationId().toString()
+//                : null
+//        ));
+//
+//        if (createdByAdmin) {
+//            String resetToken = UUID.randomUUID().toString();
+//            redisTemplate.opsForValue().set(
+//                "auth:reset:" + resetToken,
+//                savedUser.getEmail(),
+//                java.time.Duration.ofMinutes(15)
+//            );
+//            String setPasswordLink = frontendUrl + "/reset-password?token=" + resetToken;
+//            sesEmailService.sendSetPasswordEmail(savedUser.getEmail(), savedUser.getName(), setPasswordLink);
+//        } else {
+//            sesEmailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getName());
+//        }
+//    }
     @Transactional
-    public void register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request, String requesterEmail) {
         if (userRepository.existsByEmail(request.getEmail())) {
             User existing = userRepository.findByEmail(request.getEmail()).get();
             if (existing.isEmailVerified() && !existing.isApproved()) {
                 existing.setName(request.getName());
                 existing.setRole(request.getRole() != null ? request.getRole() : existing.getRole());
                 userRepository.save(existing);
-                return;
+                return null;
             }
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
@@ -151,6 +255,16 @@ public class AuthService {
         user.setRole(request.getRole() != null ? request.getRole() : Role.STUDENT);
         user.setApproved(true);
         user.setEmailVerified(true);
+
+        boolean createdByAdmin = false;
+        if (requesterEmail != null) {
+            User requester = userRepository.findByEmail(requesterEmail).orElse(null);
+            if (requester != null &&
+                    (requester.getRole() == Role.TENANT_ADMIN || requester.getRole() == Role.SUPER_ADMIN)) {
+                createdByAdmin = true;
+            }
+        }
+        user.setPasswordSet(!createdByAdmin);
 
         if (request.getOrganizationId() != null) {
             user.setOrganizationId(UUID.fromString(request.getOrganizationId()));
@@ -195,10 +309,27 @@ public class AuthService {
                 ? savedUser.getOrganizationId().toString()
                 : null
         ));
-     // ← ADD THIS ONE LINE
-        sesEmailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getName());
-    }
 
+        if (createdByAdmin) {
+            String resetToken = UUID.randomUUID().toString();
+            redisTemplate.opsForValue().set(
+                "auth:reset:" + resetToken,
+                savedUser.getEmail(),
+                java.time.Duration.ofMinutes(15)
+            );
+            String setPasswordLink = frontendUrl + "/reset-password?token=" + resetToken;
+            sesEmailService.sendSetPasswordEmail(savedUser.getEmail(), savedUser.getName(), setPasswordLink);
+            return null;
+        } else {
+            sesEmailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getName());
+            String token = jwtUtil.generateToken(savedUser);
+            AuthResponse response = new AuthResponse(token, savedUser.getEmail(), savedUser.getRole().name(), savedUser.getName());
+            response.setNewUser(true);
+            response.setProfileCompleted(false);
+            response.setOrganizationId(null);
+            return response;
+        }
+    }
     // ─────────────────────── EMAIL LOGIN ────────────────────────────────────
     // SECURITY SENSITIVE — not cached, not changed structurally
     public AuthResponse authenticate(String email, String password) {
@@ -382,8 +513,35 @@ public class AuthService {
         emailService.sendResetPasswordMail(email, resetLink);
     }
 
+
+ // ══════════════════════ 2. resetPassword() ═══════════════════════════════════
+ // CHANGE: After successful reset, send the welcome email.
+ //   This covers both cases:
+ //   • Admin-created users setting their password for the first time.
+ //   • Existing users resetting a forgotten password (welcome is benign here).
+
+//     public void resetPassword(String token, String newPassword) {
+//         Object emailObj = redisTemplate.opsForValue().get("auth:reset:" + token);
+//         if (emailObj == null) {
+//             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+//                     "Invalid or expired token");
+//         }
+//         String email = emailObj.toString();
+//         User user = userRepository.findByEmail(email)
+//                 .orElseThrow(() -> new ResponseStatusException(
+//                         HttpStatus.NOT_FOUND, "User not found"));
+//         user.setPassword(passwordEncoder.encode(newPassword));
+//         userRepository.save(user);
+//
+//         // Delete token from Redis after use (prevent reuse)
+//         redisTemplate.delete("auth:reset:" + token);
+//
+//         // Send welcome email now that the account is fully activated.
+//         sesEmailService.sendWelcomeEmail(user.getEmail(), user.getName());
+//     }
+
+
     public void resetPassword(String token, String newPassword) {
-        // OPTIMIZATION: Read token from Redis instead of ConcurrentHashMap
         Object emailObj = redisTemplate.opsForValue().get("auth:reset:" + token);
         if (emailObj == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -394,12 +552,13 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "User not found"));
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordSet(true);
         userRepository.save(user);
 
-        // OPTIMIZATION: Delete token from Redis after use (prevent reuse)
         redisTemplate.delete("auth:reset:" + token);
+
+        sesEmailService.sendWelcomeEmail(user.getEmail(), user.getName());
     }
-    
     
     // ─────────────────────── MARK PROFILE COMPLETED ─────────────────────────
     // Call once, right after ANY role-specific Details/Org save succeeds on
@@ -413,6 +572,33 @@ public class AuthService {
         user.setProfileCompleted(true);
         userRepository.save(user);
     }
+    
+ // Bug 3 fix: mirrors what authenticateGoogle() already does for Google
+ // users, but for manual-signup users authenticating via JWT.
+ @Transactional
+ public void saveOnboardingForCurrentUser(String email, Role role,
+         Map<String, List<String>> onboardingAnswers) {
+     User user = userRepository.findByEmail(email)
+             .orElseThrow(() -> new ResponseStatusException(
+                     HttpStatus.NOT_FOUND, "User not found"));
+
+     if (role != null) {
+         user.setRole(role);
+     }
+
+     if (onboardingAnswers != null && !onboardingAnswers.isEmpty()) {
+         try {
+             user.setOnboardingAnswers(objectMapper.writeValueAsString(onboardingAnswers));
+             user.setOnboardingStatus("COMPLETED");
+         } catch (Exception e) {
+             System.err.println("Failed to save onboarding for " + email + ": " + e.getMessage());
+         }
+     } else {
+         user.setOnboardingStatus("COMPLETED");
+     }
+
+     userRepository.save(user);
+ }
     // ─────────────────────── EMAIL VERIFICATION ─────────────────────────────
     public void verifyEmail(String email, String token) {
         User user = userRepository.findByEmail(email)
@@ -721,4 +907,213 @@ public class AuthService {
 	    return result;
 	}
  
+//─────────────────────── ADMIN: LIST USERS (with password status) ───────
+public List<AdminUserViewDTO> getOrgUsersForAdmin(String requesterEmail) {
+  User requester = userRepository.findByEmail(requesterEmail)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+
+  List<User> targetUsers;
+  if (requester.getRole() == Role.SUPER_ADMIN) {
+      targetUsers = userRepository.findAll(); // platform-wide view
+  } else {
+      if (requester.getOrganizationId() == null) {
+          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No organization linked to this account");
+      }
+      targetUsers = userRepository.findByOrganizationId(requester.getOrganizationId());
+  }
+
+  List<AdminUserViewDTO> result = new java.util.ArrayList<>();
+  for (User u : targetUsers) {
+      AdminUserViewDTO dto = new AdminUserViewDTO();
+      dto.setId(u.getId());
+      dto.setName(u.getName());
+      dto.setEmail(u.getEmail());
+      dto.setRole(u.getRole().name());
+      dto.setBlocked(u.isBlocked());
+      dto.setPasswordSet(Boolean.TRUE.equals(u.getPasswordSet()));
+      result.add(dto);
+  }
+  return result;
+}
+
+//─────────────────────── ADMIN: UPDATE USER (name / email / role only) ──
+//No password field by design — admin can only resend the set-password
+//email (see adminResendSetPasswordEmail below), never set it directly.
+@Transactional
+public void adminUpdateUser(Long userId, AdminUpdateUserRequest req, String requesterEmail) {
+
+  User requester = userRepository.findByEmail(requesterEmail)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+  User target = userRepository.findById(userId)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+  boolean isSuperAdmin = requester.getRole() == Role.SUPER_ADMIN;
+  if (!isSuperAdmin) {
+      if (requester.getOrganizationId() == null
+              || target.getOrganizationId() == null
+              || !requester.getOrganizationId().equals(target.getOrganizationId())) {
+          throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                  "You can only manage users in your own organization");
+      }
+  }
+
+  boolean nameChanged  = false;
+  boolean emailChanged = false;
+
+  if (isSet(req.getName()) && !req.getName().trim().equals(target.getName())) {
+      target.setName(req.getName().trim());
+      nameChanged = true;
+  }
+
+  if (isSet(req.getEmail()) && !req.getEmail().trim().equalsIgnoreCase(target.getEmail())) {
+      String newEmail = req.getEmail().trim();
+      if (userRepository.existsByEmail(newEmail)) {
+          throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+      }
+      target.setEmail(newEmail);
+      emailChanged = true;
+  }
+
+  if (isSet(req.getRole())) {
+      try {
+          target.setRole(Role.valueOf(req.getRole().toUpperCase()));
+      } catch (IllegalArgumentException ex) {
+          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role: " + req.getRole());
+      }
+  }
+
+  userRepository.save(target);
+
+  if (nameChanged || emailChanged || isSet(req.getRole())) {
+      authEventProducer.sendEvent(new AuthEvent(
+              "USER_UPDATED",
+              target.getId(),
+              target.getEmail(),
+              target.getRole().name(),
+              target.getName(),
+              target.getOrganizationId() != null ? target.getOrganizationId().toString() : null
+      ));
+  }
+}
+
+//─────────────────────── ADMIN: RESEND SET-PASSWORD EMAIL ───────────────
+@Transactional
+public void adminResendSetPasswordEmail(Long userId, String requesterEmail) {
+  User requester = userRepository.findByEmail(requesterEmail)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+  User target = userRepository.findById(userId)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+  boolean isSuperAdmin = requester.getRole() == Role.SUPER_ADMIN;
+  if (!isSuperAdmin) {
+      if (requester.getOrganizationId() == null
+              || target.getOrganizationId() == null
+              || !requester.getOrganizationId().equals(target.getOrganizationId())) {
+          throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                  "You can only manage users in your own organization");
+      }
+  }
+
+  if (Boolean.TRUE.equals(target.getPasswordSet())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+              "This user has already set their password");
+  }
+
+  String resetToken = UUID.randomUUID().toString();
+  redisTemplate.opsForValue().set(
+          "auth:reset:" + resetToken,
+          target.getEmail(),
+          Duration.ofMinutes(15)
+  );
+  String setPasswordLink = frontendUrl + "/reset-password?token=" + resetToken;
+  sesEmailService.sendSetPasswordEmail(target.getEmail(), target.getName(), setPasswordLink);
+}
+ 
+@Transactional
+public void adminUpdateUserByEmail(String targetEmail, AdminUpdateUserRequest req, String requesterEmail) {
+    User requester = userRepository.findByEmail(requesterEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+    User target = userRepository.findByEmail(targetEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+    boolean isSuperAdmin = requester.getRole() == Role.SUPER_ADMIN;
+    if (!isSuperAdmin) {
+        if (requester.getOrganizationId() == null
+                || target.getOrganizationId() == null
+                || !requester.getOrganizationId().equals(target.getOrganizationId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You can only manage users in your own organization");
+        }
+    }
+
+    boolean nameChanged  = false;
+    boolean emailChanged = false;
+
+    if (isSet(req.getName()) && !req.getName().trim().equals(target.getName())) {
+        target.setName(req.getName().trim());
+        nameChanged = true;
+    }
+
+    if (isSet(req.getEmail()) && !req.getEmail().trim().equalsIgnoreCase(target.getEmail())) {
+        String newEmail = req.getEmail().trim();
+        if (userRepository.existsByEmail(newEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+        }
+        target.setEmail(newEmail);
+        emailChanged = true;
+    }
+
+    if (isSet(req.getRole())) {
+        try {
+            target.setRole(Role.valueOf(req.getRole().toUpperCase()));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role: " + req.getRole());
+        }
+    }
+
+    userRepository.save(target);
+
+    if (nameChanged || emailChanged || isSet(req.getRole())) {
+        authEventProducer.sendEvent(new AuthEvent(
+                "USER_UPDATED",
+                target.getId(),
+                target.getEmail(),
+                target.getRole().name(),
+                target.getName(),
+                target.getOrganizationId() != null ? target.getOrganizationId().toString() : null
+        ));
+    }
+}
+
+@Transactional
+public void adminResendSetPasswordEmailByEmail(String targetEmail, String requesterEmail) {
+    User requester = userRepository.findByEmail(requesterEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+    User target = userRepository.findByEmail(targetEmail)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+    boolean isSuperAdmin = requester.getRole() == Role.SUPER_ADMIN;
+    if (!isSuperAdmin) {
+        if (requester.getOrganizationId() == null
+                || target.getOrganizationId() == null
+                || !requester.getOrganizationId().equals(target.getOrganizationId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You can only manage users in your own organization");
+        }
+    }
+
+    if (Boolean.TRUE.equals(target.getPasswordSet())) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "This user has already set their password");
+    }
+
+    String resetToken = UUID.randomUUID().toString();
+    redisTemplate.opsForValue().set(
+            "auth:reset:" + resetToken,
+            target.getEmail(),
+            Duration.ofMinutes(15)
+    );
+    String setPasswordLink = frontendUrl + "/reset-password?token=" + resetToken;
+    sesEmailService.sendSetPasswordEmail(target.getEmail(), target.getName(), setPasswordLink);
+}
  }

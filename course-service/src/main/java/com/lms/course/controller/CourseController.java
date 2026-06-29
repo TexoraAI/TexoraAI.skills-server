@@ -1,231 +1,10 @@
-//
-//
-//package com.lms.course.controller;
-//
-//import com.lms.course.model.Course;
-//import com.lms.course.security.JwtUtil;
-//import com.lms.course.service.CourseService;
-//import jakarta.servlet.http.HttpServletRequest;
-//import org.springframework.http.HttpStatus;
-//import org.springframework.security.access.prepost.PreAuthorize;
-//import org.springframework.security.core.Authentication;
-//import org.springframework.web.bind.annotation.*;
-//import org.springframework.web.server.ResponseStatusException;
-//
-//import java.util.List;
-//
-//@RestController
-//@RequestMapping("/api/courses")
-//public class CourseController {
-//
-//    private final CourseService service;
-//    private final JwtUtil       jwtUtil;  // NEW — same JwtUtil already used in Course Service security filter
-//
-//    public CourseController(CourseService service, JwtUtil jwtUtil) {
-//        this.service = service;
-//        this.jwtUtil = jwtUtil;
-//    }
-//
-//    // ============================
-//    // CREATE COURSE
-//    // ============================
-//    // organizationId is NOT in the request body — it is extracted silently from
-//    // the JWT token the trainer already sends with every request.
-//    // org-based trainers  : orgId present in JWT → tenant-isolated batch validation.
-//    // non-org trainers    : orgId null in JWT    → existing batch-only validation.
-//    @PostMapping
-//    public Course create(@RequestBody Course course,
-//                         Authentication auth,
-//                         HttpServletRequest request) {
-//
-//        if (auth == null || auth.getName() == null) {
-//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//        }
-//
-//        // Extract organizationId from JWT — null for non-org users, handled gracefully in service
-//        String organizationId = extractOrgId(request);
-//
-//        return service.create(course, auth.getName(), organizationId);
-//    }
-//
-//    // ============================
-//    // MY COURSES (Trainer)
-//    // ============================
-//    @GetMapping("/my")
-//    public List<Course> myCourses(Authentication auth) {
-//        if (auth == null || auth.getName() == null) {
-//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//        }
-//        return service.getTrainerCourses(auth.getName());
-//    }
-//
-//    // ============================
-//    // STUDENT COURSES
-//    // ============================
-//    @GetMapping("/student")
-//    public List<Course> studentCourses(Authentication auth) {
-//        if (auth == null) {
-//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//        }
-//        return service.getStudentCourses(auth.getName());
-//    }
-//
-//    // ============================
-//    // GET COURSE BY ID
-//    // ============================
-//    @GetMapping("/{id}")
-//    public Course getById(@PathVariable Long id, Authentication auth) {
-//        return service.getById(
-//                id,
-//                auth.getName(),
-//                auth.getAuthorities().iterator().next().getAuthority()
-//        );
-//    }
-//
-//    // ============================
-//    // UPDATE COURSE
-//    // ============================
-//    @PutMapping("/{id}")
-//    public Course update(@PathVariable Long id, @RequestBody Course updated) {
-//        return service.update(id, updated);
-//    }
-//
-//    // ============================
-//    // DELETE COURSE
-//    // ============================
-//    @DeleteMapping("/{id}")
-//    public String delete(@PathVariable Long id) {
-//        return service.delete(id);
-//    }
-//
-//    // ============================
-//    // ADMIN — GET ALL COURSES
-//    // ============================
-////    @PreAuthorize("hasRole('ADMIN')")
-////    @GetMapping("/admin")
-////    public List<Course> getAllCourses(Authentication auth) {
-////        if (auth == null) {
-////            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-////        }
-////        boolean isAdmin = auth.getAuthorities().stream()
-////                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-////        if (!isAdmin) {
-////            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied - Admin Only");
-////        }
-////        return service.getAllCoursesForAdmin();
-////    }
-////
-////    // ============================
-////    // ADMIN — GET COURSES BY CATEGORY
-////    // ============================
-////    @GetMapping("/admin/category/{category}")
-////    public List<Course> getByCategory(@PathVariable String category, Authentication auth) {
-////        if (auth == null) {
-////            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-////        }
-////        boolean isAdmin = auth.getAuthorities().stream()
-////                .anyMatch(a -> a.getAuthority().equals("ADMIN"));
-////        if (!isAdmin) {
-////            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied - Admin Only");
-////        }
-////        return service.getByCategory(category);
-////    }
-////
-// // ORG ADMIN — GET COURSES BY ORG
-// // ============================
-// @GetMapping("/org-admin")
-// public List<Course> getCoursesForOrgAdmin(
-//         Authentication auth,
-//         HttpServletRequest request) {
-//
-//     if (auth == null)
-//         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//
-//     String organizationId = extractOrgId(request);
-//     if (organizationId == null || organizationId.isBlank())
-//         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No organization found in token");
-//
-//     return service.getCoursesByOrganization(organizationId);
-// }
-// 
-////SUPER ADMIN — get courses by specific organizationId
-//@GetMapping("/org/{organizationId}")
-//public List<Course> getCoursesByOrgId(
-//      @PathVariable String organizationId,
-//      Authentication auth) {
-//  if (auth == null)
-//      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//  return service.getCoursesByOrganization(organizationId);
-//}
-//    @GetMapping("/categories")
-//    public List<String> getAllCategories(Authentication auth) {
-//        if (auth == null)
-//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//        return service.getAllCategories();
-//    }
-//    
-// // ============================
-// // SUPER ADMIN — independent trainer courses (organizationId IS NULL)
-// // ============================
-// // ============================
-// @GetMapping("/super-admin/independent")
-// public List<Course> getIndependentCourses(Authentication auth) {
-// if (auth == null)
-// throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-// return service.getIndependentTrainerCourses();
-// }
-// 
-////SUPER ADMIN — categories from independent trainer courses (organizationId IS NULL)
-//@GetMapping("/super-admin/independent-categories")
-//public List<String> getIndependentCategories(Authentication auth) {
-//  if (auth == null)
-//      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-//  return service.getIndependentTrainerCategories();
-//}
-//    // ============================
-//    // PRIVATE HELPER
-//    // ============================
-//    // Reads the raw JWT from the Authorization header and delegates to JwtUtil —
-//    // exact same pattern already used in Batch Service's JwtUtil.extractOrganizationId().
-//    // Returns null cleanly when claim is absent (non-org user). Never throws.
-//    private String extractOrgId(HttpServletRequest request) {
-//        try {
-//            String header = request.getHeader("Authorization");
-//            if (header != null && header.startsWith("Bearer ")) {
-//                String token = header.substring(7);
-//                return jwtUtil.extractOrganizationId(token);
-//            }
-//        } catch (Exception e) {
-//            System.out.println("Could not extract organizationId from JWT: " + e.getMessage());
-//        }
-//        return null;
-//    }
-//}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH for CourseController — add these changes to your existing controller.
-//
-// WHAT CHANGES:
-//   1. Inject CourseFeatureFlagsService
-//   2. Call featureFlagsService.enforce(...) at the top of gated endpoints
-//   3. organizationId is already extracted from JWT in your controller via jwtUtil
-//
-// WHICH ENDPOINTS ARE GATED (trainer/student/admin only):
-//   TRAINER : create, update, delete, getMyCourses
-//   STUDENT : getStudentCourses
-//   ADMIN   : getAllCourses, getCoursesByCategory, manageFeaturedCourses
-//
-// WHICH ARE NOT GATED (public / super-admin):
-//   getById           — public preview, permitAll in SecurityConfig
-//   getByOrg          — super admin only, no org context to check
-//   getIndependent*   — super admin only
-//   getAllCategories   — super admin only
-// ─────────────────────────────────────────────────────────────────────────────
 
 package com.lms.course.controller;
-
+import com.lms.course.client.UserClient;
 import com.lms.course.constants.CourseFeatureKeys;
 import com.lms.course.dto.CourseFeatureFlagsDTO;
+import com.lms.course.dto.PageResponse;
+import com.lms.course.dto.TrainerDTO;
 import com.lms.course.model.Course;
 import com.lms.course.security.JwtUtil;
 import com.lms.course.service.CourseFeatureFlagsService;
@@ -243,13 +22,16 @@ public class CourseController {
     private final CourseService courseService;
     private final JwtUtil jwtUtil;
     private final CourseFeatureFlagsService featureFlagsService; // NEW
+    private final UserClient userClient;
 
     public CourseController(CourseService courseService,
                             JwtUtil jwtUtil,
-                            CourseFeatureFlagsService featureFlagsService) { // NEW
+                            CourseFeatureFlagsService featureFlagsService,
+                            UserClient userClient) {
         this.courseService       = courseService;
         this.jwtUtil             = jwtUtil;
-        this.featureFlagsService = featureFlagsService; // NEW
+        this.featureFlagsService = featureFlagsService;
+        this.userClient          = userClient;
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -403,5 +185,64 @@ public class CourseController {
         String token = extractToken(request);
         String email = jwtUtil.extractEmail(token);
         return ResponseEntity.ok(courseService.getTrainerCourses(email));
+    }
+    
+ // ADMIN: load trainers in his org (for course-assign dropdown)
+    @GetMapping("/admin/trainers")
+    public ResponseEntity<List<TrainerDTO>> getOrgTrainers(HttpServletRequest request) {
+        String token = extractToken(request);
+        String orgId = jwtUtil.extractOrganizationId(token);
+
+        PageResponse<TrainerDTO> page = userClient.getTrainersByOrg(orgId, "TRAINER");
+        return ResponseEntity.ok(page.getContent());
+    }
+    
+ // ADMIN: create + assign course to a trainer
+    @PostMapping("/admin/assign")
+    public ResponseEntity<Course> adminCreateCourse(
+            @RequestBody Course course,
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        String email = jwtUtil.extractEmail(token);
+        String orgId = jwtUtil.extractOrganizationId(token);
+
+        featureFlagsService.enforce(orgId, email,
+                CourseFeatureKeys.CREATE_COURSE);
+
+        return ResponseEntity.ok(courseService.adminCreate(course, email, orgId));
+    }
+
+    // ADMIN: click trainer email → see their courses
+    @GetMapping("/admin/trainer/{trainerEmail}")
+    public ResponseEntity<List<Course>> getCoursesByTrainer(
+            @PathVariable String trainerEmail,
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        String orgId = jwtUtil.extractOrganizationId(token);
+
+        return ResponseEntity.ok(
+                courseService.getCoursesByAssignedTrainer(trainerEmail, orgId));
+    }
+
+    // TRAINER: own + admin-assigned courses
+    @GetMapping("/trainer/all")
+    public ResponseEntity<List<Course>> getTrainerAllCourses(
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        String email = jwtUtil.extractEmail(token);
+        String orgId = jwtUtil.extractOrganizationId(token);
+
+        return ResponseEntity.ok(
+                courseService.getTrainerAllCourses(email, orgId));
+    }
+ // Add this endpoint in CourseController
+    @GetMapping("/org-admin")
+    public ResponseEntity<List<Course>> getOrgAdminCourses(HttpServletRequest request) {
+        String token = extractToken(request);
+        String orgId = jwtUtil.extractOrganizationId(token);
+        return ResponseEntity.ok(courseService.getCoursesByOrganization(orgId));
     }
 }

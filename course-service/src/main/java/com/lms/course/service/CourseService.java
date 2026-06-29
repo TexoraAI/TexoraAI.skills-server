@@ -1,7 +1,10 @@
 
 
 package com.lms.course.service;
-
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import com.lms.course.dto.CourseEvent;
 import com.lms.course.kafka.CourseEventProducer;
 import com.lms.course.model.Course;
@@ -17,7 +20,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
-
+import java.util.stream.Stream;
+import java.util.stream.Collectors;
 @Service
 public class CourseService {
 
@@ -241,5 +245,51 @@ return repo.findByOrganizationIdIsNull();
 //SUPER ADMIN — categories from independent trainer courses only
 public List<String> getIndependentTrainerCategories() {
  return repo.findDistinctCategoryByOrganizationIdIsNull();
+}
+
+//Admin creates + assigns course to a trainer
+//============================
+//ADMIN: Create + assign course to a trainer (no batch validation)
+//============================
+public Course adminCreate(Course course, String adminEmail, String organizationId) {
+ if (course.getAssignedTrainerEmail() == null
+         || course.getAssignedTrainerEmail().isBlank()) {
+     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+             "assignedTrainerEmail is required");
+ }
+ course.setOwnerEmail(adminEmail);
+ course.setOrganizationId(organizationId);
+ return repo.save(course);
+}
+
+//============================
+//ADMIN: click trainer email → see all courses assigned to that trainer
+//============================
+public List<Course> getCoursesByAssignedTrainer(
+     String trainerEmail, String organizationId) {
+ return repo.findByOrganizationIdAndAssignedTrainerEmail(
+         organizationId, trainerEmail);
+}
+
+//============================
+//TRAINER: own courses + admin-assigned courses merged
+//============================
+public List<Course> getTrainerAllCourses(
+     String trainerEmail, String organizationId) {
+
+ List<Course> own = repo.findByOwnerEmail(trainerEmail)
+         .stream()
+         .filter(c -> organizationId.equals(c.getOrganizationId()))
+         .collect(Collectors.toList());
+
+ List<Course> assigned = repo.findByAssignedTrainerEmailAndOrganizationId(
+         trainerEmail, organizationId);
+
+ // merge + deduplicate by id
+ Map<Long, Course> merged = new LinkedHashMap<>();
+ own.forEach(c -> merged.put(c.getId(), c));
+ assigned.forEach(c -> merged.putIfAbsent(c.getId(), c));
+
+ return new ArrayList<>(merged.values());
 }
 }

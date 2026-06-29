@@ -1,22 +1,34 @@
 package com.lms.video.dto;
 
-public class UploadCourseDTO {
+public class WatchNowDTO {
 
     private Long courseId;
     private String title;
 
+    // ── Instructor ──
     private String instructorName;
     private String instructorRole;
     private String experience;
     private String studentCount;
 
+    // ── Description ──
     private String description;
-    private String learnPoints;
+    private String learnPoints;   // JSON string: [{"title":"...","desc":"..."}]
 
+    // ── Meta ──
     private String publishDate;
     private String learnersCount;
-
     private boolean showInstructorLive;
+
+    // ── Top section ──
+    private String platformName;
+    private String featuredTag;
+    private String hostedBy;
+    private String status;            // "published" | "draft"
+    private boolean showMoreEnabled;
+
+    // ── Optional URL fallback ──
+    private String videoUrl;
 
     // ===== GETTERS & SETTERS =====
 
@@ -52,4 +64,22 @@ public class UploadCourseDTO {
 
     public boolean isShowInstructorLive() { return showInstructorLive; }
     public void setShowInstructorLive(boolean showInstructorLive) { this.showInstructorLive = showInstructorLive; }
+
+    public String getPlatformName() { return platformName; }
+    public void setPlatformName(String platformName) { this.platformName = platformName; }
+
+    public String getFeaturedTag() { return featuredTag; }
+    public void setFeaturedTag(String featuredTag) { this.featuredTag = featuredTag; }
+
+    public String getHostedBy() { return hostedBy; }
+    public void setHostedBy(String hostedBy) { this.hostedBy = hostedBy; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public boolean isShowMoreEnabled() { return showMoreEnabled; }
+    public void setShowMoreEnabled(boolean showMoreEnabled) { this.showMoreEnabled = showMoreEnabled; }
+
+    public String getVideoUrl() { return videoUrl; }
+    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
 }

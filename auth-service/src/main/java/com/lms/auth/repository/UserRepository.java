@@ -36,13 +36,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
         """)
     List<User> findOnboardingUsers(Pageable pageable);
 
- // ✅ Fix — remove the organizationId IS NULL filter
-// @Query("""
-//     SELECT u FROM User u
-//     WHERE u.role IN ('STUDENT', 'TRAINER', 'TENANT_ADMIN', 'BUSINESS')
-//       AND u.onboardingAnswers IS NOT NULL
-//       AND u.onboardingAnswers <> ''
-//     ORDER BY u.createdAt DESC
-//     """)
-// List<User> findOnboardingUsers(Pageable pageable);
+ 
 }

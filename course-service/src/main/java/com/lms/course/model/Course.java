@@ -15,7 +15,8 @@ import java.time.Instant;
     @Index(name = "idx_course_batch_id",    columnList = "batchId"),
     @Index(name = "idx_course_org_id",      columnList = "organization_id"),
     @Index(name = "idx_course_batch_owner", columnList = "batchId, ownerEmail"),
-    @Index(name = "idx_course_created_at",  columnList = "created_at")
+    @Index(name = "idx_course_created_at",  columnList = "created_at"),
+    @Index(name = "idx_course_assigned_trainer", columnList = "assigned_trainer_email")
 })
 public class Course {
 
@@ -40,6 +41,9 @@ public class Course {
 
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
+    
+    @Column(name = "assigned_trainer_email") 
+    private String assignedTrainerEmail;
 
     public Course() {}
 
@@ -65,4 +69,12 @@ public class Course {
     public void setOrganizationId(String orgId)    { this.organizationId = orgId; }
 
     public Instant getCreatedAt()                  { return createdAt; }
+    
+    public String getAssignedTrainerEmail() {
+        return assignedTrainerEmail;
+    }
+
+    public void setAssignedTrainerEmail(String assignedTrainerEmail) {
+        this.assignedTrainerEmail = assignedTrainerEmail;
+    }
 }

@@ -4,6 +4,7 @@
 package com.lms.auth.controller;
 
 import com.lms.auth.dto.AuthResponse;
+import com.lms.auth.dto.OnboardingSaveRequest;
 import com.lms.auth.dto.ChangePasswordRequest;
 import com.lms.auth.dto.ForgotPasswordRequest;
 import com.lms.auth.dto.GoogleLoginRequest;
@@ -13,7 +14,9 @@ import com.lms.auth.dto.UpdateProfileRequest;
 import com.lms.auth.model.Role;
 import com.lms.auth.security.JwtUtil;
 import com.lms.auth.service.AuthService;
-
+import com.lms.auth.dto.AdminUpdateUserRequest;
+import com.lms.auth.dto.AdminUserViewDTO;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -33,10 +36,36 @@ public class AuthController {
         this.jwtUtil = jwtUtil;
     }
 
-    // ================= REGISTER =================
+  
+//    @PostMapping("/register")
+//    public void register(@RequestBody RegisterRequest request,
+//                          @RequestHeader(value = "Authorization", required = false) String authHeader) {
+//        String requesterEmail = null;
+//        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+//            try {
+//                requesterEmail = jwtUtil.extractEmail(authHeader.replace("Bearer ", ""));
+//            } catch (Exception e) {
+//                requesterEmail = null; // bad/expired token → treat as public self-signup
+//            }
+//        }
+//        authService.register(request, requesterEmail);
+//    }
     @PostMapping("/register")
-    public void register(@RequestBody RegisterRequest request) {
-        authService.register(request);
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request,
+                          @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String requesterEmail = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            try {
+                requesterEmail = jwtUtil.extractEmail(authHeader.replace("Bearer ", ""));
+            } catch (Exception e) {
+                requesterEmail = null;
+            }
+        }
+        AuthResponse authResponse = authService.register(request, requesterEmail);
+        if (authResponse != null) {
+            return ResponseEntity.ok(authResponse);
+        }
+        return ResponseEntity.ok(Map.of("message", "User created successfully"));
     }
 
     // ================= EMAIL LOGIN =================
@@ -164,5 +193,64 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> getAdminOnboardingByEmail(
             @RequestParam String email) {
         return ResponseEntity.ok(authService.getAdminOnboardingByEmail(email));
+    }
+    @GetMapping("/admin/org-users")
+    public ResponseEntity<List<AdminUserViewDTO>> getOrgUsers(
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String email = jwtUtil.extractEmail(token);
+        return ResponseEntity.ok(authService.getOrgUsersForAdmin(email));
+    }
+
+    @PatchMapping("/admin/users/{userId}")
+    public ResponseEntity<?> adminUpdateUser(
+            @PathVariable Long userId,
+            @RequestBody AdminUpdateUserRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String requesterEmail = jwtUtil.extractEmail(token);
+        authService.adminUpdateUser(userId, request, requesterEmail);
+        return ResponseEntity.ok(Map.of("message", "User updated successfully"));
+    }
+
+    @PostMapping("/admin/users/{userId}/resend-set-password")
+    public ResponseEntity<?> resendSetPassword(
+            @PathVariable Long userId,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String requesterEmail = jwtUtil.extractEmail(token);
+        authService.adminResendSetPasswordEmail(userId, requesterEmail);
+        return ResponseEntity.ok(Map.of("message", "Set-password email resent"));
+    }
+    
+    @PatchMapping("/admin/users/by-email")
+    public ResponseEntity<?> adminUpdateUserByEmail(
+            @RequestParam String email,
+            @RequestBody AdminUpdateUserRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String requesterEmail = jwtUtil.extractEmail(token);
+        authService.adminUpdateUserByEmail(email, request, requesterEmail);
+        return ResponseEntity.ok(Map.of("message", "User updated successfully"));
+    }
+
+    @PostMapping("/admin/users/by-email/resend-set-password")
+    public ResponseEntity<?> resendSetPasswordByEmail(
+            @RequestParam String email,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String requesterEmail = jwtUtil.extractEmail(token);
+        authService.adminResendSetPasswordEmailByEmail(email, requesterEmail);
+        return ResponseEntity.ok(Map.of("message", "Set-password email resent"));
+    }
+    
+    @PatchMapping("/me/onboarding")
+    public ResponseEntity<?> saveOnboarding(
+            @RequestBody OnboardingSaveRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String email = jwtUtil.extractEmail(token);
+        authService.saveOnboardingForCurrentUser(email, request.getRole(), request.getOnboardingAnswers());
+        return ResponseEntity.ok(Map.of("message", "Onboarding saved successfully"));
     }
 }
