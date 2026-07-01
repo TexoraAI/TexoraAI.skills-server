@@ -120,6 +120,7 @@ services:
       HIKARI_MIN_IDLE: 2
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      USER_SERVICE_URL: http://user-service:8082
 
   video-service:
     image: shareef123/video-service:latest
