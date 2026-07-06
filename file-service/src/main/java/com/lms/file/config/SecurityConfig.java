@@ -48,7 +48,7 @@ public class SecurityConfig {
             // 🔥 COURSE MODULE FILE DELETE
             .requestMatchers("/api/course-files/**").authenticated()
             
-            
+            .requestMatchers("/api/file-feature-flags/**").authenticated()
             
             // everything else requires login
             .anyRequest().authenticated()

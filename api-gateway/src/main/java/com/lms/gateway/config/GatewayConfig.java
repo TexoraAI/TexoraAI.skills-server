@@ -104,7 +104,10 @@ public class GatewayConfig {
                     "/api/courses/**",
                     "/api/featured-courses/**",   // ✅ ADD THIS
                     "/api/course-feature-flags/**",
-                    "/api/course/v1/featurecourse/**" 
+                    "/api/course/v1/featurecourse/**" ,
+                    "/api/v1/mentor-feedback/**" ,
+                    "/api/v1/companies/**",
+                    "/api/v1/cmslandinghubs/**"
             ).uri(courseService))
             // ================= CONTENT =================
             .route("content-service", r -> r.path("/api/content/**")
@@ -206,6 +209,10 @@ public class GatewayConfig {
 
             .route("file-service", r -> r.path(
                     "/api/course-files/**"
+            ).uri(fileService))
+            
+            .route("file-service", r -> r.path(
+                    "/api/file-feature-flags/**"
             ).uri(fileService))
             
             // ================= STUDENT + TRAINER SERVICE =================

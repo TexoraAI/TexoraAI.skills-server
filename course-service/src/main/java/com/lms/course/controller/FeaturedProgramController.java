@@ -1,7 +1,9 @@
 package com.lms.course.controller;
 
 import com.lms.course.dto.*;
+import java.util.Map;
 import com.lms.course.service.FeaturedProgramService;
+import com.lms.course.service.FileTextExtractionService;
 import com.lms.course.service.OpenAIService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -10,7 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/course/v1/featurecourse")
 
@@ -18,11 +20,14 @@ public class FeaturedProgramController {
 
     private final FeaturedProgramService featuredProgramService;
     private final OpenAIService openAIService;
-
+    private final FileTextExtractionService fileTextExtractionService;
     public FeaturedProgramController(FeaturedProgramService featuredProgramService,
-                                      OpenAIService openAIService) {
+                                      OpenAIService openAIService,
+                                      FileTextExtractionService fileTextExtractionService) {
         this.featuredProgramService = featuredProgramService;
         this.openAIService = openAIService;
+        this.fileTextExtractionService = fileTextExtractionService;
+        
     }
 
     // ===================== PUBLIC ENDPOINTS =====================
@@ -100,5 +105,31 @@ public class FeaturedProgramController {
         FeaturedProgramRequestDTO generated = openAIService.generateProgramContent(
                 request.getTopic(), request.getCategory(), request.getLevel());
         return ResponseEntity.ok(generated);
+    }
+ // NEW: PDF / DOC / DOCX -> structured syllabus (Upload File feature)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PostMapping(value = "/superadmin/syllabus/extract", consumes = "multipart/form-data")
+    public ResponseEntity<?> extractSyllabusFromFile(
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "No file was received by the server."));
+            }
+
+            String text = fileTextExtractionService.extractText(file);
+            if (text == null || text.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", "Could not extract any text from this file. It may be a scanned/image-only PDF."));
+            }
+
+            List<ExtractedWeekDto> weeks = openAIService.generateSyllabusFromExtractedText(text);
+            return ResponseEntity.ok(weeks);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "message", "Syllabus extraction failed: " + e.getMessage()));
+        }
     }
 }
