@@ -107,7 +107,9 @@ public class GatewayConfig {
                     "/api/course/v1/featurecourse/**" ,
                     "/api/v1/mentor-feedback/**" ,
                     "/api/v1/companies/**",
-                    "/api/v1/cmslandinghubs/**"
+                    "/api/v1/cmslandinghubs/**",
+                    "/api/course/v1/wishlist/**",
+                    "/api/banners/**"
             ).uri(courseService))
             // ================= CONTENT =================
             .route("content-service", r -> r.path("/api/content/**")
@@ -230,7 +232,8 @@ public class GatewayConfig {
             ).uri(batchService))
             
          // ================= CHAT SERVICE (✅ NEW) =================
-            .route("chat-service", r -> r.path("/api/chat/**","/api/feedback/**","/api/notebooks/**")
+            .route("chat-service", r -> r.path("/api/chat/**","/api/feedback/**","/api/notebooks/**", 
+            		"/api/chat-feature-flags/**")
                     .uri(chatService))
            
 //         // ================= LIVE SESSION SERVICE =================

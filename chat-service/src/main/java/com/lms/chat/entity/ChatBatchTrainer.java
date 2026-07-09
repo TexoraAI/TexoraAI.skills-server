@@ -12,9 +12,15 @@ public class ChatBatchTrainer {
 
     private String trainerEmail;
 
+    // Nullable: null for non-organization (standalone) users, set for org-based users
+    private String organizationId;
+
     public Long getBatchId() { return batchId; }
     public void setBatchId(Long batchId) { this.batchId = batchId; }
 
     public String getTrainerEmail() { return trainerEmail; }
     public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
 }

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
+import com.lms.chat.repository.ChatBatchTrainerRepository;
 @Service
 public class FeedbackService {
 
@@ -24,13 +24,15 @@ public class FeedbackService {
     private final FeedbackRepository        feedbackRepository;
     private final FeedbackSummaryRepository summaryRepository;
     private final FeedbackEventProducer     eventProducer;
-
+    private final ChatBatchTrainerRepository chatBatchTrainerRepository;
     public FeedbackService(FeedbackRepository feedbackRepository,
                            FeedbackSummaryRepository summaryRepository,
-                           FeedbackEventProducer eventProducer) {
+                           FeedbackEventProducer eventProducer,
+                           ChatBatchTrainerRepository chatBatchTrainerRepository) {
         this.feedbackRepository = feedbackRepository;
         this.summaryRepository  = summaryRepository;
         this.eventProducer      = eventProducer;
+        this.chatBatchTrainerRepository = chatBatchTrainerRepository; 
     }
 
     // ── Student: Submit ────────────────────────────────────────────
@@ -210,5 +212,38 @@ public class FeedbackService {
         f.setComment(req.getComment());
         f.setAnonymous(req.isAnonymous());
         return f;
+    }
+    
+ // ── Super Admin (batches with no organization) ─────────────────
+
+    @Transactional(readOnly = true)
+    public List<Long> getOrglessBatchIds() {
+        return chatBatchTrainerRepository.findBatchIdsWithNoOrganization();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FeedbackResponse> getFeedbackForOrglessBatches() {
+        List<Long> batchIds = getOrglessBatchIds();
+        if (batchIds.isEmpty()) {
+            return List.of();
+        }
+        return feedbackRepository
+                .findByBatchIdInOrderByCreatedAtDesc(batchIds)
+                .stream()
+                .map(f -> FeedbackResponse.from(f, false))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<FeedbackSummaryResponse> getSummariesForOrglessBatches() {
+        List<Long> batchIds = getOrglessBatchIds();
+        if (batchIds.isEmpty()) {
+            return List.of();
+        }
+        return summaryRepository
+                .findByBatchIdInOrderByOverallAvgRatingDesc(batchIds)
+                .stream()
+                .map(FeedbackSummaryResponse::from)
+                .collect(Collectors.toList());
     }
 }

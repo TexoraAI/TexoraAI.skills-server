@@ -2,6 +2,8 @@ package com.lms.course.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lms.course.dto.BannerStudioAiGenerateRequestDTO;
+import com.lms.course.dto.BannerStudioAiGenerateResponseDTO;
 import com.lms.course.dto.ExtractedModuleDto;
 import com.lms.course.dto.ExtractedSessionDto;
 import com.lms.course.dto.ExtractedWeekDto;
@@ -288,6 +290,102 @@ public class OpenAIService {
             return weeks;
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse syllabus JSON from OpenAI: " + e.getMessage(), e);
+        }
+    }
+    
+    
+ // ===================== NEW: Banner Studio AI copy generation =====================
+    
+    /**
+     * Generates banner headline/subtext/CTA copy for Banner Studio's "Generate with AI"
+     * panel (AIStudioSection.jsx). Reuses the same OpenAI key/model/config as the rest
+     * of this service — no new credentials or clients are introduced.
+     */
+    public BannerStudioAiGenerateResponseDTO generateBannerCopy(BannerStudioAiGenerateRequestDTO request) {
+        if (openaiApiKey == null || openaiApiKey.isBlank()) {
+            throw new RuntimeException("OpenAI API key is not configured");
+        }
+ 
+        String prompt = buildBannerPrompt(request);
+ 
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + openaiApiKey);
+ 
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", prompt);
+ 
+            Map<String, Object> body = new HashMap<>();
+            body.put("model", openaiModel);
+            body.put("messages", List.of(message));
+            body.put("temperature", 0.8);
+            body.put("response_format", Map.of("type", "json_object"));
+ 
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+ 
+            ResponseEntity<String> response = restTemplate.exchange(
+                    OPENAI_URL, HttpMethod.POST, requestEntity, String.class);
+ 
+            if (response.getBody() == null) {
+                throw new RuntimeException("OpenAI API returned empty response");
+            }
+ 
+            JsonNode root = objectMapper.readTree(response.getBody());
+            String content = root.path("choices").get(0).path("message").path("content").asText();
+ 
+            return parseBannerJson(content, request);
+ 
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate banner copy using OpenAI: " + e.getMessage(), e);
+        }
+    }
+ 
+    private String buildBannerPrompt(BannerStudioAiGenerateRequestDTO request) {
+        return "You are a marketing copywriter for an online learning platform called ILM ORA.\n" +
+                "Write short promotional banner copy based on this brief:\n" +
+                "Prompt: " + safe(request.getPrompt()) + "\n" +
+                "Audience: " + safe(request.getAudience()) + "\n" +
+                "Theme: " + safe(request.getTheme()) + "\n" +
+                "Banner Type: " + safe(request.getBannerType()) + "\n" +
+                "Style: " + safe(request.getStyle()) + "\n\n" +
+                "Return ONLY valid JSON with this exact shape, and nothing else:\n" +
+                "{\n" +
+                "  \"eyebrow\": \"short label above the title, e.g. the theme\",\n" +
+                "  \"title\": \"punchy banner headline, max 8 words\",\n" +
+                "  \"sub\": \"one supporting sentence, max 20 words\",\n" +
+                "  \"cta\": \"2-3 word call-to-action button label, e.g. Enroll Now\",\n" +
+                "  \"gradient\": \"a CSS linear-gradient string matching the requested style/theme\",\n" +
+                "  \"emoji\": \"one emoji that fits the theme\"\n" +
+                "}\n" +
+                "Do not include any text outside the JSON object.";
+    }
+ 
+    private String safe(String value) {
+        return value == null || value.isBlank() ? "Not specified" : value;
+    }
+ 
+    private BannerStudioAiGenerateResponseDTO parseBannerJson(String content, BannerStudioAiGenerateRequestDTO request) {
+        try {
+            JsonNode node = objectMapper.readTree(content);
+ 
+            BannerStudioAiGenerateResponseDTO dto = new BannerStudioAiGenerateResponseDTO();
+            dto.setEyebrow(node.path("eyebrow").asText(request.getTheme()));
+            dto.setTitle(node.path("title").asText());
+            dto.setSub(node.path("sub").asText());
+            dto.setCta(node.path("cta").asText("Enroll Now"));
+            dto.setGradient(node.path("gradient").asText("linear-gradient(135deg, #0F172A 0%, #1E293B 45%, #14532D 100%)"));
+            dto.setEmoji(node.path("emoji").asText("\u2728"));
+ 
+            dto.setAudience(request.getAudience());
+            dto.setTheme(request.getTheme());
+            dto.setBannerType(request.getBannerType());
+            dto.setStyle(request.getStyle());
+ 
+            return dto;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse banner copy JSON from OpenAI: " + e.getMessage(), e);
         }
     }
 }

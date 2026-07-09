@@ -86,4 +86,6 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
     Double avgTechnicalDepthByTrainerAndBatch(
             @Param("trainerEmail") String trainerEmail,
             @Param("batchId") Long batchId);
+    
+    List<Feedback> findByBatchIdInOrderByCreatedAtDesc(List<Long> batchIds);
 }

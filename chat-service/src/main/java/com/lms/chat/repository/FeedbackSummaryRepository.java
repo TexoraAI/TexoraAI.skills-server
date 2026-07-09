@@ -16,4 +16,6 @@ public interface FeedbackSummaryRepository extends JpaRepository<FeedbackSummary
             String trainerEmail);
 
     List<FeedbackSummary> findByBatchIdOrderByOverallAvgRatingDesc(Long batchId);
+    
+    List<FeedbackSummary> findByBatchIdInOrderByOverallAvgRatingDesc(List<Long> batchIds);
 }

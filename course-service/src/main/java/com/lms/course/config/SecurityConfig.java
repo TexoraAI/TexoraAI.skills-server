@@ -9,7 +9,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
+import org.springframework.http.HttpMethod;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -39,12 +39,15 @@ public class SecurityConfig {
                         "/api/featured-courses/**",
                        " /api/course-feature-flags/**",
                        "/api/course/v1/featurecourse/**" ,
+                       "/api/course/v1/wishlist/**", 
                        "/api/v1/mentor-feedback/public/**",
                        "/api/v1/companies/public/**",
                        "/api/v1/cmslandinghubs/public/**",
                        "/api/v1/cmslandinghubs/media/*/raw"
+                       
                 ).permitAll()
-
+                .requestMatchers(HttpMethod.GET, "/api/banners/**").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "/api/banners/*/view", "/api/banners/*/click").permitAll()
                 // 🔐 Everything else requires JWT
                 .requestMatchers("/api/**").authenticated()
 

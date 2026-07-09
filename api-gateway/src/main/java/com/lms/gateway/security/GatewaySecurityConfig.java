@@ -94,6 +94,18 @@ public class GatewaySecurityConfig {
                 return chain.filter(exchange);
             }
             
+         // ── Banner Studio — public reads + tracking only ─────────────────
+            if (path.startsWith("/api/banners")) {
+                boolean isPublicGet = method == HttpMethod.GET; // list + getById
+                boolean isTracking = (path.endsWith("/view") || path.endsWith("/click"))
+                        && method == HttpMethod.PATCH;
+                if (isPublicGet || isTracking) {
+                    return chain.filter(exchange);
+                }
+                // everything else (create/update/delete/duplicate/publish/schedule/status/ai-generate)
+                // falls through to JWT requirement below, then gets SUPER_ADMIN-only gated further down.
+            }
+            
             if ((path.startsWith("/api/v1/cmslandinghubs/public/")
                     || path.matches("/api/v1/cmslandinghubs/media/\\d+/raw"))
                     && method == HttpMethod.GET) {
@@ -638,7 +650,9 @@ public class GatewaySecurityConfig {
                     return exchange.getResponse().setComplete();
                 }
                 if (path.startsWith("/api/feedback/admin")) {
-                    if ("ADMIN".equalsIgnoreCase(role)) return chain.filter(exchange);
+                    if ("ADMIN".equalsIgnoreCase(role)||"TENANT_ADMIN".equalsIgnoreCase(role))
+                    	return chain.filter(exchange);
+                    
                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }
@@ -673,6 +687,27 @@ public class GatewaySecurityConfig {
                     return exchange.getResponse().setComplete();
                 }
             }
+            
+            
+         // ════════════════════════════════════════════════════════════════
+        //  WISHLIST — AUTHENTICATED USERS
+        // ════════════════════════════════════════════════════════════════
+        if (path.startsWith("/api/course/v1/wishlist")) {
+
+            // GET /api/course/v1/wishlist/my
+            if (method == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
+
+            // POST /api/course/v1/wishlist/toggle/{programId}
+            if (method == HttpMethod.POST) {
+                return chain.filter(exchange);
+            }
+
+            exchange.getResponse().setStatusCode(HttpStatus.METHOD_NOT_ALLOWED);
+            return exchange.getResponse().setComplete();
+        }
+            
 
             // ── AI Companion / Whiteboard ────────────────────────────────────
             if (path.startsWith("/api/v1/ai-companion")

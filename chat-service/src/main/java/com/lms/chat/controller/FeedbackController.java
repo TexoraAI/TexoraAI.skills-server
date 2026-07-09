@@ -1,12 +1,19 @@
+
+
 package com.lms.chat.controller;
 
+import com.lms.chat.constants.ChatFeatureKeys;
 import com.lms.chat.dto.AlertConfigDTO;
 import com.lms.chat.dto.FeedbackResponse;
 import com.lms.chat.dto.FeedbackSummaryResponse;
 import com.lms.chat.dto.SubmitFeedbackRequest;
+import com.lms.chat.entity.ChatBatchTrainer;
+import com.lms.chat.entity.Feedback;
+import com.lms.chat.repository.ChatBatchTrainerRepository;
+import com.lms.chat.repository.FeedbackRepository;
 import com.lms.chat.service.AlertConfigService;
+import com.lms.chat.service.ChatFeatureFlagsService;
 import com.lms.chat.service.FeedbackService;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -21,36 +28,55 @@ public class FeedbackController {
 
     private final FeedbackService feedbackService;
     private final AlertConfigService alertConfigService;
+    private final ChatBatchTrainerRepository chatBatchTrainerRepository;
+    private final FeedbackRepository feedbackRepository;
+    private final ChatFeatureFlagsService chatFeatureFlagsService;
 
-    public FeedbackController(FeedbackService feedbackService, AlertConfigService alertConfigService) {
+    public FeedbackController(FeedbackService feedbackService,
+                               AlertConfigService alertConfigService,
+                               ChatBatchTrainerRepository chatBatchTrainerRepository,
+                               FeedbackRepository feedbackRepository,
+                               ChatFeatureFlagsService chatFeatureFlagsService) {
         this.feedbackService = feedbackService;
         this.alertConfigService = alertConfigService;
+        this.chatBatchTrainerRepository = chatBatchTrainerRepository;
+        this.feedbackRepository = feedbackRepository;
+        this.chatFeatureFlagsService = chatFeatureFlagsService;
+    }
+
+    private String organizationId(Authentication auth) {
+        Object details = auth.getDetails();
+        return details == null ? null : details.toString();
+    }
+
+    private void enforceOrgAccess(Long batchId, Authentication auth) {
+        String adminOrgId = organizationId(auth);
+        if (adminOrgId == null) {
+            return; // Super Admin — no restriction
+        }
+        String batchOrgId = chatBatchTrainerRepository
+                .findByBatchId(batchId)
+                .map(ChatBatchTrainer::getOrganizationId)
+                .orElse(null);
+
+        if (batchOrgId != null && !adminOrgId.equals(batchOrgId)) {
+            throw new RuntimeException(
+                    "Cross-organization access denied: batch does not belong to your organization");
+        }
     }
 
     // ── Student endpoints ──────────────────────────────────────────
-
-    /**
-     * POST /api/feedback/submit
-     * studentEmail resolved from JWT — frontend only sends batchId + trainerEmail
-     */
-//    @PostMapping("/submit")
-//    public ResponseEntity<FeedbackResponse> submitFeedback(
-//            @RequestBody SubmitFeedbackRequest request,
-//            Authentication auth) {
-//
-//        request.setStudentEmail(auth.getName());
-//        return ResponseEntity.ok(feedbackService.submitFeedback(request));
-//    }
 
     @PostMapping("/submit")
     public ResponseEntity<?> submitFeedback(
             @RequestBody SubmitFeedbackRequest request,
             Authentication auth) {
 
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.SUBMIT_FEEDBACK);
+
         try {
             String studentEmail = auth.getName();
-            
-            // ✅ Check if already submitted
+
             if (feedbackService.hasFeedback(studentEmail, request.getBatchId())) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(
                         Map.of(
@@ -63,7 +89,7 @@ public class FeedbackController {
 
             request.setStudentEmail(studentEmail);
             return ResponseEntity.ok(feedbackService.submitFeedback(request));
-            
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     Map.of(
@@ -74,97 +100,182 @@ public class FeedbackController {
             );
         }
     }
-    
-    
-    /**
-     * GET /api/feedback/student/my
-     * Student views all their own feedback (email from JWT)
-     */
+
     @GetMapping("/student/my")
     public ResponseEntity<List<FeedbackResponse>> getMyFeedback(Authentication auth) {
-        return ResponseEntity.ok(
-                feedbackService.getStudentFeedback(auth.getName()));
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_MY_FEEDBACK);
+        return ResponseEntity.ok(feedbackService.getStudentFeedback(auth.getName()));
     }
-    
-    
 
-    /**
-     * GET /api/feedback/student/my/batch/{batchId}
-     * Student views their feedback for a specific batch
-     */
     @GetMapping("/student/my/batch/{batchId}")
     public ResponseEntity<List<FeedbackResponse>> getMyFeedbackByBatch(
             @PathVariable Long batchId,
             Authentication auth) {
-
-        return ResponseEntity.ok(
-                feedbackService.getStudentFeedbackByBatch(auth.getName(), batchId));
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_MY_FEEDBACK_BY_BATCH);
+        return ResponseEntity.ok(feedbackService.getStudentFeedbackByBatch(auth.getName(), batchId));
     }
 
     // ── Trainer endpoints ──────────────────────────────────────────
 
-    /**
-     * GET /api/feedback/trainer/my
-     * Trainer views all feedback received (email from JWT)
-     */
     @GetMapping("/trainer/my")
     public ResponseEntity<List<FeedbackResponse>> getMyTrainerFeedback(Authentication auth) {
-        return ResponseEntity.ok(
-                feedbackService.getTrainerFeedback(auth.getName()));
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_TRAINER_FEEDBACK);
+        return ResponseEntity.ok(feedbackService.getTrainerFeedback(auth.getName()));
     }
 
-    /**
-     * GET /api/feedback/trainer/my/batch/{batchId}
-     */
     @GetMapping("/trainer/my/batch/{batchId}")
     public ResponseEntity<List<FeedbackResponse>> getMyTrainerFeedbackByBatch(
             @PathVariable Long batchId,
             Authentication auth) {
-
-        return ResponseEntity.ok(
-                feedbackService.getTrainerFeedbackByBatch(auth.getName(), batchId));
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_TRAINER_FEEDBACK_BY_BATCH);
+        return ResponseEntity.ok(feedbackService.getTrainerFeedbackByBatch(auth.getName(), batchId));
     }
 
-    /**
-     * GET /api/feedback/trainer/my/batch/{batchId}/summary
-     */
     @GetMapping("/trainer/my/batch/{batchId}/summary")
     public ResponseEntity<FeedbackSummaryResponse> getMyTrainerSummary(
             @PathVariable Long batchId,
             Authentication auth) {
-
-        return ResponseEntity.ok(
-                feedbackService.getTrainerSummary(auth.getName(), batchId));
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_TRAINER_FEEDBACK_SUMMARY);
+        return ResponseEntity.ok(feedbackService.getTrainerSummary(auth.getName(), batchId));
     }
 
     // ── Admin endpoints ────────────────────────────────────────────
 
-    /**
-     * GET /api/feedback/admin/batch/{batchId}
-     */
     @GetMapping("/admin/batch/{batchId}")
     public ResponseEntity<List<FeedbackResponse>> getBatchFeedback(
-            @PathVariable Long batchId) {
-
+            @PathVariable Long batchId,
+            Authentication auth) {
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_BATCH_FEEDBACK);
+        enforceOrgAccess(batchId, auth);
         return ResponseEntity.ok(feedbackService.getBatchFeedback(batchId));
     }
 
-    /**
-     * GET /api/feedback/admin/batch/{batchId}/summaries
-     */
     @GetMapping("/admin/batch/{batchId}/summaries")
     public ResponseEntity<List<FeedbackSummaryResponse>> getBatchSummaries(
-            @PathVariable Long batchId) {
-
+            @PathVariable Long batchId,
+            Authentication auth) {
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_BATCH_SUMMARIES);
+        enforceOrgAccess(batchId, auth);
         return ResponseEntity.ok(feedbackService.getBatchSummaries(batchId));
     }
 
-    /**
-     * PATCH /api/feedback/admin/{feedbackId}/status
-     * Body: { "status": "REVIEWED" }
-     */
     @PatchMapping("/admin/{feedbackId}/status")
     public ResponseEntity<FeedbackResponse> updateFeedbackStatus(
+            @PathVariable Long feedbackId,
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.UPDATE_FEEDBACK_STATUS);
+
+        String status = body.get("status");
+        if (status == null || status.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Long batchId = feedbackRepository.findById(feedbackId)
+                .map(Feedback::getBatchId)
+                .orElseThrow(() -> new RuntimeException("Feedback not found: " + feedbackId));
+        enforceOrgAccess(batchId, auth);
+
+        return ResponseEntity.ok(feedbackService.updateStatus(feedbackId, status));
+    }
+
+    @GetMapping("/check/{batchId}")
+    public ResponseEntity<?> checkFeedbackStatus(
+            @PathVariable Long batchId,
+            Authentication auth) {
+
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.CHECK_FEEDBACK_STATUS);
+
+        String studentEmail = auth.getName();
+        boolean hasSubmitted = feedbackService.hasFeedback(studentEmail, batchId);
+
+        return ResponseEntity.ok(Map.of(
+                "alreadySubmitted", hasSubmitted,
+                "message", hasSubmitted
+                    ? "You already submitted feedback for this batch"
+                    : "Ready to submit"
+        ));
+    }
+
+    // ✅ ============ ALERT CONFIG ENDPOINTS ============
+
+    @PostMapping("/alert-config")
+    public ResponseEntity<AlertConfigDTO> createOrUpdateAlertConfig(
+            @RequestBody AlertConfigDTO dto,
+            Authentication auth) {
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.CREATE_UPDATE_ALERT_CONFIG);
+        enforceOrgAccess(dto.getBatchId(), auth);
+        return ResponseEntity.ok(alertConfigService.createOrUpdateAlertConfig(dto));
+    }
+
+    @GetMapping("/alert-config/{batchId}")
+    public ResponseEntity<AlertConfigDTO> getAlertConfig(
+            @PathVariable Long batchId,
+            Authentication auth) {
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.GET_ALERT_CONFIG);
+        enforceOrgAccess(batchId, auth);
+        return ResponseEntity.ok(alertConfigService.getAlertConfig(batchId));
+    }
+
+    @DeleteMapping("/alert-config/{batchId}")
+    public ResponseEntity<Void> deleteAlertConfig(
+            @PathVariable Long batchId,
+            Authentication auth) {
+        chatFeatureFlagsService.enforce(organizationId(auth), auth.getName(), ChatFeatureKeys.DELETE_ALERT_CONFIG);
+        enforceOrgAccess(batchId, auth);
+        alertConfigService.deleteAlertConfig(batchId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SUPER ADMIN — UNCHANGED, NO FEATURE ENFORCEMENT BELOW THIS LINE
+    // ══════════════════════════════════════════════════════════════
+
+    private void enforceOrglessBatch(Long batchId) {
+        String batchOrgId = chatBatchTrainerRepository
+                .findByBatchId(batchId)
+                .map(ChatBatchTrainer::getOrganizationId)
+                .orElse(null);
+
+        if (batchOrgId != null) {
+            throw new RuntimeException(
+                    "Batch " + batchId + " belongs to an organization and is not "
+                    + "accessible via Super Admin unassigned-batch endpoints");
+        }
+    }
+
+    @GetMapping("/super-admin/batches")
+    public ResponseEntity<List<Long>> getSuperAdminOrglessBatchIds() {
+        return ResponseEntity.ok(feedbackService.getOrglessBatchIds());
+    }
+
+    @GetMapping("/super-admin/feedback")
+    public ResponseEntity<List<FeedbackResponse>> getSuperAdminFeedback() {
+        return ResponseEntity.ok(feedbackService.getFeedbackForOrglessBatches());
+    }
+
+    @GetMapping("/super-admin/summaries")
+    public ResponseEntity<List<FeedbackSummaryResponse>> getSuperAdminSummaries() {
+        return ResponseEntity.ok(feedbackService.getSummariesForOrglessBatches());
+    }
+
+    @GetMapping("/super-admin/batch/{batchId}")
+    public ResponseEntity<List<FeedbackResponse>> getSuperAdminBatchFeedback(
+            @PathVariable Long batchId) {
+        enforceOrglessBatch(batchId);
+        return ResponseEntity.ok(feedbackService.getBatchFeedback(batchId));
+    }
+
+    @GetMapping("/super-admin/batch/{batchId}/summaries")
+    public ResponseEntity<List<FeedbackSummaryResponse>> getSuperAdminBatchSummaries(
+            @PathVariable Long batchId) {
+        enforceOrglessBatch(batchId);
+        return ResponseEntity.ok(feedbackService.getBatchSummaries(batchId));
+    }
+
+    @PatchMapping("/super-admin/{feedbackId}/status")
+    public ResponseEntity<FeedbackResponse> updateSuperAdminFeedbackStatus(
             @PathVariable Long feedbackId,
             @RequestBody Map<String, String> body) {
 
@@ -172,62 +283,34 @@ public class FeedbackController {
         if (status == null || status.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
+
+        Long batchId = feedbackRepository.findById(feedbackId)
+                .map(Feedback::getBatchId)
+                .orElseThrow(() -> new RuntimeException("Feedback not found: " + feedbackId));
+        enforceOrglessBatch(batchId);
+
         return ResponseEntity.ok(feedbackService.updateStatus(feedbackId, status));
     }
-    /**
-     * ✅ NEW: GET /api/feedback/check/{batchId}
-     * Check if student already submitted feedback for a batch
-     */
-    @GetMapping("/check/{batchId}")
-    public ResponseEntity<?> checkFeedbackStatus(
-            @PathVariable Long batchId,
-            Authentication auth) {
 
-        String studentEmail = auth.getName();
-        boolean hasSubmitted = feedbackService.hasFeedback(studentEmail, batchId);
-
-        return ResponseEntity.ok(Map.of(
-                "alreadySubmitted", hasSubmitted,
-                "message", hasSubmitted 
-                    ? "You already submitted feedback for this batch" 
-                    : "Ready to submit"
-        ));
-    }
-    
-
-    // ✅ ============ NEW: ALERT CONFIG ENDPOINTS ============
-
-    /**
-     * POST /api/feedback/alert-config
-     * Create or update alert configuration for a batch
-     */
-    @PostMapping("/alert-config")
-    public ResponseEntity<AlertConfigDTO> createOrUpdateAlertConfig(
+    @PostMapping("/super-admin/alert-config")
+    public ResponseEntity<AlertConfigDTO> createOrUpdateSuperAdminAlertConfig(
             @RequestBody AlertConfigDTO dto) {
+        enforceOrglessBatch(dto.getBatchId());
         return ResponseEntity.ok(alertConfigService.createOrUpdateAlertConfig(dto));
     }
 
-    /**
-     * GET /api/feedback/alert-config/{batchId}
-     * Get alert configuration for a batch
-     */
-    @GetMapping("/alert-config/{batchId}")
-    public ResponseEntity<AlertConfigDTO> getAlertConfig(
+    @GetMapping("/super-admin/alert-config/{batchId}")
+    public ResponseEntity<AlertConfigDTO> getSuperAdminAlertConfig(
             @PathVariable Long batchId) {
+        enforceOrglessBatch(batchId);
         return ResponseEntity.ok(alertConfigService.getAlertConfig(batchId));
     }
 
-    /**
-     * DELETE /api/feedback/alert-config/{batchId}
-     * Delete alert configuration for a batch
-     */
-    @DeleteMapping("/alert-config/{batchId}")
-    public ResponseEntity<Void> deleteAlertConfig(
+    @DeleteMapping("/super-admin/alert-config/{batchId}")
+    public ResponseEntity<Void> deleteSuperAdminAlertConfig(
             @PathVariable Long batchId) {
+        enforceOrglessBatch(batchId);
         alertConfigService.deleteAlertConfig(batchId);
         return ResponseEntity.noContent().build();
     }
-    
-    
-    
 }

@@ -22,59 +22,6 @@ public class AlertConfigService {
         this.eventProducer = eventProducer;
     }
 
-//    @Transactional
-//    public AlertConfigDTO createOrUpdateAlertConfig(AlertConfigDTO dto) {
-//        AlertConfig config = alertConfigRepository
-//                .findByBatchId(dto.getBatchId())
-//                .orElseGet(() -> {
-//                    AlertConfig newConfig = new AlertConfig();
-//                    newConfig.setBatchId(dto.getBatchId());
-//                    return newConfig;
-//                });
-//
-//        config.setTrainerEmail(dto.getTrainerEmail());
-//        config.setSendToTrainer(dto.isSendToTrainer());
-//        config.setSendToStudent(dto.isSendToStudent());
-//        config.setSendToAdmin(dto.isSendToAdmin());
-//        config.setAlertLowRatings(dto.isAlertLowRatings());
-//        config.setLowRatingThreshold(dto.getLowRatingThreshold());
-//        config.setAlertAnonymous(dto.isAlertAnonymous());
-//        config.setTrainerMessage(dto.getTrainerMessage());   // ✅ ADD
-//        config.setStudentMessage(dto.getStudentMessage());   // ✅ ADD
-//        config.setAdminMessage(dto.getAdminMessage());       // ✅ ADD
-//
-//
-//
-//        AlertConfig saved = alertConfigRepository.save(config);
-//        
-//        // ✅ Publish event when alert config is saved
-//        try {
-//            eventProducer.publishAlertConfigUpdated(
-//                saved.getBatchId(),
-//                saved.getTrainerEmail(),
-//                saved.isSendToTrainer(),
-//                saved.isSendToStudent(),
-//                saved.isSendToAdmin(),
-//                saved.isAlertLowRatings(),
-//                saved.getLowRatingThreshold(),
-//                saved.getTrainerMessage(),   // ✅ ADD
-//                saved.getStudentMessage(),   // ✅ ADD
-//                saved.getAdminMessage(),   
-//                saved.getTrainerMessage(),   // ✅ now works
-//                saved.getStudentMessage(),   // ✅ now works
-//                saved.getAdminMessage()  
-//                
-//            );
-//            log.info("✅ Alert config event published: batch={}", saved.getBatchId());
-//            System.out.println("✅ Alert config event published for batch: " + saved.getBatchId());
-//        } catch (Exception e) {
-//            log.error("❌ Error publishing alert config event: {}", e.getMessage());
-//            System.out.println("❌ Error publishing alert config event: " + e.getMessage());
-//        }
-//
-//        return AlertConfigDTO.from(saved);
-//    }
-
     @Transactional
     public AlertConfigDTO createOrUpdateAlertConfig(AlertConfigDTO dto) {
         AlertConfig config = alertConfigRepository

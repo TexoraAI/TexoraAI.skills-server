@@ -37,12 +37,14 @@ public class SecurityConfig {
                 .requestMatchers("/api/feedback/submit").hasRole("STUDENT")
                 .requestMatchers("/api/feedback/student/**").hasRole("STUDENT")
                 .requestMatchers("/api/feedback/trainer/**").hasRole("TRAINER")
-                .requestMatchers("/api/feedback/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/feedback/admin/**").hasRole("TENANT_ADMIN")
 
              // ================= NOTEBOOKS (✅ ADD THIS) =================
                 .requestMatchers("/api/notebooks/**")
-                    .hasAnyRole("STUDENT", "TRAINER", "ADMIN")
-
+                    .hasAnyRole("STUDENT", "TRAINER", "TENANT_ADMIN")
+                 // ================= CHAT FEATURE FLAGS (✅ ADD THIS) =================
+                    .requestMatchers("/api/chat-feature-flags/**")
+                        .hasAnyRole("TENANT_ADMIN", "ADMIN", "SUPER_ADMIN")
                 
                 .anyRequest().authenticated()
             )

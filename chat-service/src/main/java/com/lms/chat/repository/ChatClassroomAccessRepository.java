@@ -1,3 +1,4 @@
+
 package com.lms.chat.repository;
 import org.springframework.data.jpa.repository.Modifying;
 
@@ -15,6 +16,10 @@ public interface ChatClassroomAccessRepository
     boolean existsByBatchIdAndTrainerEmailAndStudentEmail(
             Long batchId, String trainer, String student);
 
+    // Org-aware variant — used only when the authenticated user has a non-null organizationId
+    boolean existsByOrganizationIdAndBatchIdAndTrainerEmailAndStudentEmail(
+            String organizationId, Long batchId, String trainer, String student);
+
     void deleteByStudentEmailAndBatchId(String student, Long batchId);
 
     void deleteByTrainerEmailAndBatchId(String trainer, Long batchId);
@@ -29,7 +34,16 @@ public interface ChatClassroomAccessRepository
     	    AND c.trainerEmail = :trainer
     	""")
     	List<String> findStudentsOfTrainer(Long batchId, String trainer);
-   
+
+    @Query("""
+    	    SELECT c.studentEmail
+    	    FROM ChatClassroomAccess c
+    	    WHERE c.batchId = :batchId
+    	    AND c.trainerEmail = :trainer
+    	    AND c.organizationId = :organizationId
+    	""")
+    	List<String> findStudentsOfTrainer(Long batchId, String trainer, String organizationId);
+
     
     @Modifying
     @Query("""
@@ -58,6 +72,15 @@ public interface ChatClassroomAccessRepository
     	    AND c.studentEmail = :studentEmail
     	""")
     	Optional<String> findTrainerForStudent(Long batchId, String studentEmail);
+
+    @Query("""
+    	    SELECT c.trainerEmail
+    	    FROM ChatClassroomAccess c
+    	    WHERE c.batchId = :batchId
+    	    AND c.studentEmail = :studentEmail
+    	    AND c.organizationId = :organizationId
+    	""")
+    	Optional<String> findTrainerForStudent(Long batchId, String studentEmail, String organizationId);
 
     @Query("""
     		SELECT a FROM ChatClassroomAccess a
