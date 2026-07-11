@@ -2,53 +2,35 @@ package com.lms.video.dto;
 
 public class WatchNowStatsDTO {
 
-    private long totalCourses;
-    private long publishedCourses;
-    private long draftCourses;
-    private long totalLearners;
+    private long totalStories;
+    private long publishedStories;
+    private long draftStories;
+    private long uploadedVideos;
+    private long externalVideos;
 
-    public WatchNowStatsDTO() {
+    public WatchNowStatsDTO() {}
+
+    public WatchNowStatsDTO(long totalStories, long publishedStories, long draftStories,
+                             long uploadedVideos, long externalVideos) {
+        this.totalStories = totalStories;
+        this.publishedStories = publishedStories;
+        this.draftStories = draftStories;
+        this.uploadedVideos = uploadedVideos;
+        this.externalVideos = externalVideos;
     }
 
-    public WatchNowStatsDTO(long totalCourses,
-                            long publishedCourses,
-                            long draftCourses,
-                            long totalLearners) {
-        this.totalCourses = totalCourses;
-        this.publishedCourses = publishedCourses;
-        this.draftCourses = draftCourses;
-        this.totalLearners = totalLearners;
-    }
+    public long getTotalStories() { return totalStories; }
+    public void setTotalStories(long totalStories) { this.totalStories = totalStories; }
 
-    public long getTotalCourses() {
-        return totalCourses;
-    }
+    public long getPublishedStories() { return publishedStories; }
+    public void setPublishedStories(long publishedStories) { this.publishedStories = publishedStories; }
 
-    public void setTotalCourses(long totalCourses) {
-        this.totalCourses = totalCourses;
-    }
+    public long getDraftStories() { return draftStories; }
+    public void setDraftStories(long draftStories) { this.draftStories = draftStories; }
 
-    public long getPublishedCourses() {
-        return publishedCourses;
-    }
+    public long getUploadedVideos() { return uploadedVideos; }
+    public void setUploadedVideos(long uploadedVideos) { this.uploadedVideos = uploadedVideos; }
 
-    public void setPublishedCourses(long publishedCourses) {
-        this.publishedCourses = publishedCourses;
-    }
-
-    public long getDraftCourses() {
-        return draftCourses;
-    }
-
-    public void setDraftCourses(long draftCourses) {
-        this.draftCourses = draftCourses;
-    }
-
-    public long getTotalLearners() {
-        return totalLearners;
-    }
-
-    public void setTotalLearners(long totalLearners) {
-        this.totalLearners = totalLearners;
-    }
+    public long getExternalVideos() { return externalVideos; }
+    public void setExternalVideos(long externalVideos) { this.externalVideos = externalVideos; }
 }
