@@ -76,6 +76,8 @@ public class LiveSession {
     //new for time zone 
     @Column
     private String timezone;
+    
+    private String currentEgressFileSuffix;
 
     // ── ADD Getters & Setters ──────────────────────────────────────
 
@@ -154,5 +156,12 @@ public class LiveSession {
  // ADD getter/setter
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
+    
+    public String getCurrentEgressFileSuffix() {
+        return currentEgressFileSuffix;
+    }
+    public void setCurrentEgressFileSuffix(String currentEgressFileSuffix) {
+        this.currentEgressFileSuffix = currentEgressFileSuffix;
+    }
 
 }

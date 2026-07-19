@@ -1,3 +1,4 @@
+
 package com.lms.attendance.entity;
 
 import jakarta.persistence.*;
@@ -21,6 +22,9 @@ public class StudentBatchAccess {
 
     private String studentEmail;
 
+    // NEW — nullable, populated from trusted JWT/Kafka organizationId. Null for standalone students.
+    private String organizationId;
+
     // ===== Constructors =====
     public StudentBatchAccess() {}
 
@@ -28,6 +32,12 @@ public class StudentBatchAccess {
         this.batchId = batchId;
         this.studentUserId = studentUserId;
         this.studentEmail = studentEmail;
+    }
+
+    // NEW — overload used when organizationId is known (org-based students)
+    public StudentBatchAccess(Long batchId, Long studentUserId, String studentEmail, String organizationId) {
+        this(batchId, studentUserId, studentEmail);
+        this.organizationId = organizationId;
     }
 
     // ===== Getters & Setters =====
@@ -58,5 +68,14 @@ public class StudentBatchAccess {
 
     public void setStudentEmail(String studentEmail) {
         this.studentEmail = studentEmail;
+    }
+
+    // NEW
+    public String getOrganizationId() {
+        return organizationId;
+    }
+
+    public void setOrganizationId(String organizationId) {
+        this.organizationId = organizationId;
     }
 }

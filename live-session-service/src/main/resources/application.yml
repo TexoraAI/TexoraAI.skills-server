@@ -56,7 +56,7 @@ file:
 livekit:
   url: ${LIVEKIT_URL:http://localhost:7880}
   api-key: ${LIVEKIT_API_KEY:devkey}
-  api-secret: ${LIVEKIT_API_SECRET:secret}
+  api-secret: ${LIVEKIT_API_SECRET:xtfhwmzv8au1c2k45pn09gsej6oqb7rlyid3}
 
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}

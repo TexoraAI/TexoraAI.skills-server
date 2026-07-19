@@ -1,5 +1,5 @@
 package com.lms.live_session.service;
-
+import java.time.ZoneId;
 import com.lms.live_session.entity.LiveSession;
 import com.lms.live_session.entity.PublicSessionBooking;
 import com.lms.live_session.entity.StudentBatchMap;
@@ -75,46 +75,42 @@ public class SessionSchedulerService {
 
     // ─────────────────────────────────────────────────────────────────
     // 15-MIN NOTIFICATION TO TRAINER + STUDENTS
-    // BUG 3 FIX: Narrow 1-minute window (14-15 min before) so it fires
-    // exactly ONCE per session, not every minute for 15 minutes.
-    // Sessions scheduled < 14 min away are handled at creation time
-    // by LiveSessionService.sendImmediateNotificationIfNeeded()
+    
     // ─────────────────────────────────────────────────────────────────
+
 
     @Scheduled(fixedRate = 60000)
     public void sendNotificationsBefore15Minutes() {
         LocalDate today = LocalDate.now();
-        LocalTime currentTime = LocalTime.now();
 
         List<LiveSession> sessions = sessionRepository
                 .findByStatusAndScheduledDate("SCHEDULED", today);
 
         for (LiveSession session : sessions) {
-            // ✅ BUG 3 FIX: Only notify if session is in the narrow 14-15 min window
-            if (isInExact15MinWindow(session.getScheduledTime(), currentTime)) {
+            // ✅ BUG 3 FIX: Only notify if session is in the narrow 14-15 min window (timezone-aware)
+            if (isInExact15MinWindow(session)) {
                 sendTrainerNotification(session);
                 sendStudentNotifications(session);
                 System.out.println("✅ 15-min notification sent for: '"
-                    + session.getTitle() + "' at " + currentTime);
+                    + session.getTitle() + "'");
             }
         }
     }
-
     // ─────────────────────────────────────────────────────────────────
     // 15-MIN REMINDER TO PUBLIC BOOKINGS
     // Same narrow window fix applied
     // ─────────────────────────────────────────────────────────────────
 
+
     @Scheduled(fixedRate = 60000)
     public void sendPublicUserReminders() {
         LocalDate today = LocalDate.now();
-        LocalTime currentTime = LocalTime.now();
 
         List<LiveSession> sessions =
                 sessionRepository.findByStatusAndScheduledDate("SCHEDULED", today);
 
         for (LiveSession session : sessions) {
-            if (isInExact15MinWindow(session.getScheduledTime(), currentTime)) {
+            if (isInExact15MinWindow(session)) {
 
                 List<PublicSessionBooking> bookings =
                         publicBookingRepository.findBySessionIdAndBookingStatus(
@@ -149,7 +145,6 @@ public class SessionSchedulerService {
             }
         }
     }
-
     // ─────────────────────────────────────────────────────────────────
     // HELPER: shouldEnd
     // BUG 2 FIX: Prefer actualStartTime over scheduledTime
@@ -189,13 +184,17 @@ public class SessionSchedulerService {
 
     // ─────────────────────────────────────────────────────────────────
     // HELPER: isInExact15MinWindow
-    // BUG 3 FIX: Narrow window of 14:00-15:00 min before session.
-    // Fires ONCE per session (scheduler runs every 60s).
-    // Does NOT fire for sessions scheduled < 14 min away.
-    // ─────────────────────────────────────────────────────────────────
-
-    private boolean isInExact15MinWindow(LocalTime scheduledTime, LocalTime currentTime) {
+    
+    private boolean isInExact15MinWindow(LiveSession session) {
+        LocalTime scheduledTime = session.getScheduledTime();
         if (scheduledTime == null) return false;
+
+        // ✅ TIMEZONE FIX: compute "now" in the session's own timezone,
+        // same pattern already used correctly in LiveSessionService.canStart()
+        ZoneId zone = ZoneId.of(
+            session.getTimezone() != null ? session.getTimezone() : "UTC"
+        );
+        LocalTime currentTime = LocalDateTime.now(zone).toLocalTime();
 
         // Window: session starts between 14 min and 15 min from now
         LocalTime windowStart = currentTime.plusMinutes(14);

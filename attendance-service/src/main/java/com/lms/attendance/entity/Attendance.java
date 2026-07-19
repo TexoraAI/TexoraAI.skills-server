@@ -1,6 +1,4 @@
 
-
-
 package com.lms.attendance.entity;
 
 import jakarta.persistence.*;
@@ -45,6 +43,10 @@ public class Attendance {
     @Column(name = "trainer_email", nullable = false)
     private String trainerEmail;
 
+    // NEW — nullable, stamped from trusted JWT context at write time. Null for standalone users.
+    @Column(name = "organization_id")
+    private String organizationId;
+
     // ✅ ADD THIS FIELD
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -78,6 +80,10 @@ public class Attendance {
 
     public String getTrainerEmail() { return trainerEmail; }
     public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
+
+    // NEW
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

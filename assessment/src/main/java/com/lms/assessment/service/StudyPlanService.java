@@ -1,3 +1,5 @@
+
+
 package com.lms.assessment.service;
 
 import com.lms.assessment.dto.StudyPlanRequest;
@@ -8,7 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.util.Comparator;
+import com.lms.assessment.dto.StudyPlanAdminReportResponse;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +28,6 @@ public class StudyPlanService {
     private final StudyPlanSectionRepository   sectionRepository;
     private final StudyPlanItemRepository      itemRepository;
     private final StudyPlanProgressRepository  progressRepository;
-
-    // Inject existing CodingProblem repository to fetch problem metadata
     private final CodingProblemRepository      problemRepository;
 
     public StudyPlanService(StudyPlanRepository studyPlanRepository,
@@ -46,7 +47,7 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional
-    public StudyPlanResponse createStudyPlan(StudyPlanRequest req, String trainerEmail) {
+    public StudyPlanResponse createStudyPlan(StudyPlanRequest req, String trainerEmail, String organizationId) {
         StudyPlan plan = new StudyPlan();
         plan.setTitle(req.getTitle());
         plan.setDescription(req.getDescription());
@@ -55,20 +56,20 @@ public class StudyPlanService {
         plan.setThumbnailColor(req.getThumbnailColor() != null ? req.getThumbnailColor() : "#6366f1");
         plan.setIcon(req.getIcon() != null ? req.getIcon() : "📘");
         plan.setActive(true);
+        plan.setOrganizationId(organizationId); // null for standalone trainers — expected
         if (req.getDueDate() != null && !req.getDueDate().isBlank()) {
             plan.setDueDate(LocalDateTime.parse(req.getDueDate()));
         }
 
         StudyPlan saved = studyPlanRepository.save(plan);
 
-        // Save sections and items
         if (req.getSections() != null) {
             for (StudyPlanRequest.SectionRequest sr : req.getSections()) {
                 saveSection(saved, sr);
             }
         }
 
-        log.info("StudyPlan created: id={} trainer={} batch={}", saved.getId(), trainerEmail, req.getBatchId());
+        log.info("StudyPlan created: id={} trainer={} batch={} org={}", saved.getId(), trainerEmail, req.getBatchId(), organizationId);
         return buildResponse(saved, null);
     }
 
@@ -77,9 +78,8 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional
-    public StudyPlanResponse updateStudyPlan(Long planId, StudyPlanRequest req, String trainerEmail) {
-        StudyPlan plan = studyPlanRepository.findByIdAndTrainerEmail(planId, trainerEmail)
-                .orElseThrow(() -> new RuntimeException("Study plan not found or not owned by trainer: " + planId));
+    public StudyPlanResponse updateStudyPlan(Long planId, StudyPlanRequest req, String trainerEmail, String organizationId) {
+        StudyPlan plan = findOwnedPlan(planId, trainerEmail, organizationId);
 
         plan.setTitle(req.getTitle());
         plan.setDescription(req.getDescription());
@@ -90,9 +90,8 @@ public class StudyPlanService {
             plan.setDueDate(LocalDateTime.parse(req.getDueDate()));
         }
 
-        // Replace all sections
         plan.getSections().clear();
-        studyPlanRepository.save(plan);  // flush orphan removal
+        studyPlanRepository.save(plan);
 
         if (req.getSections() != null) {
             for (StudyPlanRequest.SectionRequest sr : req.getSections()) {
@@ -110,9 +109,8 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional
-    public void deleteStudyPlan(Long planId, String trainerEmail) {
-        StudyPlan plan = studyPlanRepository.findByIdAndTrainerEmail(planId, trainerEmail)
-                .orElseThrow(() -> new RuntimeException("Study plan not found: " + planId));
+    public void deleteStudyPlan(Long planId, String trainerEmail, String organizationId) {
+        StudyPlan plan = findOwnedPlan(planId, trainerEmail, organizationId);
         studyPlanRepository.delete(plan);
         log.info("StudyPlan deleted: id={} trainer={}", planId, trainerEmail);
     }
@@ -122,10 +120,12 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional(readOnly = true)
-    public List<StudyPlanResponse> getMyPlans(String trainerEmail) {
-        return studyPlanRepository
-                .findByTrainerEmailOrderByCreatedAtDesc(trainerEmail)
-                .stream()
+    public List<StudyPlanResponse> getMyPlans(String trainerEmail, String organizationId) {
+        List<StudyPlan> plans = organizationId == null
+                ? studyPlanRepository.findByTrainerEmailOrderByCreatedAtDesc(trainerEmail)
+                : studyPlanRepository.findByOrganizationIdAndTrainerEmailOrderByCreatedAtDesc(organizationId, trainerEmail);
+
+        return plans.stream()
                 .map(p -> buildResponse(p, null))
                 .collect(Collectors.toList());
     }
@@ -135,9 +135,8 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional(readOnly = true)
-    public StudyPlanResponse getPlanById(Long planId, String trainerEmail) {
-        StudyPlan plan = studyPlanRepository.findByIdAndTrainerEmail(planId, trainerEmail)
-                .orElseThrow(() -> new RuntimeException("Study plan not found: " + planId));
+    public StudyPlanResponse getPlanById(Long planId, String trainerEmail, String organizationId) {
+        StudyPlan plan = findOwnedPlan(planId, trainerEmail, organizationId);
         return buildResponse(plan, null);
     }
 
@@ -146,9 +145,10 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional(readOnly = true)
-    public List<StudyPlanResponse> getStudentPlans(Long batchId, String studentEmail) {
-        List<StudyPlan> plans = studyPlanRepository
-                .findByBatchIdAndActiveOrderByCreatedAtDesc(batchId, true);
+    public List<StudyPlanResponse> getStudentPlans(Long batchId, String studentEmail, String organizationId) {
+        List<StudyPlan> plans = organizationId == null
+                ? studyPlanRepository.findByBatchIdAndActiveOrderByCreatedAtDesc(batchId, true)
+                : studyPlanRepository.findByOrganizationIdAndBatchIdAndActiveOrderByCreatedAtDesc(organizationId, batchId, true);
 
         return plans.stream()
                 .map(p -> buildResponse(p, studentEmail))
@@ -160,16 +160,17 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional(readOnly = true)
-    public StudyPlanResponse getStudentPlanById(Long planId, String studentEmail) {
+    public StudyPlanResponse getStudentPlanById(Long planId, String studentEmail, String organizationId) {
         StudyPlan plan = studyPlanRepository.findById(planId)
                 .orElseThrow(() -> new RuntimeException("Study plan not found: " + planId));
+
+        assertSameOrg(plan.getOrganizationId(), organizationId);
+
         return buildResponse(plan, studentEmail);
     }
 
     /* ─────────────────────────────────────────────
        STUDENT: MARK ITEM COMPLETE
-       Called automatically when judge returns ACCEPTED for a problem
-       that exists in a study plan.
        ───────────────────────────────────────────── */
 
     @Transactional
@@ -189,7 +190,6 @@ public class StudyPlanService {
             return;
         }
 
-        // Fetch item to get planId
         StudyPlanItem item = itemRepository.findById(studyPlanItemId)
                 .orElseThrow(() -> new RuntimeException("StudyPlanItem not found: " + studyPlanItemId));
 
@@ -216,7 +216,6 @@ public class StudyPlanService {
                                            Long batchId, int marksObtained) {
         List<StudyPlanItem> items = itemRepository.findByProblemId(problemId);
         for (StudyPlanItem item : items) {
-            // Only mark if the plan belongs to the student's batch
             StudyPlan plan = item.getSection().getStudyPlan();
             if (plan.getBatchId() != null && plan.getBatchId().equals(batchId) && plan.isActive()) {
                 markItemComplete(item.getId(), studentEmail, batchId, problemId, marksObtained);
@@ -229,9 +228,8 @@ public class StudyPlanService {
        ───────────────────────────────────────────── */
 
     @Transactional
-    public StudyPlanResponse toggleActive(Long planId, String trainerEmail) {
-        StudyPlan plan = studyPlanRepository.findByIdAndTrainerEmail(planId, trainerEmail)
-                .orElseThrow(() -> new RuntimeException("Study plan not found: " + planId));
+    public StudyPlanResponse toggleActive(Long planId, String trainerEmail, String organizationId) {
+        StudyPlan plan = findOwnedPlan(planId, trainerEmail, organizationId);
         plan.setActive(!plan.isActive());
         return buildResponse(studyPlanRepository.save(plan), null);
     }
@@ -239,6 +237,20 @@ public class StudyPlanService {
     /* ─────────────────────────────────────────────
        PRIVATE HELPERS
        ───────────────────────────────────────────── */
+
+    private StudyPlan findOwnedPlan(Long planId, String trainerEmail, String organizationId) {
+        StudyPlan plan = studyPlanRepository.findByIdAndTrainerEmail(planId, trainerEmail)
+                .orElseThrow(() -> new RuntimeException("Study plan not found or not owned by trainer: " + planId));
+        assertSameOrg(plan.getOrganizationId(), organizationId);
+        return plan;
+    }
+
+    private void assertSameOrg(String resourceOrgId, String callerOrgId) {
+        if (callerOrgId == null) return;
+        if (!callerOrgId.equals(resourceOrgId)) {
+            throw new RuntimeException("Access denied: study plan belongs to a different organization");
+        }
+    }
 
     private void saveSection(StudyPlan plan, StudyPlanRequest.SectionRequest sr) {
         StudyPlanSection section = new StudyPlanSection();
@@ -261,7 +273,6 @@ public class StudyPlanService {
         item.setProblemId(ir.getProblemId());
         item.setOrderIndex(ir.getOrderIndex());
 
-        // Fetch problem metadata for denormalisation
         problemRepository.findById(ir.getProblemId()).ifPresent(p -> {
             item.setProblemTitle(p.getTitle());
             item.setProblemDifficulty(p.getDifficulty() != null ? p.getDifficulty().name() : null);
@@ -285,14 +296,12 @@ public class StudyPlanService {
         resp.setCreatedAt(plan.getCreatedAt());
         resp.setUpdatedAt(plan.getUpdatedAt());
 
-        // Build sections with items
         List<StudyPlanSection> sections = sectionRepository
                 .findByStudyPlanIdOrderByOrderIndexAsc(plan.getId());
 
         int totalProblems = 0;
         int completedProblems = 0;
 
-        // Fetch all progress records for this student & plan in one shot
         Map<Long, StudyPlanProgress> progressMap = new java.util.HashMap<>();
         if (studentEmail != null) {
             progressRepository
@@ -339,5 +348,59 @@ public class StudyPlanService {
         resp.setTotalProblems(totalProblems);
         resp.setCompletedProblems(completedProblems);
         return resp;
+    }
+    @Transactional(readOnly = true)
+    public List<StudyPlanAdminReportResponse> getAdminReport(String organizationId) {
+        List<StudyPlan> plans = studyPlanRepository.findByOrganizationId(organizationId);
+        return plans.stream()
+                .sorted(Comparator.comparing(StudyPlan::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toAdminReport)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudyPlanAdminReportResponse> getSuperAdminReport() {
+        List<StudyPlan> plans = studyPlanRepository.findByOrganizationIdIsNull();
+        return plans.stream()
+                .sorted(Comparator.comparing(StudyPlan::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toAdminReport)
+                .collect(Collectors.toList());
+    }
+
+    private StudyPlanAdminReportResponse toAdminReport(StudyPlan plan) {
+        List<StudyPlanSection> sections = sectionRepository.findByStudyPlanIdOrderByOrderIndexAsc(plan.getId());
+        int itemCount = 0;
+        for (StudyPlanSection section : sections) {
+            itemCount += itemRepository.findBySectionIdOrderByOrderIndexAsc(section.getId()).size();
+        }
+
+        return new StudyPlanAdminReportResponse(
+                plan.getId(),
+                plan.getTitle(),
+                plan.getTrainerEmail(),
+                plan.getBatchId(),
+                plan.isActive(),
+                plan.getDueDate(),
+                plan.getCreatedAt(),
+                itemCount,
+                plan.getOrganizationId() != null ? plan.getOrganizationId() : "Standalone"
+        );
+    }
+    @Transactional(readOnly = true)
+    public StudyPlanResponse getPlanItemsForAdmin(Long planId, String organizationId) {
+        StudyPlan plan = studyPlanRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Study plan not found: " + planId));
+        assertSameOrg(plan.getOrganizationId(), organizationId);
+        return buildResponse(plan, null);
+    }
+    
+    @Transactional(readOnly = true)
+    public StudyPlanResponse getPlanItemsForSuperAdmin(Long planId) {
+        StudyPlan plan = studyPlanRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Study plan not found: " + planId));
+        if (plan.getOrganizationId() != null) {
+            throw new RuntimeException("This plan does not belong to a standalone/super-admin scope");
+        }
+        return buildResponse(plan, null);
     }
 }

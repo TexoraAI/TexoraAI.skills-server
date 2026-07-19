@@ -53,7 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/assignments/**").authenticated()
                 
                 .requestMatchers("/api/v1/study-plans/**").authenticated()
-                
+                .requestMatchers("/api/assessment-feature-flags/**").authenticated()
                 /* Everything else */
                 .anyRequest().authenticated()
             )

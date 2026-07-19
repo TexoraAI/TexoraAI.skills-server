@@ -83,6 +83,7 @@
 //    public String getVideoUrl() { return videoUrl; }
 //    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
 //}
+
 package com.lms.video.dto;
 
 public class WatchNowDTO {

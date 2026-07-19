@@ -119,9 +119,7 @@ public class LiveSessionController {
  // ADD these 3 endpoints to LiveSessionController — don't touch existing ones
 
  // ── Resolve meeting link (external vs custom) ─────────────────
- // Frontend calls this when trainer clicks "Go Live" or student joins
- // If EXTERNAL → redirect to Zoom/Meet URL
- // If CUSTOM   → proceed to get LiveKit token
+ 
  @GetMapping("/{id}/meeting-link")
  public ResponseEntity<?> getMeetingLink(@PathVariable Long id) {
      try {
@@ -154,9 +152,7 @@ public class LiveSessionController {
     
     // ═══════════════════════════════════════════════════════
     // CAN-START CHECK
-    // ✅ BUG 1 FIX: Uses service.canStart() which considers createdAt gap
-    // Frontend calls this to decide whether to show "Go Live" button
-    // GET /api/live-sessions/{id}/can-start
+    
     // ═══════════════════════════════════════════════════════
 
     @GetMapping("/{id}/can-start")
@@ -198,44 +194,7 @@ public class LiveSessionController {
     // LIVEKIT TOKENS
     // ═══════════════════════════════════════════════════════
 
-    /**
-     * POST /api/live-sessions/{id}/start-live
-     * Checks canStart → sets status LIVE → records actualStartTime → returns LiveKit token
-     */
-//    @PostMapping("/{id}/start-live")
-//    public ResponseEntity<?> startLiveSession(@PathVariable Long id, Authentication auth) {
-//        try {
-//            LiveSession session = service.getSessionById(id);
-//
-//            // ✅ BUG 1 FIX: enforce canStart check server-side too
-//            if (!service.canStart(session)) {
-//                long minutesAway = 0;
-//                if (session.getScheduledDate() != null && session.getScheduledTime() != null) {
-//                    LocalDateTime scheduledAt = LocalDateTime.of(
-//                        session.getScheduledDate(), session.getScheduledTime()
-//                    );
-//                    minutesAway = ChronoUnit.MINUTES.between(LocalDateTime.now(), scheduledAt);
-//                }
-//                return ResponseEntity.badRequest().body(new ErrorResponse(
-//                    minutesAway > 0
-//                        ? "Cannot start yet. Session starts in " + minutesAway + " minute(s)."
-//                        : "Session cannot be started in its current state."
-//                ));
-//            }
-//
-//            // ✅ BUG 2 FIX: actualStartTime is set inside service.startSession()
-//            service.startSession(id);
-//
-//            String token = tokenService.generateTrainerToken(id);
-//            Map<String, String> response = new HashMap<>();
-//            response.put("room", "session-" + id);
-//            response.put("token", token);
-//            return ResponseEntity.ok(response);
-//
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to start session: " + e.getMessage()));
-//        }
-//    }
+   
     @PostMapping("/{id}/start-live")
     public ResponseEntity<?> startLiveSession(@PathVariable Long id, Authentication auth) {
         try {
@@ -324,48 +283,8 @@ public class LiveSessionController {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
-
-    // ═══════════════════════════════════════════════════════
-    // PARTICIPANTS
-    // ═══════════════════════════════════════════════════════
-//
-//    @PostMapping("/{sessionId}/participant/join")
-//    public ResponseEntity<?> joinSessionAsParticipant(
-//            @PathVariable Long sessionId,
-//            @RequestParam Long batchId,
-//            @RequestParam String studentEmail,
-//            @RequestParam String trainerEmail) {
-//        try {
-//            SessionParticipant participant = participantService.joinSession(
-//                sessionId, batchId, studentEmail, trainerEmail
-//            );
-//            return ResponseEntity.ok(participant);
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
-//
-//    @PostMapping("/{sessionId}/participant/leave")
-//    public ResponseEntity<?> leaveSessionAsParticipant(
-//            @PathVariable Long sessionId,
-//            @RequestParam String studentEmail) {
-//        try {
-//            SessionParticipant participant = participantService.leaveSession(
-//                sessionId, studentEmail
-//            );
-//            return ResponseEntity.ok(participant);
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
-//
-//    @GetMapping("/{sessionId}/participants")
-//    public ResponseEntity<List<SessionParticipant>> getParticipants(@PathVariable Long sessionId) {
-//        return ResponseEntity.ok(participantService.getSessionParticipants(sessionId));
-//    }
  // ═══════════════════════════════════════════════════════
  // PARTICIPANTS — email extracted from JWT, not from params
- // ═══════════════════════════════════════════════════════
 
  @PostMapping("/{sessionId}/participant/join")
  public ResponseEntity<?> joinSessionAsParticipant(
@@ -421,29 +340,7 @@ public class LiveSessionController {
     // PUBLIC BOOKINGS
     // ═══════════════════════════════════════════════════════
 
-//    @PostMapping("/public/bookings")
-//    public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) {
-//        try {
-//            PublicSessionBooking booking = bookingService.bookSession(
-//                request.getSessionId(),
-//                request.getFullName(),
-//                request.getEmail(),
-//                request.getPhoneNumber(),
-//                request.getCountry(),
-//                request.getGdprConsent()
-//            );
-//            String joinLink = urlBuilderService.generatePublicJoinLink(booking.getUniqueAccessToken());
-//            return ResponseEntity.ok(new PublicBookingResponse(
-//                booking.getId(), booking.getSessionId(), booking.getFullName(),
-//                booking.getEmail(), joinLink, booking.getBookingStatus(),
-//                "Booking confirmed! Join link: " + joinLink
-//            ));
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse("Booking failed: " + e.getMessage()));
-//        }
-//    }
 //── REPLACE ONLY THIS METHOD inside LiveSessionController ──────────
-//Everything else in LiveSessionController stays exactly the same.
 
 @PostMapping("/public/bookings")
 public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) {
@@ -688,6 +585,25 @@ public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) 
         public DurationResponse(Long bookingId, Long durationMinutes) {
             this.bookingId       = bookingId;
             this.durationMinutes = durationMinutes;
+        }
+    }
+    
+ // ✅ NEW — add near your other /start-live, /end endpoints
+    @PostMapping("/{id}/recording/start")
+    public ResponseEntity<?> startRecordingEndpoint(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(service.enableRecording(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/recording/stop")
+    public ResponseEntity<?> stopRecordingEndpoint(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(service.disableRecording(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
 }

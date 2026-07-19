@@ -14,6 +14,6 @@ public interface AttemptRepository extends JpaRepository<Attempt, Long> {
 
     void deleteByQuizId(Long quizId);
     
-
+    long countByQuiz_Id(Long quizId);
 
 }

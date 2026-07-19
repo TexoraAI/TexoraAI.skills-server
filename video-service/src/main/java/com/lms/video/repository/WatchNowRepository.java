@@ -14,6 +14,7 @@
 //    List<WatchNow> findByCourseId(Long courseId);
 //    long countByStatus(String status);
 //}
+
 package com.lms.video.repository;
 
 import com.lms.video.model.WatchNow;

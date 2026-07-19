@@ -1,3 +1,4 @@
+
 package com.lms.assessment.model;
 
 import jakarta.persistence.*;
@@ -26,10 +27,10 @@ public class StudyPlan {
     private Long batchId;
 
     @Column(name = "thumbnail_color")
-    private String thumbnailColor;   // e.g. "#6366f1"
+    private String thumbnailColor;
 
     @Column(name = "icon")
-    private String icon;             // emoji or icon string e.g. "📘"
+    private String icon;
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
@@ -42,6 +43,10 @@ public class StudyPlan {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // 🏢 Multi-tenancy — null for standalone users, expected.
+    @Column(name = "organization_id")
+    private String organizationId;
 
     @OneToMany(mappedBy = "studyPlan", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("orderIndex ASC")
@@ -59,40 +64,30 @@ public class StudyPlan {
     }
 
     // ── Getters & Setters ──────────────────────────────────────────
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
-
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-
     public String getTrainerEmail() { return trainerEmail; }
     public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
-
     public Long getBatchId() { return batchId; }
     public void setBatchId(Long batchId) { this.batchId = batchId; }
-
     public String getThumbnailColor() { return thumbnailColor; }
     public void setThumbnailColor(String thumbnailColor) { this.thumbnailColor = thumbnailColor; }
-
     public String getIcon() { return icon; }
     public void setIcon(String icon) { this.icon = icon; }
-
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
-
     public LocalDateTime getDueDate() { return dueDate; }
     public void setDueDate(LocalDateTime dueDate) { this.dueDate = dueDate; }
-
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-
     public List<StudyPlanSection> getSections() { return sections; }
     public void setSections(List<StudyPlanSection> sections) { this.sections = sections; }
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
 }

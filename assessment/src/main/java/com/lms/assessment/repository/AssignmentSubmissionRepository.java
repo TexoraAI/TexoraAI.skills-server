@@ -19,7 +19,7 @@ public interface AssignmentSubmissionRepository
     List<AssignmentSubmission>
     findByAssignmentId(Long assignmentId);
     
-    
+    long countByAssignmentId(Long assignmentId);
    
 
 

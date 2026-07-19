@@ -79,7 +79,8 @@ public class GatewayConfig {
             // ================= ATTENDANCE SERVICE (✅ FIX: MOVED UP) =================
             .route("attendance-service", r -> r.path(
                     "/api/trainer/attendance/**",
-                    "/api/student/attendance/**"
+                    "/api/student/attendance/**",
+                    "/api/attendance-feature-flags/**"
             ).uri(attendanceService))
 
             // ================= AUTH =================
@@ -175,7 +176,8 @@ public class GatewayConfig {
                     "/api/v1/code-files/**", 
                     "/api/v1/problems/**",
                     "/api/v1/assignments/**",
-                    "/api/v1/study-plans/**" 
+                    "/api/v1/study-plans/**" ,
+                    "/api/assessment-feature-flags/**" 
             ).uri(assessmentService))
             
 

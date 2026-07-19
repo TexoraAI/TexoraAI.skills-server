@@ -1,3 +1,5 @@
+
+
 package com.lms.assessment.service;
 
 import com.lms.assessment.dto.ProblemAssignmentRequest;
@@ -39,47 +41,14 @@ public class ProblemAssignmentService {
     }
 
     // ── Trainer: assign problem to batch ──────────
-//    @Transactional
-//    public ProblemAssignmentResponse assignProblem(ProblemAssignmentRequest request) {
-//        String trainerEmail = extractEmailFromJwt();
-//
-//        CodingProblem problem = codingProblemRepository.findById(request.getProblemId())
-//            .orElseThrow(() -> new RuntimeException("Problem not found: " + request.getProblemId()));
-//
-//        boolean alreadyAssigned = problemAssignmentRepository
-//            .existsByProblemIdAndBatchId(request.getProblemId(), request.getBatchId());
-//
-//        if (alreadyAssigned) {
-//            throw new RuntimeException("Problem already assigned to this batch");
-//        }
-//
-//        ProblemAssignment assignment = new ProblemAssignment();
-//        assignment.setProblem(problem);
-//        assignment.setBatchId(request.getBatchId());
-//        assignment.setAssignedByEmail(trainerEmail);
-//        assignment.setDueDate(request.getDueDate());
-//
-//        ProblemAssignment saved = problemAssignmentRepository.save(assignment);
-//        log.info("Problem {} assigned to batch {} by {}", problem.getId(), request.getBatchId(), trainerEmail);
-//
-//     // ✅ NEW — fire Kafka event so students get notified
-//        eventProducer.publishCodingProblemAssigned(
-//            problem.getId(),
-//            problem.getTitle(),
-//            request.getBatchId(),
-//            trainerEmail
-//        );
-//        
-//        return toResponse(saved);
-//    }
- // In assignProblem(), replace the duplicate-check + new-record block:
-
     @Transactional
-    public ProblemAssignmentResponse assignProblem(ProblemAssignmentRequest request) {
+    public ProblemAssignmentResponse assignProblem(ProblemAssignmentRequest request, String organizationId) {
         String trainerEmail = extractEmailFromJwt();
 
         CodingProblem problem = codingProblemRepository.findById(request.getProblemId())
             .orElseThrow(() -> new RuntimeException("Problem not found: " + request.getProblemId()));
+
+        assertSameOrg(problem.getOrganizationId(), organizationId);
 
         // ✅ Only block if ACTIVELY assigned (ignores soft-deleted rows)
         boolean activelyAssigned = problemAssignmentRepository
@@ -108,42 +77,45 @@ public class ProblemAssignmentService {
 
         return toResponse(saved);
     }
+
     // ── Trainer: unassign problem from batch ──────
     @Transactional
-    public void unassignProblem(Long assignmentId) {
+    public void unassignProblem(Long assignmentId, String organizationId) {
         ProblemAssignment assignment = problemAssignmentRepository.findById(assignmentId)
             .orElseThrow(() -> new RuntimeException("Assignment not found: " + assignmentId));
+
+        assertSameOrg(assignment.getProblem().getOrganizationId(), organizationId);
+
         assignment.setIsActive(false);
         problemAssignmentRepository.save(assignment);
         log.info("Assignment soft-deleted: id={}", assignmentId);
     }
- 
 
     // ── Trainer: view all assignments for a batch ─
     @Transactional(readOnly = true)
-    public List<ProblemAssignmentResponse> getAssignmentsByBatch(String batchId) {
+    public List<ProblemAssignmentResponse> getAssignmentsByBatch(String batchId, String organizationId) {
         return problemAssignmentRepository.findByBatchIdAndIsActiveTrue(batchId)
             .stream()
+            .filter(a -> organizationId == null || organizationId.equals(a.getProblem().getOrganizationId()))
             .map(this::toResponse)
             .collect(Collectors.toList());
     }
 
     // ── Student: get all active problems for their batch ──
     @Transactional(readOnly = true)
-    public List<CodingProblemResponse> getProblemsForStudent(String batchId) {
+    public List<CodingProblemResponse> getProblemsForStudent(String batchId, String organizationId) {
         return problemAssignmentRepository.findByBatchIdAndIsActiveTrue(batchId)
             .stream()
-            .map(a -> codingProblemService.getProblemForStudent(a.getProblem().getId()))
+            .filter(a -> organizationId == null || organizationId.equals(a.getProblem().getOrganizationId()))
+            .map(a -> codingProblemService.getProblemForStudent(a.getProblem().getId(), organizationId))
             .collect(Collectors.toList());
     }
 
- // Add inside ProblemAssignmentService class
-
     @Transactional(readOnly = true)
-    public CodingProblemResponse getProblemForStudentById(Long problemId) {
-        return codingProblemService.getProblemForStudent(problemId);
+    public CodingProblemResponse getProblemForStudentById(Long problemId, String organizationId) {
+        return codingProblemService.getProblemForStudent(problemId, organizationId);
     }
-    
+
     // ── Private helpers ───────────────────────────
     private ProblemAssignmentResponse toResponse(ProblemAssignment a) {
         return ProblemAssignmentResponse.builder()
@@ -163,4 +135,32 @@ public class ProblemAssignmentService {
             .getAuthentication()
             .getName();
     }
+
+    // ================= ORG GUARD (private) =================
+
+    private void assertSameOrg(String resourceOrgId, String callerOrgId) {
+        if (callerOrgId == null) return;
+        if (!callerOrgId.equals(resourceOrgId)) {
+            throw new RuntimeException("Access denied: problem belongs to a different organization");
+        }
+    }
+ // ── Admin/Trainer: view all batches a problem is assigned to ─
+    @Transactional(readOnly = true)
+    public List<ProblemAssignmentResponse> getAssignmentsByProblem(Long problemId, String organizationId) {
+        return problemAssignmentRepository.findByProblemIdAndIsActiveTrue(problemId)
+            .stream()
+            .filter(a -> organizationId == null || organizationId.equals(a.getProblem().getOrganizationId()))
+            .map(this::toResponse)
+            .collect(Collectors.toList());
+    }
+ // ── Super Admin: view all batches a problem is assigned to (no org filter) ─
+    @Transactional(readOnly = true)
+    public List<ProblemAssignmentResponse> getAssignmentsByProblemForSuperAdmin(Long problemId) {
+        return problemAssignmentRepository.findByProblemIdAndIsActiveTrue(problemId)
+            .stream()
+            .filter(a -> a.getProblem().getOrganizationId() == null)
+            .map(this::toResponse)
+            .collect(Collectors.toList());
+    }
+    
 }

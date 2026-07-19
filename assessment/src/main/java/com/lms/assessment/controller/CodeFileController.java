@@ -1,3 +1,4 @@
+//
 //package com.lms.assessment.controller;
 //
 //import com.lms.assessment.dto.CodeFileDTO;
@@ -28,9 +29,15 @@
 //    }
 //
 //    // POST /api/v1/code-files          ← assessmentService: saveCodeFile(data)
+//    // studentEmail is taken from JWT — frontend does NOT need to send it
 //    @PostMapping
 //    public ResponseEntity<CodeFileDTO> save(
 //            @RequestBody CodeFileDTO.SaveRequest req) {
+//
+//        // ✅ Always override studentEmail from JWT — never trust frontend value
+//        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+//        req.setStudentEmail(auth.getName());
+//
 //        return ResponseEntity.ok(codeFileService.save(req));
 //    }
 //
@@ -65,10 +72,14 @@
 //        return ResponseEntity.ok(Map.of("message", "File deleted successfully"));
 //    }
 //}
+
 package com.lms.assessment.controller;
 
+import com.lms.assessment.constants.AssessmentFeatureKeys;
 import com.lms.assessment.dto.CodeFileDTO;
+import com.lms.assessment.service.AssessmentFeatureFlagsService;
 import com.lms.assessment.service.CodeFileService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -85,6 +96,9 @@ public class CodeFileController {
     @Autowired
     private CodeFileService codeFileService;
 
+    @Autowired
+    private AssessmentFeatureFlagsService featureFlagsService;
+
     // GET /api/v1/code-files/profile
     // Frontend calls this once on load to get student email from JWT
     @GetMapping("/profile")
@@ -98,10 +112,12 @@ public class CodeFileController {
     // studentEmail is taken from JWT — frontend does NOT need to send it
     @PostMapping
     public ResponseEntity<CodeFileDTO> save(
-            @RequestBody CodeFileDTO.SaveRequest req) {
+            @RequestBody CodeFileDTO.SaveRequest req,
+            HttpServletRequest httpRequest) {
 
         // ✅ Always override studentEmail from JWT — never trust frontend value
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        featureFlagsService.enforce(orgId(httpRequest), auth.getName(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
         req.setStudentEmail(auth.getName());
 
         return ResponseEntity.ok(codeFileService.save(req));
@@ -111,15 +127,18 @@ public class CodeFileController {
     // JWT carries student identity — no studentEmail param needed
     @GetMapping("/my")
     public ResponseEntity<List<CodeFileDTO>> getMy(
-            @RequestParam String batchId) {
+            @RequestParam String batchId,
+            HttpServletRequest httpRequest) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        featureFlagsService.enforce(orgId(httpRequest), auth.getName(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
         String studentEmail = auth.getName();
         return ResponseEntity.ok(codeFileService.getAll(studentEmail, batchId));
     }
 
     // GET /api/v1/code-files/{id}      ← assessmentService: getCodeFileById(id)
     @GetMapping("/{id}")
-    public ResponseEntity<CodeFileDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<CodeFileDTO> getById(@PathVariable Long id, HttpServletRequest httpRequest) {
+        featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
         return ResponseEntity.ok(codeFileService.getById(id));
     }
 
@@ -127,14 +146,27 @@ public class CodeFileController {
     @PutMapping("/{id}")
     public ResponseEntity<CodeFileDTO> update(
             @PathVariable Long id,
-            @RequestBody CodeFileDTO.UpdateRequest req) {
+            @RequestBody CodeFileDTO.UpdateRequest req,
+            HttpServletRequest httpRequest) {
+        featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
         return ResponseEntity.ok(codeFileService.update(id, req));
     }
 
     // DELETE /api/v1/code-files/{id}   ← assessmentService: deleteCodeFile(id)
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id) {
+    public ResponseEntity<?> delete(@PathVariable Long id, HttpServletRequest httpRequest) {
+        featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
         codeFileService.delete(id);
         return ResponseEntity.ok(Map.of("message", "File deleted successfully"));
+    }
+
+    // 🏢 Pulled from the JwtFilter's request attribute — never from the request body.
+    private String orgId(HttpServletRequest request) {
+        return (String) request.getAttribute("organizationId");
+    }
+
+    private String callerEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : null;
     }
 }

@@ -1,45 +1,45 @@
-package com.lms.assessment.service;
-import java.util.List;
-import java.util.Map;
-import com.lms.assessment.dto.AnswerRequest;
-import com.lms.assessment.dto.AttemptHistoryResponse;
-import com.lms.assessment.dto.QuizResultResponse;
-import com.lms.assessment.dto.SubmitAttemptRequest;
-import com.lms.assessment.model.Attempt;
-import com.lms.assessment.model.Option;
-import com.lms.assessment.model.Quiz;
-import com.lms.assessment.repository.AttemptRepository;
-import com.lms.assessment.repository.OptionRepository;
-import com.lms.assessment.repository.QuizRepository;
-
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-
-import java.time.Duration;
-import java.time.Instant;
-import org.springframework.transaction.annotation.Transactional;
-@Service
-public class AttemptService {
-
-    private final AttemptRepository attemptRepo;
-    private final QuizRepository quizRepo;
-    private final OptionRepository optionRepo;
-
-    public AttemptService(
-            AttemptRepository attemptRepo,
-            QuizRepository quizRepo,
-            OptionRepository optionRepo
-    ) {
-        this.attemptRepo = attemptRepo;
-        this.quizRepo = quizRepo;
-        this.optionRepo = optionRepo;
-    }
-
- 
+//package com.lms.assessment.service;
+//import java.util.List;
+//import java.util.Map;
+//import com.lms.assessment.dto.AnswerRequest;
+//import com.lms.assessment.dto.AttemptHistoryResponse;
+//import com.lms.assessment.dto.QuizResultResponse;
+//import com.lms.assessment.dto.SubmitAttemptRequest;
+//import com.lms.assessment.model.Attempt;
+//import com.lms.assessment.model.Option;
+//import com.lms.assessment.model.Quiz;
+//import com.lms.assessment.repository.AttemptRepository;
+//import com.lms.assessment.repository.OptionRepository;
+//import com.lms.assessment.repository.QuizRepository;
+//
+//import org.springframework.security.core.Authentication;
+//import org.springframework.security.core.context.SecurityContextHolder;
+//import org.springframework.stereotype.Service;
+//
+//import java.time.Duration;
+//import java.time.Instant;
+//import org.springframework.transaction.annotation.Transactional;
+//@Service
+//public class AttemptService {
+//
+//    private final AttemptRepository attemptRepo;
+//    private final QuizRepository quizRepo;
+//    private final OptionRepository optionRepo;
+//
+//    public AttemptService(
+//            AttemptRepository attemptRepo,
+//            QuizRepository quizRepo,
+//            OptionRepository optionRepo
+//    ) {
+//        this.attemptRepo = attemptRepo;
+//        this.quizRepo = quizRepo;
+//        this.optionRepo = optionRepo;
+//    }
+//
+// 
 //
 //    @Transactional
-//    public Attempt submitAttempt(SubmitAttemptRequest req, Map<Long, Boolean> correctnessMap) {
+//    public QuizResultResponse submitAttempt(SubmitAttemptRequest req, Map<Long, Boolean> correctnessMap) {
 //
 //        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 //
@@ -71,20 +71,145 @@ public class AttemptService {
 //            }
 //        }
 //
+//        // ✅ SAVE ATTEMPT
 //        Attempt attempt = new Attempt();
 //        attempt.setQuiz(quiz);
 //        attempt.setUserEmail(userEmail);
-//        attempt.setScore(correct); // storing correct answers count
+//        attempt.setScore(correct);
+//        attempt.setStartedAt(java.time.Instant.now());
+//        attempt.setCompletedAt(java.time.Instant.now());
+//        attempt.setSubmittedAt(java.time.Instant.now());
 //
-//        attempt.setStartedAt(Instant.now());
-//        attempt.setCompletedAt(Instant.now());
-//        attempt.setSubmittedAt(Instant.now());
+//        Attempt saved = attemptRepo.save(attempt);
 //
-//        return attemptRepo.save(attempt);
+//        // ✅ CALCULATE RESULT
+//        int totalQuestions = quiz.getQuestions().size();
+//
+//        double percentage = totalQuestions > 0
+//                ? (correct * 100.0) / totalQuestions
+//                : 0;
+//
+//        // ✅ BUILD RESPONSE
+//        QuizResultResponse res = new QuizResultResponse();
+//
+//        res.setAttemptId(saved.getId());
+//        res.setQuizId(quiz.getId());        // 🔥 IMPORTANT
+//        res.setBatchId(quiz.getBatchId());  // 🔥 IMPORTANT
+//
+//        res.setScore(correct);
+//        res.setTotalQuestions(totalQuestions);
+//        res.setCorrectAnswers(correct);
+//        res.setPercentage(percentage);
+//        res.setPerQuestionCorrectness(correctnessMap);
+//
+//        return res;
 //    }
 //    
+//    // =========================
+//    // CHECK IF ATTEMPTED
+//    // =========================
+//    public boolean hasUserAttempted(Long quizId) {
+//
+//        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+//
+//        if (auth == null || auth.getName() == null) {
+//            return false;
+//        }
+//
+//        String userEmail = auth.getName();
+//
+//        return attemptRepo.existsByQuiz_IdAndUserEmail(quizId, userEmail);
+//    }
+//
+//    public Attempt getAttempt(Long id) {
+//        return attemptRepo.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Attempt not found"));
+//    }
+// // =========================
+// // TRAINER: GET ALL ATTEMPTS FOR A QUIZ
+// // =========================
+// public java.util.List<Attempt> getAttemptsForQuiz(Long quizId) {
+//     return attemptRepo.findByQuiz_Id(quizId);
+// }
+//
+////STUDENT: GET MY ATTEMPTS
+// public List<AttemptHistoryResponse> getMyAttempts() {
+//
+//	    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+//
+//	    if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+//	        throw new RuntimeException("JWT not found — user not authenticated");
+//	    }
+//
+//	    String userEmail = auth.getName();
+//
+//	    List<Attempt> attempts =
+//	            attemptRepo.findByUserEmailOrderBySubmittedAtDesc(userEmail);
+//
+//	    return attempts.stream().map(a -> {
+//
+//	        // ✅ IMPORTANT: force load questions (lazy fix)
+//	        int totalQuestions = a.getQuiz().getQuestions().size();
+//
+//	        double percentage = totalQuestions > 0
+//	                ? (a.getScore() * 100.0) / totalQuestions
+//	                : 0;
+//
+//	        AttemptHistoryResponse res = new AttemptHistoryResponse();
+//
+//	        res.setAttemptId(a.getId());
+//	        res.setQuizTitle(a.getQuiz().getTitle());
+//	        res.setScore(a.getScore());
+//	        res.setPercentage(percentage);
+//	        res.setSubmittedAt(a.getSubmittedAt());
+//
+//	        return res;
+//
+//	    }).toList();
+//	}
+//}
+package com.lms.assessment.service;
+
+import java.util.List;
+import java.util.Map;
+import com.lms.assessment.dto.AnswerRequest;
+import com.lms.assessment.dto.AttemptHistoryResponse;
+import com.lms.assessment.dto.QuizResultResponse;
+import com.lms.assessment.dto.SubmitAttemptRequest;
+import com.lms.assessment.model.Attempt;
+import com.lms.assessment.model.Option;
+import com.lms.assessment.model.Quiz;
+import com.lms.assessment.repository.AttemptRepository;
+import com.lms.assessment.repository.OptionRepository;
+import com.lms.assessment.repository.QuizRepository;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.Instant;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AttemptService {
+
+    private final AttemptRepository attemptRepo;
+    private final QuizRepository quizRepo;
+    private final OptionRepository optionRepo;
+
+    public AttemptService(
+            AttemptRepository attemptRepo,
+            QuizRepository quizRepo,
+            OptionRepository optionRepo
+    ) {
+        this.attemptRepo = attemptRepo;
+        this.quizRepo = quizRepo;
+        this.optionRepo = optionRepo;
+    }
+
     @Transactional
-    public QuizResultResponse submitAttempt(SubmitAttemptRequest req, Map<Long, Boolean> correctnessMap) {
+    public QuizResultResponse submitAttempt(SubmitAttemptRequest req, Map<Long, Boolean> correctnessMap, String organizationId) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -96,6 +221,8 @@ public class AttemptService {
 
         Quiz quiz = quizRepo.findById(req.getQuizId())
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
+
+        assertSameOrg(quiz.getOrganizationId(), organizationId);
 
         int correct = 0;
 
@@ -149,11 +276,11 @@ public class AttemptService {
 
         return res;
     }
-    
+
     // =========================
     // CHECK IF ATTEMPTED
     // =========================
-    public boolean hasUserAttempted(Long quizId) {
+    public boolean hasUserAttempted(Long quizId, String organizationId) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -163,68 +290,79 @@ public class AttemptService {
 
         String userEmail = auth.getName();
 
+        Quiz quiz = quizRepo.findById(quizId)
+                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+
+        assertSameOrg(quiz.getOrganizationId(), organizationId);
+
         return attemptRepo.existsByQuiz_IdAndUserEmail(quizId, userEmail);
     }
 
-    public Attempt getAttempt(Long id) {
-        return attemptRepo.findById(id)
+    public Attempt getAttempt(Long id, String organizationId) {
+        Attempt attempt = attemptRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Attempt not found"));
+
+        assertSameOrg(attempt.getQuiz().getOrganizationId(), organizationId);
+
+        return attempt;
     }
- // =========================
- // TRAINER: GET ALL ATTEMPTS FOR A QUIZ
- // =========================
- public java.util.List<Attempt> getAttemptsForQuiz(Long quizId) {
-     return attemptRepo.findByQuiz_Id(quizId);
- }
-//=========================
-//STUDENT: GET MY ATTEMPTS
-//=========================
-//public java.util.List<Attempt> getMyAttempts() {
-//
-//  Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-//
-//  if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
-//      throw new RuntimeException("JWT not found — user not authenticated");
-//  }
-//
-//  String userEmail = auth.getName();
-//
-//  return attemptRepo.findByUserEmailOrderBySubmittedAtDesc(userEmail);
-//}
- public List<AttemptHistoryResponse> getMyAttempts() {
 
-	    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    // =========================
+    // TRAINER: GET ALL ATTEMPTS FOR A QUIZ
+    // =========================
+    public java.util.List<Attempt> getAttemptsForQuiz(Long quizId, String organizationId) {
+        Quiz quiz = quizRepo.findById(quizId)
+                .orElseThrow(() -> new RuntimeException("Quiz not found"));
 
-	    if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
-	        throw new RuntimeException("JWT not found — user not authenticated");
-	    }
+        assertSameOrg(quiz.getOrganizationId(), organizationId);
 
-	    String userEmail = auth.getName();
+        return attemptRepo.findByQuiz_Id(quizId);
+    }
 
-	    List<Attempt> attempts =
-	            attemptRepo.findByUserEmailOrderBySubmittedAtDesc(userEmail);
+    // STUDENT: GET MY ATTEMPTS
+    public List<AttemptHistoryResponse> getMyAttempts(String organizationId) {
 
-	    return attempts.stream().map(a -> {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-	        // ✅ IMPORTANT: force load questions (lazy fix)
-	        int totalQuestions = a.getQuiz().getQuestions().size();
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            throw new RuntimeException("JWT not found — user not authenticated");
+        }
 
-	        double percentage = totalQuestions > 0
-	                ? (a.getScore() * 100.0) / totalQuestions
-	                : 0;
+        String userEmail = auth.getName();
 
-	        AttemptHistoryResponse res = new AttemptHistoryResponse();
+        List<Attempt> attempts =
+                attemptRepo.findByUserEmailOrderBySubmittedAtDesc(userEmail);
 
-	        res.setAttemptId(a.getId());
-	        res.setQuizTitle(a.getQuiz().getTitle());
-	        res.setScore(a.getScore());
-	        res.setPercentage(percentage);
-	        res.setSubmittedAt(a.getSubmittedAt());
+        return attempts.stream()
+                .filter(a -> organizationId == null || organizationId.equals(a.getQuiz().getOrganizationId()))
+                .map(a -> {
 
-	        return res;
+                    // ✅ IMPORTANT: force load questions (lazy fix)
+                    int totalQuestions = a.getQuiz().getQuestions().size();
 
-	    }).toList();
-	}
- 
- 
+                    double percentage = totalQuestions > 0
+                            ? (a.getScore() * 100.0) / totalQuestions
+                            : 0;
+
+                    AttemptHistoryResponse res = new AttemptHistoryResponse();
+
+                    res.setAttemptId(a.getId());
+                    res.setQuizTitle(a.getQuiz().getTitle());
+                    res.setScore(a.getScore());
+                    res.setPercentage(percentage);
+                    res.setSubmittedAt(a.getSubmittedAt());
+
+                    return res;
+
+                }).toList();
+    }
+
+    // ================= ORG GUARD (private) =================
+
+    private void assertSameOrg(String resourceOrgId, String callerOrgId) {
+        if (callerOrgId == null) return;
+        if (!callerOrgId.equals(resourceOrgId)) {
+            throw new RuntimeException("Access denied: quiz belongs to a different organization");
+        }
+    }
 }

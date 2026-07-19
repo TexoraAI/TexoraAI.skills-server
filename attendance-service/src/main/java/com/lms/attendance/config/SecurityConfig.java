@@ -1,3 +1,4 @@
+
 package com.lms.attendance.config;
 
 import com.lms.attendance.security.JwtAuthenticationFilter;
@@ -27,6 +28,15 @@ public class SecurityConfig {
                     sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
+                    // NEW — more specific matcher MUST come before the general
+                    // /api/trainer/** rule below, since Spring Security uses
+                    // first-match-wins ordering. This mirrors the gateway's
+                    // ADMIN/TENANT_ADMIN/SUPER_ADMIN allowance for this same
+                    // sub-path, without loosening any other /api/trainer/** route.
+                    .requestMatchers("/api/trainer/attendance/**")
+                        .hasAnyRole("TRAINER", "ADMIN", "TENANT_ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/attendance-feature-flags/**")
+                        .hasAnyRole("ADMIN", "TENANT_ADMIN", "SUPER_ADMIN")
                     .requestMatchers("/api/trainer/**").hasRole("TRAINER")
                     .requestMatchers("/api/student/**").hasRole("STUDENT")
                     .anyRequest().authenticated()

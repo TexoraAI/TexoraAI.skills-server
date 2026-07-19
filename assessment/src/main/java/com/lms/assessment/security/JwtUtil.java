@@ -1,3 +1,4 @@
+
 package com.lms.assessment.security;
 
 import io.jsonwebtoken.Claims;
@@ -31,6 +32,13 @@ public class JwtUtil {
 
     public String extractEmail(String token) {
         return getClaims(token).getSubject();
+    }
+
+    // Returns null for standalone/non-organization users (Super Admin created,
+    // Google Sign-In, self-registered) — this is expected, not an error.
+    public String extractOrganizationId(String token) {
+        Object orgId = getClaims(token).get("organizationId");
+        return orgId == null ? null : orgId.toString();
     }
 
     private Claims getClaims(String token) {
