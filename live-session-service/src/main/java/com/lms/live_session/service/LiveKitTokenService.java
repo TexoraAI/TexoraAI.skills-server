@@ -33,7 +33,24 @@ public class LiveKitTokenService {
         return token.toJwt();
     }
 
-    public String generateStudentToken(Long sessionId, Long studentId) {
+//    public String generateStudentToken(Long sessionId, Long studentId) {
+//
+//        String roomName = "session-" + sessionId;
+//
+//        AccessToken token = new AccessToken(
+//                config.getApiKey(),
+//                config.getApiSecret()
+//        );
+//
+//        token.setIdentity("student-" + studentId);
+//        token.setName("Student-" + studentId);
+//
+//        // ✅ Fixed: RoomName is a separate grant
+//        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+//
+//        return token.toJwt();
+//    }
+    public String generateStudentToken(Long sessionId, String studentEmail) {
 
         String roomName = "session-" + sessionId;
 
@@ -42,10 +59,11 @@ public class LiveKitTokenService {
                 config.getApiSecret()
         );
 
-        token.setIdentity("student-" + studentId);
-        token.setName("Student-" + studentId);
+        // Email is our one true unique identifier for students in this
+        // service — no numeric studentId exists anywhere in this database.
+        token.setIdentity(studentEmail);
+        token.setName(studentEmail);
 
-        // ✅ Fixed: RoomName is a separate grant
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
 
         return token.toJwt();
@@ -64,4 +82,5 @@ public class LiveKitTokenService {
 
         return token.toJwt();
     }
+ 
 }

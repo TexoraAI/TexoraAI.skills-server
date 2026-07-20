@@ -78,31 +78,7 @@ public class LiveSessionService {
     // ─────────────────────────────────────────────────────────────────
 
 
-//    public LiveSession startSession(Long id) {
-//        LiveSession session = repository.findById(id)
-//            .orElseThrow(() -> new RuntimeException("Session not found: " + id));
-//
-//        session.setStatus("LIVE");
-//        session.setActualStartTime(LocalDateTime.now());
-//
-//        // ✅ CHANGED — pass a fileSuffix now (was: egressService.startRecording(id))
-//        if (Boolean.TRUE.equals(session.getAutoRecord())) {
-//            String egressId = egressService.startRecording(id, String.valueOf(System.currentTimeMillis()));
-//            if (egressId != null) {
-//                session.setEgressId(egressId);
-//            }
-//        }
-//
-//        LiveSession saved = repository.save(session);
-//
-//        producer.publishLiveStarted(new LiveSessionEvent(
-//            saved.getId(), saved.getBatchId(), saved.getTrainerEmail(), "STARTED"
-//        ));
-//
-//        sendStudentLiveNowNotification(saved);
-//
-//        return saved;
-//    }
+
  // START SESSION → atomic guard on SCHEDULED -> LIVE, atomic egress claim
  // ─────────────────────────────────────────────────────────────────
 
@@ -153,42 +129,7 @@ public class LiveSessionService {
     @Value("${aws.region}")
     private String awsRegion;
 
-//    public LiveSession endSession(Long id) {
-//        LiveSession session = repository.findById(id)
-//            .orElseThrow(() -> new RuntimeException("Session not found: " + id));
-//
-//        session.setStatus("ENDED");
-//        session.setActualEndTime(LocalDateTime.now());
-//
-//        if (session.getEgressId() != null) {
-//            egressService.stopRecording(session.getEgressId());
-//
-//            // ✅ CHANGED — part-numbered title so this final segment stacks correctly under the session
-//            int partNumber = recordingService.getBySession(id).size() + 1;
-//
-//            String s3Url = "https://" + bucket + ".s3." + awsRegion
-//                + ".amazonaws.com/recordings/session-" + id + "-" + session.getEgressId() + ".mp4";
-//            session.setRecordingS3Url(s3Url);
-//
-//            recordingService.createAutoRecordPlaceholder(
-//                id,
-//                session.getBatchId(),
-//                session.getTrainerEmail(),
-//                session.getTitle() + " — Part " + partNumber,
-//                s3Url
-//            );
-//
-//            session.setEgressId(null);
-//        }
-//
-//        LiveSession saved = repository.save(session);
-//
-//        producer.publishLiveStarted(new LiveSessionEvent(
-//            saved.getId(), saved.getBatchId(), saved.getTrainerEmail(), "ENDED"
-//        ));
-//
-//        return saved;
-//    }
+
     public LiveSession endSession(Long id) {
         LiveSession session = repository.findById(id)
             .orElseThrow(() -> new RuntimeException("Session not found: " + id));
@@ -429,57 +370,8 @@ public class LiveSessionService {
      return repository.findByIsPublishedTrueAndStatusIn(
          List.of("SCHEDULED", "LIVE"));
  }
-//─────────────────────────────────────────────────────────────────
-//✅ NEW — MID-SESSION RECORDING TOGGLE
-//─────────────────────────────────────────────────────────────────
-//
-//public LiveSession enableRecording(Long id) {
-//  LiveSession session = repository.findById(id)
-//      .orElseThrow(() -> new RuntimeException("Session not found: " + id));
-//
-//  if (!"LIVE".equals(session.getStatus())) {
-//      throw new RuntimeException("Cannot start recording — session is not LIVE.");
-//  }
-//  if (session.getEgressId() != null) {
-//      return session; // already recording — no-op
-//  }
-//  String egressId = egressService.startRecording(id, String.valueOf(System.currentTimeMillis()));
-//  if (egressId == null) {
-//      throw new RuntimeException("Failed to start recording. Check LiveKit/egress worker logs.");
-//  }
-//  session.setEgressId(egressId);
-//  session.setAutoRecord(true);
-//  return repository.save(session);
-//}
-//
-//public LiveSession disableRecording(Long id) {
-//  LiveSession session = repository.findById(id)
-//      .orElseThrow(() -> new RuntimeException("Session not found: " + id));
-//
-//  if (session.getEgressId() == null) {
-//      session.setAutoRecord(false);
-//      return repository.save(session); // nothing recording — no-op
-//  }
-//  boolean stopped = egressService.stopRecording(session.getEgressId());
-//  if (!stopped) {
-//      throw new RuntimeException("Failed to stop recording. Check LiveKit/egress worker logs.");
-//  }
-//
-//  int partNumber = recordingService.getBySession(id).size() + 1;
-//  String s3Url = "https://" + bucket + ".s3." + awsRegion
-//      + ".amazonaws.com/recordings/session-" + id + "-" + session.getEgressId() + ".mp4";
-//
-//  recordingService.createAutoRecordPlaceholder(
-//      id,
-//      session.getBatchId(),
-//      session.getTrainerEmail(),
-//      session.getTitle() + " — Part " + partNumber,
-//      s3Url
-//  );
-//  session.setEgressId(null);
-//  session.setAutoRecord(false);
-//  return repository.save(session);
-//}
+
+
  // ✅ MID-SESSION RECORDING TOGGLE (atomic-claim protected)
 //─────────────────────────────────────────────────────────────────
 

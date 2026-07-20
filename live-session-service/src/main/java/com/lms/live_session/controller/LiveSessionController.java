@@ -237,12 +237,27 @@ public class LiveSessionController {
             return ResponseEntity.badRequest().body(new ErrorResponse("Failed to start session: " + e.getMessage()));
         }
     }
+//    @GetMapping("/{id}/join")
+//    public ResponseEntity<?> joinSession(
+//            @PathVariable Long id,
+//            @RequestParam Long studentId) {
+//        try {
+//            String token = tokenService.generateStudentToken(id, studentId);
+//            Map<String, String> response = new HashMap<>();
+//            response.put("room", "session-" + id);
+//            response.put("token", token);
+//            return ResponseEntity.ok(response);
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+//        }
+//    }
     @GetMapping("/{id}/join")
     public ResponseEntity<?> joinSession(
             @PathVariable Long id,
-            @RequestParam Long studentId) {
+            Authentication auth) {
         try {
-            String token = tokenService.generateStudentToken(id, studentId);
+            String studentEmail = auth.getName(); // extracted from JWT, same pattern as participant/join
+            String token = tokenService.generateStudentToken(id, studentEmail);
             Map<String, String> response = new HashMap<>();
             response.put("room", "session-" + id);
             response.put("token", token);
@@ -251,6 +266,10 @@ public class LiveSessionController {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
+   
+    
+ // ── ADD new endpoint — anonymous/guest join, no auth required ──────
+ 
 
     // ═══════════════════════════════════════════════════════
     // CALLS (WebSocket + LiveKit)
