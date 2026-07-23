@@ -819,6 +819,15 @@ public class GatewaySecurityConfig {
                 return chain.filter(exchange);
             }
             
+            
+         // ── Meetings: public guest-facing endpoints (no JWT) ─────────────
+            if (path.startsWith("/api/meetings/validate/")
+                    || path.startsWith("/api/meetings/join/")
+                    || path.matches("/api/meetings/\\d+/join-requests.*")
+                    || path.matches("/api/meetings/\\d+/token/guest/.*")) {
+                return chain.filter(exchange);
+            }
+            
          // ── Banner Studio — public reads + tracking only ─────────────────
             if (path.startsWith("/api/banners")) {
                 boolean isPublicGet = method == HttpMethod.GET; // list + getById
@@ -1392,7 +1401,18 @@ public class GatewaySecurityConfig {
                 }
             }
             
-            
+         // ── Meetings (instant/scheduled sessions, join-by-code) ───────────
+            if (path.startsWith("/api/meetings")) {
+                if ("STUDENT".equalsIgnoreCase(role)
+                        || "TRAINER".equalsIgnoreCase(role)
+                        || "ADMIN".equalsIgnoreCase(role)
+                        || "TENANT_ADMIN".equalsIgnoreCase(role)
+                        || "SUPER_ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
          // ════════════════════════════════════════════════════════════════
         //  WISHLIST — AUTHENTICATED USERS
         // ════════════════════════════════════════════════════════════════

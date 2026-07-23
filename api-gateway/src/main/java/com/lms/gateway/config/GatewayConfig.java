@@ -253,7 +253,8 @@ public class GatewayConfig {
                     "/api/recordings/**",
                     "/api/attendance/**",
                     "/api/v1/live-sessions/**",    // ← ADD: whiteboard endpoints
-                    "/api/v1/ai-companion/**"      // ← ADD: AI companion endpoints
+                    "/api/v1/ai-companion/**" ,     // ← ADD: AI companion endpoints
+                    "/api/meetings/**"   
             )
             		.uri(liveSessionService)).build();
     }
