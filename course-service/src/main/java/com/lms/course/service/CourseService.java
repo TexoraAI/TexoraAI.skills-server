@@ -274,22 +274,49 @@ public List<Course> getCoursesByAssignedTrainer(
 //============================
 //TRAINER: own courses + admin-assigned courses merged
 //============================
-public List<Course> getTrainerAllCourses(
-     String trainerEmail, String organizationId) {
+//public List<Course> getTrainerAllCourses(
+//     String trainerEmail, String organizationId) {
+//
+// List<Course> own = repo.findByOwnerEmail(trainerEmail)
+//         .stream()
+//         .filter(c -> organizationId.equals(c.getOrganizationId()))
+//         .collect(Collectors.toList());
+//
+// List<Course> assigned = repo.findByAssignedTrainerEmailAndOrganizationId(
+//         trainerEmail, organizationId);
+//
+// // merge + deduplicate by id
+// Map<Long, Course> merged = new LinkedHashMap<>();
+// own.forEach(c -> merged.put(c.getId(), c));
+// assigned.forEach(c -> merged.putIfAbsent(c.getId(), c));
+//
+// return new ArrayList<>(merged.values());
+//}
+public List<Course> getTrainerAllCourses(String trainerEmail, String organizationId) {
 
- List<Course> own = repo.findByOwnerEmail(trainerEmail)
-         .stream()
-         .filter(c -> organizationId.equals(c.getOrganizationId()))
-         .collect(Collectors.toList());
+    // Independent trainer (no organization)
+    if (organizationId == null || organizationId.isBlank()) {
+        return repo.findByOwnerEmail(trainerEmail);
+    }
 
- List<Course> assigned = repo.findByAssignedTrainerEmailAndOrganizationId(
-         trainerEmail, organizationId);
+    // Organization trainer - own courses
+    List<Course> own = repo.findByOwnerEmail(trainerEmail)
+            .stream()
+            .filter(c -> organizationId.equals(c.getOrganizationId()))
+            .collect(Collectors.toList());
 
- // merge + deduplicate by id
- Map<Long, Course> merged = new LinkedHashMap<>();
- own.forEach(c -> merged.put(c.getId(), c));
- assigned.forEach(c -> merged.putIfAbsent(c.getId(), c));
+    // Organization trainer - assigned courses
+    List<Course> assigned = repo.findByAssignedTrainerEmailAndOrganizationId(
+            trainerEmail,
+            organizationId
+    );
 
- return new ArrayList<>(merged.values());
+    // Merge without duplicates
+    Map<Long, Course> merged = new LinkedHashMap<>();
+
+    own.forEach(c -> merged.put(c.getId(), c));
+    assigned.forEach(c -> merged.putIfAbsent(c.getId(), c));
+
+    return new ArrayList<>(merged.values());
 }
 }
