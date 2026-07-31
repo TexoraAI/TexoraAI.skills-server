@@ -1,5 +1,86 @@
-
+//
+//package com.lms.file.model;
+//import jakarta.persistence.*;
+//import java.time.Instant;
+//
+//@Entity
+//@Table(name = "files")
+//public class FileResource {
+//
+//    @Id
+//    @GeneratedValue(strategy = GenerationType.IDENTITY)
+//    private Long id;
+//
+//    private String title;
+//    private String description;
+//    private String category;       // NEW
+//    private Long courseId;         // NEW
+//
+//    private String originalName;
+//    private String storedName;
+//    private String contentType;
+//    private long size;
+//    private String uploadedByRole;
+//    private Instant uploadedAt;
+//
+//    @Column(nullable = true)
+//    private Long batchId;
+//
+//    @Column(nullable = false)
+//    private String trainerEmail;
+//    
+// // Add this new field after courseId:
+//    @Column(length = 20)
+//    private String status;   // "draft" | "published"
+//
+//
+//    // ===== GETTERS & SETTERS =====
+//
+//    public Long getId() { return id; }
+//    public void setId(Long id) { this.id = id; }
+//
+//    public String getTitle() { return title; }
+//    public void setTitle(String title) { this.title = title; }
+//
+//    public String getDescription() { return description; }
+//    public void setDescription(String description) { this.description = description; }
+//
+//    public String getCategory() { return category; }
+//    public void setCategory(String category) { this.category = category; }
+//
+//    public Long getCourseId() { return courseId; }
+//    public void setCourseId(Long courseId) { this.courseId = courseId; }
+//
+//    public String getOriginalName() { return originalName; }
+//    public void setOriginalName(String originalName) { this.originalName = originalName; }
+//
+//    public String getStoredName() { return storedName; }
+//    public void setStoredName(String storedName) { this.storedName = storedName; }
+//
+//    public String getContentType() { return contentType; }
+//    public void setContentType(String contentType) { this.contentType = contentType; }
+//
+//    public long getSize() { return size; }
+//    public void setSize(long size) { this.size = size; }
+//
+//    public String getUploadedByRole() { return uploadedByRole; }
+//    public void setUploadedByRole(String uploadedByRole) { this.uploadedByRole = uploadedByRole; }
+//
+//    public Instant getUploadedAt() { return uploadedAt; }
+//    public void setUploadedAt(Instant uploadedAt) { this.uploadedAt = uploadedAt; }
+//
+//    public Long getBatchId() { return batchId; }
+//    public void setBatchId(Long batchId) { this.batchId = batchId; }
+//
+//    public String getTrainerEmail() { return trainerEmail; }
+//    public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
+//    
+// // Add getter/setter:
+//    public String getStatus() { return status; }
+//    public void setStatus(String status) { this.status = status; }
+//}
 package com.lms.file.model;
+
 import jakarta.persistence.*;
 import java.time.Instant;
 
@@ -11,10 +92,14 @@ public class FileResource {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(columnDefinition = "TEXT")
     private String title;
+
+    @Column(columnDefinition = "TEXT")
     private String description;
-    private String category;       // NEW
-    private Long courseId;         // NEW
+
+    private String category;
+    private Long courseId;
 
     private String originalName;
     private String storedName;
@@ -28,54 +113,121 @@ public class FileResource {
 
     @Column(nullable = false)
     private String trainerEmail;
-    
- // Add this new field after courseId:
+
     @Column(length = 20)
     private String status;   // "draft" | "published"
 
-
     // ===== GETTERS & SETTERS =====
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public String getTitle() {
+        return title;
+    }
 
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-    public Long getCourseId() { return courseId; }
-    public void setCourseId(Long courseId) { this.courseId = courseId; }
+    public String getDescription() {
+        return description;
+    }
 
-    public String getOriginalName() { return originalName; }
-    public void setOriginalName(String originalName) { this.originalName = originalName; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    public String getStoredName() { return storedName; }
-    public void setStoredName(String storedName) { this.storedName = storedName; }
+    public String getCategory() {
+        return category;
+    }
 
-    public String getContentType() { return contentType; }
-    public void setContentType(String contentType) { this.contentType = contentType; }
+    public void setCategory(String category) {
+        this.category = category;
+    }
 
-    public long getSize() { return size; }
-    public void setSize(long size) { this.size = size; }
+    public Long getCourseId() {
+        return courseId;
+    }
 
-    public String getUploadedByRole() { return uploadedByRole; }
-    public void setUploadedByRole(String uploadedByRole) { this.uploadedByRole = uploadedByRole; }
+    public void setCourseId(Long courseId) {
+        this.courseId = courseId;
+    }
 
-    public Instant getUploadedAt() { return uploadedAt; }
-    public void setUploadedAt(Instant uploadedAt) { this.uploadedAt = uploadedAt; }
+    public String getOriginalName() {
+        return originalName;
+    }
 
-    public Long getBatchId() { return batchId; }
-    public void setBatchId(Long batchId) { this.batchId = batchId; }
+    public void setOriginalName(String originalName) {
+        this.originalName = originalName;
+    }
 
-    public String getTrainerEmail() { return trainerEmail; }
-    public void setTrainerEmail(String trainerEmail) { this.trainerEmail = trainerEmail; }
-    
- // Add getter/setter:
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getStoredName() {
+        return storedName;
+    }
+
+    public void setStoredName(String storedName) {
+        this.storedName = storedName;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public long getSize() {
+        return size;
+    }
+
+    public void setSize(long size) {
+        this.size = size;
+    }
+
+    public String getUploadedByRole() {
+        return uploadedByRole;
+    }
+
+    public void setUploadedByRole(String uploadedByRole) {
+        this.uploadedByRole = uploadedByRole;
+    }
+
+    public Instant getUploadedAt() {
+        return uploadedAt;
+    }
+
+    public void setUploadedAt(Instant uploadedAt) {
+        this.uploadedAt = uploadedAt;
+    }
+
+    public Long getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(Long batchId) {
+        this.batchId = batchId;
+    }
+
+    public String getTrainerEmail() {
+        return trainerEmail;
+    }
+
+    public void setTrainerEmail(String trainerEmail) {
+        this.trainerEmail = trainerEmail;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 }
