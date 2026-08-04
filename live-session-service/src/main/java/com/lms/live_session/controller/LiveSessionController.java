@@ -237,20 +237,7 @@ public class LiveSessionController {
             return ResponseEntity.badRequest().body(new ErrorResponse("Failed to start session: " + e.getMessage()));
         }
     }
-//    @GetMapping("/{id}/join")
-//    public ResponseEntity<?> joinSession(
-//            @PathVariable Long id,
-//            @RequestParam Long studentId) {
-//        try {
-//            String token = tokenService.generateStudentToken(id, studentId);
-//            Map<String, String> response = new HashMap<>();
-//            response.put("room", "session-" + id);
-//            response.put("token", token);
-//            return ResponseEntity.ok(response);
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
+
     @GetMapping("/{id}/join")
     public ResponseEntity<?> joinSession(
             @PathVariable Long id,

@@ -39,6 +39,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/feedback/trainer/**").hasRole("TRAINER")
                 .requestMatchers("/api/feedback/admin/**").hasRole("TENANT_ADMIN")
 
+                
+                
+                .requestMatchers("/api/meeting-summaries/**").authenticated()
              // ================= NOTEBOOKS (✅ ADD THIS) =================
                 .requestMatchers("/api/notebooks/**")
                     .hasAnyRole("STUDENT", "TRAINER", "TENANT_ADMIN")

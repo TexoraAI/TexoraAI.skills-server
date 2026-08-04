@@ -1,5 +1,5 @@
 package com.lms.live_session.kafka;
-
+import com.lms.live_session.event.MeetingSummaryRequestedEvent;
 import com.lms.live_session.event.LiveSessionEvent;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -17,5 +17,10 @@ public class LiveSessionProducer {
     public void publishLiveStarted(LiveSessionEvent event) {
         kafkaTemplate.send("live-session-events", event); // ✅ send object directly
         System.out.println("✅ Kafka Event Sent: " + event.getSessionId());
+    }
+    
+    public void publishMeetingSummaryRequested(MeetingSummaryRequestedEvent event) {
+        kafkaTemplate.send("meeting-summary-requests", event);
+        System.out.println("✅ Meeting summary requested: " + event.getMeetingId());
     }
 }

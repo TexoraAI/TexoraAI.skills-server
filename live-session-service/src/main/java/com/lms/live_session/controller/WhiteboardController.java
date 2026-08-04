@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
+import com.lms.live_session.entity.WhiteboardSnapshot;
+import com.lms.live_session.repository.WhiteboardSnapshotRepository;
 @RestController
 // NO class-level @RequestMapping here intentionally —
 // because @MessageMapping (WebSocket/STOMP) lives on this class too.
@@ -18,14 +19,37 @@ import java.util.concurrent.ConcurrentHashMap;
 // Each REST method declares its full path inline instead.
 public class WhiteboardController {
 
-    private final SimpMessagingTemplate messagingTemplate;
+//    private final SimpMessagingTemplate messagingTemplate;
+//
+//    // In-memory store: latest whiteboard state per session
+//    // Late-joiners call GET /state to load the current board
+//    private final ConcurrentHashMap<Long, WhiteboardEvent> latestState = new ConcurrentHashMap<>();
+//
+//    public WhiteboardController(SimpMessagingTemplate messagingTemplate) {
+//        this.messagingTemplate = messagingTemplate;
+//    }
+	private final SimpMessagingTemplate messagingTemplate;
+    private final WhiteboardSnapshotRepository snapshotRepository;
 
     // In-memory store: latest whiteboard state per session
     // Late-joiners call GET /state to load the current board
     private final ConcurrentHashMap<Long, WhiteboardEvent> latestState = new ConcurrentHashMap<>();
 
-    public WhiteboardController(SimpMessagingTemplate messagingTemplate) {
+    public WhiteboardController(SimpMessagingTemplate messagingTemplate,
+                                 WhiteboardSnapshotRepository snapshotRepository) {
         this.messagingTemplate = messagingTemplate;
+        this.snapshotRepository = snapshotRepository;
+    }
+
+    // Upserts the DB snapshot (additive — does not touch the in-memory map)
+    private void persistSnapshot(Long sessionId, WhiteboardEvent event) {
+        WhiteboardSnapshot snapshot = snapshotRepository.findBySessionId(sessionId)
+                .orElseGet(WhiteboardSnapshot::new);
+        snapshot.setSessionId(sessionId);
+        snapshot.setElements(event.getElements());
+        snapshot.setAppState(event.getAppState());
+        snapshot.setFiles(event.getFiles());
+        snapshotRepository.save(snapshot);
     }
 
     // ─── WebSocket: Real-time draw sync ───────────────────────────────────────
@@ -38,8 +62,13 @@ public class WhiteboardController {
             WhiteboardEvent event) {
         event.setSessionId(sessionId);
         event.setTimestamp(LocalDateTime.now().toString());
+//        if ("FULL_STATE".equals(event.getEventType())) {
+//            latestState.put(sessionId, event);
+//        }
+//        return event;
         if ("FULL_STATE".equals(event.getEventType())) {
             latestState.put(sessionId, event);
+            persistSnapshot(sessionId, event);
         }
         return event;
     }
@@ -55,9 +84,15 @@ public class WhiteboardController {
     public Map<String, Object> saveWhiteboard(
             @PathVariable Long sessionId,
             @RequestBody WhiteboardEvent event) {
-        event.setSessionId(sessionId);
+//        event.setSessionId(sessionId);
+//        event.setTimestamp(LocalDateTime.now().toString());
+//        latestState.put(sessionId, event);
+//        return Map.of(
+//            "saved", true,
+    	event.setSessionId(sessionId);
         event.setTimestamp(LocalDateTime.now().toString());
         latestState.put(sessionId, event);
+        persistSnapshot(sessionId, event);
         return Map.of(
             "saved", true,
             "sessionId", sessionId,

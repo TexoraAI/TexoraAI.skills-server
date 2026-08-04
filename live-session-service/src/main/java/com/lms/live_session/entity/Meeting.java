@@ -94,6 +94,23 @@ public class Meeting {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+    @Column(name = "egress_id")
+    private String egressId;
+
+    @Column(name = "recording_s3_url", length = 1024)
+    private String recordingS3Url;
+
+    @Column(name = "current_egress_file_suffix")
+    private String currentEgressFileSuffix;
+
+    public String getEgressId() { return egressId; }
+    public void setEgressId(String egressId) { this.egressId = egressId; }
+
+    public String getRecordingS3Url() { return recordingS3Url; }
+    public void setRecordingS3Url(String recordingS3Url) { this.recordingS3Url = recordingS3Url; }
+
+    public String getCurrentEgressFileSuffix() { return currentEgressFileSuffix; }
+    public void setCurrentEgressFileSuffix(String currentEgressFileSuffix) { this.currentEgressFileSuffix = currentEgressFileSuffix; }
 
     public Meeting() {}
 

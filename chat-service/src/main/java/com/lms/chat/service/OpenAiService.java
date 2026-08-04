@@ -41,9 +41,11 @@ public class OpenAiService {
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
         try {
+        	System.out.println("▶ Sending request to OpenAI Chat API...");
             ResponseEntity<Map> response = restTemplate.postForEntity(
                 OPENAI_URL, request, Map.class
             );
+            System.out.println("Response Status = " + response.getStatusCode());
 
             Map<?, ?> responseBody = response.getBody();
             if (responseBody != null && responseBody.containsKey("choices")) {
@@ -54,8 +56,17 @@ public class OpenAiService {
                     return (String) message.get("content");
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException("OpenAI API call failed: " + e.getMessage());
+        } 
+//        catch (Exception e) {
+//            throw new RuntimeException("OpenAI API call failed: " + e.getMessage());
+//        }
+        catch (Exception e) {
+
+            System.err.println("❌ OpenAI Chat FAILED");
+
+            e.printStackTrace();
+
+            throw new RuntimeException("OpenAI API call failed", e);
         }
 
         return "I could not generate a response. Please try again.";

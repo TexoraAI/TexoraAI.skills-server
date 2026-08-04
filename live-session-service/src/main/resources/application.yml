@@ -93,3 +93,7 @@ openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-4o
   max-tokens: 3000
+
+# ✅ NEW: Texora Integration API Key
+texora:
+  api-key: ${TEXORA_API_KEY}

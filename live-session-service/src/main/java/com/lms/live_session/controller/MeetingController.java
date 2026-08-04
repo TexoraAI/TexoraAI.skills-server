@@ -3,6 +3,7 @@ package com.lms.live_session.controller;
 import com.lms.live_session.dto.MeetingJoinRequestDTO;
 import com.lms.live_session.dto.MeetingRequestDTO;
 import com.lms.live_session.dto.MeetingResponseDTO;
+import com.lms.live_session.dto.MeetingSummaryRequestDTO;
 import com.lms.live_session.service.MeetingService;
 
 import org.springframework.http.ResponseEntity;
@@ -260,5 +261,16 @@ public class MeetingController {
     static class ErrorResponse {
         public String error;
         public ErrorResponse(String error) { this.error = error; }
+    }
+    
+    @PostMapping("/{id}/summary/request")
+    public ResponseEntity<?> requestSummary(@PathVariable Long id,
+                                             @RequestBody MeetingSummaryRequestDTO dto,
+                                             Authentication auth) {
+        try {
+            return ResponseEntity.ok(service.requestSummary(id, dto, auth.getName()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
     }
 }

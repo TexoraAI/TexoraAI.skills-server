@@ -9,7 +9,12 @@ import livekit.LivekitEgress.*;
 import livekit.LivekitModels.Room;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 @Service
 public class EgressService {
 
@@ -30,7 +35,10 @@ public class EgressService {
     
     private static final int MAX_START_RETRIES = 2;
     private static final long RETRY_DELAY_MS = 6000;
-
+    
+     // 3s * 10 = up to 30s wait
+    private static final int MAX_S3_CONFIRM_ATTEMPTS = 40;
+    private static final long S3_CONFIRM_DELAY_MS = 5000; 
     private EgressServiceClient buildEgressClient() {
         return EgressServiceClient.createClient(livekitUrl, apiKey, apiSecret);
     }
@@ -158,6 +166,55 @@ public class EgressService {
     // authoritative filename(s) that were actually uploaded to S3. This is
     // what fixes the filename-mismatch bug: we stop guessing the S3 key and
     // instead read exactly what LiveKit says it wrote.
+//    public EgressInfo stopRecordingAndGetInfo(String egressId) {
+//        if (egressId == null) return null;
+//        try {
+//            EgressServiceClient client = buildEgressClient();
+//            retrofit2.Response<EgressInfo> response = client.stopEgress(egressId).execute();
+//
+//            if (response.isSuccessful() && response.body() != null) {
+//                System.out.println("✅ Egress stopped: " + egressId);
+//                return response.body();
+//            }
+//
+//            String errorBody = "";
+//            try {
+//                errorBody = response.errorBody() != null ? response.errorBody().string() : "";
+//            } catch (Exception readEx) {
+//                System.err.println("⚠️ Could not read stopEgress error body: " + readEx.getMessage());
+//            }
+//
+//            boolean alreadyGone = errorBody.contains("\"code\":\"not_found\"")
+//                || errorBody.contains("\"code\":\"failed_precondition\"")
+//                || errorBody.contains("EGRESS_FAILED")
+//                || errorBody.toLowerCase().contains("egress not found")
+//                || errorBody.toLowerCase().contains("cannot be stopped");
+//
+//            if (alreadyGone) {
+//                System.out.println("⚠️ stopEgress reported egress already gone/failed for " + egressId
+//                    + " — treating as stopped-but-unknown-result. LiveKit response: " + errorBody);
+//                // Returning null here on purpose — we genuinely don't know what
+//                // file (if any) exists, so the caller must NOT create a
+//                // recordings row with a guessed URL. Caller should mark this
+//                // as a failed/unknown recording, not silently succeed.
+//                return null;
+//            }
+//
+//            System.err.println("❌ Stop egress failed: " + errorBody);
+//            return null;
+//
+//        } catch (Exception e) {
+//            System.err.println("❌ Failed to stop egress: " + e.getMessage());
+//            e.printStackTrace();
+//            return null;
+//        }
+//    }
+//
+//    // Kept for backward compatibility if anything else calls this — but
+//    // prefer stopRecordingAndGetInfo() everywhere now.
+//    public boolean stopRecording(String egressId) {
+//        return stopRecordingAndGetInfo(egressId) != null;
+//    }
     public EgressInfo stopRecordingAndGetInfo(String egressId) {
         if (egressId == null) return null;
         try {
@@ -165,8 +222,22 @@ public class EgressService {
             retrofit2.Response<EgressInfo> response = client.stopEgress(egressId).execute();
 
             if (response.isSuccessful() && response.body() != null) {
+                EgressInfo info = response.body();
                 System.out.println("✅ Egress stopped: " + egressId);
-                return response.body();
+
+                // NEW — don't trust the filename until it's actually confirmed in S3.
+                // Wait scales the same regardless of recording length; short
+                // recordings confirm in 1 poll, long ones just poll longer.
+                if (info.getFileResultsCount() > 0) {
+                    String filename = info.getFileResults(0).getFilename();
+                    boolean exists = waitForS3ObjectToExist(filename);
+                    if (!exists) {
+                        System.err.println("❌ Egress reported filename but S3 upload never confirmed: " + filename);
+                        return null; // caller treats this as "no usable recording"
+                    }
+                }
+
+                return info; // was: return response.body();
             }
 
             String errorBody = "";
@@ -185,10 +256,6 @@ public class EgressService {
             if (alreadyGone) {
                 System.out.println("⚠️ stopEgress reported egress already gone/failed for " + egressId
                     + " — treating as stopped-but-unknown-result. LiveKit response: " + errorBody);
-                // Returning null here on purpose — we genuinely don't know what
-                // file (if any) exists, so the caller must NOT create a
-                // recordings row with a guessed URL. Caller should mark this
-                // as a failed/unknown recording, not silently succeed.
                 return null;
             }
 
@@ -207,4 +274,105 @@ public class EgressService {
     public boolean stopRecording(String egressId) {
         return stopRecordingAndGetInfo(egressId) != null;
     }
+ // ✅ NEW — Meetings-specific overload. Same retry/claim logic as
+ // startRecording(Long), but takes an explicit roomName (Meetings uses
+ // "meeting-" + joinCode, not "session-" + id) and writes to a
+ // "recordings/meeting-{entityId}-{fileSuffix}" S3 path.
+ public EgressStartResult startRecording(Long entityId, String roomName) {
+     for (int attempt = 1; attempt <= MAX_START_RETRIES; attempt++) {
+         EgressStartResult result = attemptStartRecordingForRoom(entityId, roomName, attempt);
+         if (result != null) {
+             return result;
+         }
+         if (attempt < MAX_START_RETRIES) {
+             try {
+                 Thread.sleep(RETRY_DELAY_MS);
+             } catch (InterruptedException ie) {
+                 Thread.currentThread().interrupt();
+                 return null;
+             }
+         }
+     }
+     System.err.println("❌ All egress start attempts failed for entity " + entityId + " room " + roomName);
+     return null;
+ }
+
+ private EgressStartResult attemptStartRecordingForRoom(Long entityId, String roomName, int attemptNumber) {
+     String fileSuffix = String.valueOf(System.currentTimeMillis());
+     try {
+         if (!ensureRoomExists(roomName)) {
+             System.err.println("❌ Cannot start egress — room could not be created/verified: " + roomName
+                 + " (attempt " + attemptNumber + ")");
+             return null;
+         }
+
+         EgressServiceClient client = buildEgressClient();
+         S3Upload s3 = S3Upload.newBuilder()
+             .setAccessKey(awsAccessKey)
+             .setSecret(awsSecretKey)
+             .setBucket(bucket)
+             .setRegion(awsRegion)
+             .build();
+
+         EncodedFileOutput fileOutput = EncodedFileOutput.newBuilder()
+             .setFileType(EncodedFileType.MP4)
+             .setFilepath("recordings/meeting-" + entityId + "-" + fileSuffix)
+             .setS3(s3)
+             .build();
+
+         retrofit2.Response<EgressInfo> response = client
+             .startRoomCompositeEgress(roomName, fileOutput)
+             .execute();
+
+         if (!response.isSuccessful() || response.body() == null) {
+             System.err.println("❌ Egress start failed for meeting room " + roomName + " (attempt " + attemptNumber + ")");
+             return null;
+         }
+
+         String egressId = response.body().getEgressId();
+         System.out.println("✅ Egress started: " + egressId + " for meeting room " + roomName
+             + " fileSuffix=" + fileSuffix + " (attempt " + attemptNumber + ")");
+         return new EgressStartResult(egressId, fileSuffix);
+
+     } catch (Exception e) {
+         System.err.println("❌ Failed to start meeting egress (attempt " + attemptNumber + "): " + e.getMessage());
+         e.printStackTrace();
+         return null;
+     }
+ }
+    
+ private boolean waitForS3ObjectToExist(String key) {
+	    S3Client s3 = S3Client.builder()
+	            .region(Region.of(awsRegion))
+	            .credentialsProvider(StaticCredentialsProvider.create(
+	                    AwsBasicCredentials.create(awsAccessKey, awsSecretKey)))
+	            .build();
+	    try {
+	        HeadObjectRequest request = HeadObjectRequest.builder()
+	                .bucket(bucket)
+	                .key(key)
+	                .build();
+	        for (int attempt = 1; attempt <= MAX_S3_CONFIRM_ATTEMPTS; attempt++) {
+	            try {
+	                s3.headObject(request);
+	                System.out.println("✅ Confirmed S3 object exists after " + attempt + " attempt(s): " + key);
+	                return true;
+	            } catch (NoSuchKeyException e) {
+	                if (attempt == MAX_S3_CONFIRM_ATTEMPTS) {
+	                    System.err.println("❌ S3 object never appeared after " + attempt + " attempts: " + key);
+	                    return false;
+	                }
+	                try {
+	                    Thread.sleep(S3_CONFIRM_DELAY_MS);
+	                } catch (InterruptedException ie) {
+	                    Thread.currentThread().interrupt();
+	                    return false;
+	                }
+	            }
+	        }
+	        return false;
+	    } finally {
+	        s3.close();
+	    }
+	}
 }

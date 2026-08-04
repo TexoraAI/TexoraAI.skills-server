@@ -88,4 +88,18 @@ public class OrganizationController {
         organizationService.deleteOrganization(id);
         return ResponseEntity.noContent().build();
     }
+ // Super admin: view admin's org profile by their email (student/trainer excluded — that's User Service's job)
+    @GetMapping("/by-admin-email")
+    public ResponseEntity<Map<String, Object>> getOrgProfileByAdminEmail(
+            @RequestParam String email) {
+        return ResponseEntity.ok(organizationService.getOrgProfileByAdminEmail(email));
+    }
+
+    // Super admin: update admin's org profile by their email
+    @PatchMapping("/by-admin-email/profile")
+    public ResponseEntity<OrganizationResponse> updateOrgProfileByAdminEmail(
+            @RequestParam String email,
+            @RequestBody AdminOrgUpdateRequest request) {
+        return ResponseEntity.ok(organizationService.updateOrgProfileByAdminEmail(email, request));
+    }
 }

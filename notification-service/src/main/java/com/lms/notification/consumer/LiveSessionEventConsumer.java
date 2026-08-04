@@ -1,9 +1,12 @@
+//
+//
 //package com.lms.notification.consumer;
 //
 //import com.fasterxml.jackson.databind.ObjectMapper;
 //import com.lms.notification.dto.NotificationDTO;
 //import com.lms.notification.repository.StudentBatchMapRepository;
 //import com.lms.notification.repository.TrainerBatchMapRepository;
+//import com.lms.notification.service.EmailService;
 //import com.lms.notification.service.NotificationService;
 //import org.springframework.kafka.annotation.KafkaListener;
 //import org.springframework.stereotype.Component;
@@ -17,19 +20,21 @@
 //    private final NotificationService notificationService;
 //    private final StudentBatchMapRepository studentBatchMapRepository;
 //    private final TrainerBatchMapRepository trainerBatchMapRepository;
+//    private final EmailService emailService;                          // ✅ NEW
 //    private final ObjectMapper mapper = new ObjectMapper();
 //
 //    public LiveSessionEventConsumer(NotificationService notificationService,
 //                                    StudentBatchMapRepository studentBatchMapRepository,
-//                                    TrainerBatchMapRepository trainerBatchMapRepository) {
-//        this.notificationService = notificationService;
-//        this.studentBatchMapRepository = studentBatchMapRepository;
-//        this.trainerBatchMapRepository = trainerBatchMapRepository;
+//                                    TrainerBatchMapRepository trainerBatchMapRepository,
+//                                    EmailService emailService) {     // ✅ NEW
+//        this.notificationService        = notificationService;
+//        this.studentBatchMapRepository  = studentBatchMapRepository;
+//        this.trainerBatchMapRepository  = trainerBatchMapRepository;
+//        this.emailService               = emailService;              // ✅ NEW
 //    }
 //
 //    // ─────────────────────────────────────────────
-//    // 1. live-session-events (LiveSessionProducer)
-//    //    Fired when session is CREATED / STARTED / ENDED
+//    // 1. live-session-events — UNCHANGED
 //    // ─────────────────────────────────────────────
 //    @KafkaListener(topics = "live-session-events", groupId = "notification-service-group")
 //    public void onLiveSessionEvent(String message) {
@@ -47,12 +52,9 @@
 //                return;
 //            }
 //
-//            // ── Notify students ──────────────────────────────
 //            List<String> studentEmails = studentBatchMapRepository
-//                    .findAllByBatchId(batchId)
-//                    .stream()
-//                    .map(m -> m.getStudentEmail())
-//                    .toList();
+//                    .findAllByBatchId(batchId).stream()
+//                    .map(m -> m.getStudentEmail()).toList();
 //
 //            if (!studentEmails.isEmpty()) {
 //                NotificationDTO studentDto = new NotificationDTO();
@@ -61,16 +63,11 @@
 //                studentDto.setMessage(buildStudentMessage(status, sessionTitle));
 //                studentDto.setTargetUserIds(studentEmails);
 //                notificationService.createAndPush(studentDto);
-//                System.out.println("✅ [" + status + "] student notification sent to "
-//                        + studentEmails.size() + " students for: " + sessionTitle);
 //            }
 //
-//            // ── Notify trainers ──────────────────────────────
 //            List<String> trainerEmails = trainerBatchMapRepository
-//                    .findAllByBatchId(batchId)
-//                    .stream()
-//                    .map(t -> t.getTrainerEmail())
-//                    .toList();
+//                    .findAllByBatchId(batchId).stream()
+//                    .map(t -> t.getTrainerEmail()).toList();
 //
 //            if (!trainerEmails.isEmpty()) {
 //                NotificationDTO trainerDto = new NotificationDTO();
@@ -79,7 +76,6 @@
 //                trainerDto.setMessage(buildTrainerMessage(status, sessionTitle));
 //                trainerDto.setTargetUserIds(trainerEmails);
 //                notificationService.createAndPush(trainerDto);
-//                System.out.println("✅ [" + status + "] trainer notification sent for: " + sessionTitle);
 //            }
 //
 //        } catch (Exception e) {
@@ -88,8 +84,8 @@
 //    }
 //
 //    // ─────────────────────────────────────────────
-//    // 2. session-notifications (NotificationProducer)
-//    //    Fired for per-email reminders & booking confirmations
+//    // 2. session-notifications
+//    //    ✅ PUBLIC cases now also send email
 //    // ─────────────────────────────────────────────
 //    @KafkaListener(topics = "session-notifications", groupId = "notification-service-group")
 //    public void onSessionNotification(String message) {
@@ -98,15 +94,19 @@
 //
 //            String eventType      = (String) event.get("eventType");
 //            String recipientEmail = (String) event.get("recipientEmail");
+//            String recipientName  = (String) event.get("recipientName");
 //            String sessionTitle   = (String) event.get("sessionTitle");
 //            String scheduledDate  = (String) event.get("scheduledDate");
 //            String scheduledTime  = (String) event.get("scheduledTime");
+//            String sessionLink    = (String) event.get("sessionLink");
+//            Integer duration      = event.get("durationMinutes") != null
+//                                      ? Integer.valueOf(event.get("durationMinutes").toString())
+//                                      : null;
 //
 //            if (recipientEmail == null || recipientEmail.isBlank()) {
 //                System.err.println("⚠️ onSessionNotification: recipientEmail is null, skipping.");
 //                return;
 //            }
-//
 //            if (eventType == null || eventType.isBlank()) {
 //                System.err.println("⚠️ onSessionNotification: eventType is null, skipping.");
 //                return;
@@ -116,6 +116,7 @@
 //            dto.setTargetUserIds(List.of(recipientEmail));
 //
 //            switch (eventType) {
+//
 //                case "STUDENT_REMINDER_15MIN" -> {
 //                    dto.setType("STUDENT_REMINDER_15MIN");
 //                    dto.setTitle("⏰ Session Starting Soon");
@@ -123,25 +124,52 @@
 //                            + "\" starts at " + scheduledTime
 //                            + " on " + scheduledDate + ". Get ready!");
 //                }
+//
 //                case "TRAINER_REMINDER_15MIN" -> {
 //                    dto.setType("TRAINER_REMINDER_15MIN");
 //                    dto.setTitle("⏰ Your Session Starts Soon");
 //                    dto.setMessage("You have a live session \"" + sessionTitle
 //                            + "\" in 15 minutes at " + scheduledTime + ". Please be ready.");
 //                }
+//
+//                // ✅ EMAIL added for PUBLIC_BOOKING_CONFIRMATION
 //                case "PUBLIC_BOOKING_CONFIRMATION" -> {
 //                    dto.setType("PUBLIC_BOOKING_CONFIRMATION");
 //                    dto.setTitle("✅ Booking Confirmed");
 //                    dto.setMessage("Your spot for \"" + sessionTitle
 //                            + "\" on " + scheduledDate
 //                            + " at " + scheduledTime + " is confirmed!");
+//
+//                    // ✅ Send confirmation email with join link
+//                    emailService.sendPublicBookingConfirmation(
+//                            recipientEmail,
+//                            recipientName != null ? recipientName : "there",
+//                            sessionTitle,
+//                            scheduledDate,
+//                            scheduledTime,
+//                            duration,
+//                            sessionLink
+//                    );
 //                }
+//
+//                // ✅ EMAIL added for PUBLIC_REMINDER_15MIN
 //                case "PUBLIC_REMINDER_15MIN" -> {
 //                    dto.setType("PUBLIC_REMINDER_15MIN");
 //                    dto.setTitle("⏰ Session Starting in 15 Minutes");
 //                    dto.setMessage("\"" + sessionTitle
 //                            + "\" is starting soon at " + scheduledTime + ". Join now!");
+//
+//                    // ✅ Send reminder email with join link
+//                    emailService.sendPublicSessionReminder(
+//                            recipientEmail,
+//                            recipientName != null ? recipientName : "there",
+//                            sessionTitle,
+//                            scheduledDate,
+//                            scheduledTime,
+//                            sessionLink
+//                    );
 //                }
+//
 //                default -> {
 //                    System.err.println("⚠️ Unknown eventType: " + eventType + ", skipping.");
 //                    return;
@@ -157,7 +185,7 @@
 //    }
 //
 //    // ─────────────────────────────────────────────
-//    // Helpers
+//    // Helpers — UNCHANGED
 //    // ─────────────────────────────────────────────
 //    private String buildStudentTitle(String status) {
 //        return switch (status) {
@@ -195,9 +223,6 @@
 //        };
 //    }
 //}
-
-
-
 package com.lms.notification.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -283,30 +308,44 @@ public class LiveSessionEventConsumer {
 
     // ─────────────────────────────────────────────
     // 2. session-notifications
-    //    ✅ PUBLIC cases now also send email
+    //    ✅ PUBLIC cases send email
+    //    ✅ NEW: WORKFLOW_TRAINER_EMAIL / WORKFLOW_NOTIFY_STUDENTS (Phase 4)
     // ─────────────────────────────────────────────
     @KafkaListener(topics = "session-notifications", groupId = "notification-service-group")
     public void onSessionNotification(String message) {
         try {
             Map<String, Object> event = mapper.readValue(message, Map.class);
 
-            String eventType      = (String) event.get("eventType");
-            String recipientEmail = (String) event.get("recipientEmail");
-            String recipientName  = (String) event.get("recipientName");
-            String sessionTitle   = (String) event.get("sessionTitle");
-            String scheduledDate  = (String) event.get("scheduledDate");
-            String scheduledTime  = (String) event.get("scheduledTime");
-            String sessionLink    = (String) event.get("sessionLink");
-            Integer duration      = event.get("durationMinutes") != null
-                                      ? Integer.valueOf(event.get("durationMinutes").toString())
-                                      : null;
+            String eventType         = (String) event.get("eventType");
+            String recipientEmail    = (String) event.get("recipientEmail");
+            String recipientName     = (String) event.get("recipientName");
+            String sessionTitle      = (String) event.get("sessionTitle");
+            String scheduledDate     = (String) event.get("scheduledDate");
+            String scheduledTime     = (String) event.get("scheduledTime");
+            String sessionLink       = (String) event.get("sessionLink");
+            String workflowOutputText = (String) event.get("workflowOutputText"); // ✅ NEW, may be null
+            Long   batchId           = event.get("batchId") != null
+                                          ? Long.valueOf(event.get("batchId").toString())
+                                          : null;
+            Integer duration         = event.get("durationMinutes") != null
+                                          ? Integer.valueOf(event.get("durationMinutes").toString())
+                                          : null;
+
+            if (eventType == null || eventType.isBlank()) {
+                System.err.println("⚠️ onSessionNotification: eventType is null, skipping.");
+                return;
+            }
+
+            // ✅ WORKFLOW_NOTIFY_STUDENTS is a batch-wide fan-out and does NOT
+            // carry a single recipientEmail — handle it before the generic
+            // recipientEmail guard below, which every other case still needs.
+            if ("WORKFLOW_NOTIFY_STUDENTS".equals(eventType)) {
+                handleWorkflowNotifyStudents(batchId, sessionTitle, workflowOutputText);
+                return;
+            }
 
             if (recipientEmail == null || recipientEmail.isBlank()) {
                 System.err.println("⚠️ onSessionNotification: recipientEmail is null, skipping.");
-                return;
-            }
-            if (eventType == null || eventType.isBlank()) {
-                System.err.println("⚠️ onSessionNotification: eventType is null, skipping.");
                 return;
             }
 
@@ -368,6 +407,19 @@ public class LiveSessionEventConsumer {
                     );
                 }
 
+                // ✅ NEW — Phase 4 workflow action node "Send email to trainer"
+                case "WORKFLOW_TRAINER_EMAIL" -> {
+                    dto.setType("WORKFLOW_TRAINER_EMAIL");
+                    dto.setTitle("🤖 Workflow Notification — " + (sessionTitle != null ? sessionTitle : "Session"));
+                    dto.setMessage(workflowOutputText != null && !workflowOutputText.isBlank()
+                            ? truncateForInApp(workflowOutputText)
+                            : "A workflow completed for \"" + sessionTitle + "\".");
+
+                    String subject = "Workflow Update — " + (sessionTitle != null ? sessionTitle : "Your Session");
+                    String htmlBody = buildWorkflowEmailHtml(sessionTitle, workflowOutputText);
+                    emailService.sendAutoReplyEmail(recipientEmail, subject, htmlBody);
+                }
+
                 default -> {
                     System.err.println("⚠️ Unknown eventType: " + eventType + ", skipping.");
                     return;
@@ -380,6 +432,61 @@ public class LiveSessionEventConsumer {
         } catch (Exception e) {
             System.err.println("❌ LiveSessionEventConsumer [session-notifications] error: " + e.getMessage());
         }
+    }
+
+    // ─────────────────────────────────────────────
+    // NEW — Phase 4 workflow action node "Notify students"
+    // Fans out an in-app/FCM notification to every student in the batch.
+    // Mirrors the batch-lookup pattern already used in onLiveSessionEvent.
+    // ─────────────────────────────────────────────
+    private void handleWorkflowNotifyStudents(Long batchId, String sessionTitle, String workflowOutputText) {
+        if (batchId == null) {
+            System.err.println("⚠️ WORKFLOW_NOTIFY_STUDENTS: batchId is null, skipping.");
+            return;
+        }
+
+        List<String> studentEmails = studentBatchMapRepository
+                .findAllByBatchId(batchId).stream()
+                .map(m -> m.getStudentEmail()).toList();
+
+        if (studentEmails.isEmpty()) {
+            System.err.println("⚠️ WORKFLOW_NOTIFY_STUDENTS: no students found for batchId=" + batchId);
+            return;
+        }
+
+        NotificationDTO dto = new NotificationDTO();
+        dto.setType("WORKFLOW_NOTIFY_STUDENTS");
+        dto.setTitle("🤖 Update — " + (sessionTitle != null ? sessionTitle : "Your Session"));
+        dto.setMessage(workflowOutputText != null && !workflowOutputText.isBlank()
+                ? truncateForInApp(workflowOutputText)
+                : "A workflow-triggered update is available for \"" + sessionTitle + "\".");
+        dto.setTargetUserIds(studentEmails);
+
+        notificationService.createAndPush(dto);
+        System.out.println("✅ [WORKFLOW_NOTIFY_STUDENTS] notification fanned out to "
+                + studentEmails.size() + " students for batchId=" + batchId);
+    }
+
+    // ─────────────────────────────────────────────
+    // Helpers — NEW
+    // ─────────────────────────────────────────────
+    private String truncateForInApp(String text) {
+        return text.length() > 300 ? text.substring(0, 300) + "..." : text;
+    }
+
+    private String buildWorkflowEmailHtml(String sessionTitle, String workflowOutputText) {
+        String safeBody = workflowOutputText != null && !workflowOutputText.isBlank()
+                ? workflowOutputText.replace("\n", "<br/>")
+                : "Your workflow has completed, but produced no output text.";
+
+        return "<html><body style=\"font-family:sans-serif;background:#f4f6fb;padding:32px;\">"
+                + "<div style=\"max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;padding:28px;\">"
+                + "<h2 style=\"color:#1a2340;margin-bottom:6px;\">🤖 Workflow Update</h2>"
+                + "<p style=\"color:#5a6173;margin-top:0;\">Session: <strong>"
+                +    (sessionTitle != null ? sessionTitle : "N/A") + "</strong></p>"
+                + "<hr style=\"border:none;border-top:1px solid #e5e7eb;margin:16px 0;\"/>"
+                + "<div style=\"color:#374151;line-height:1.6;\">" + safeBody + "</div>"
+                + "</div></body></html>";
     }
 
     // ─────────────────────────────────────────────

@@ -84,9 +84,14 @@ public class AiTranscriptController {
      */
     @PostMapping("/{transcriptId}/summary")
     public ResponseEntity<Map<String, String>> generateSummary(
-        @PathVariable Long transcriptId
+        @PathVariable Long transcriptId,
+        Principal principal
     ) {
-        String summary = transcriptService.generateSummary(transcriptId);
+        // CHANGED — AiTranscriptService.generateSummary() now requires the
+        // caller's email (threaded through to AiCompanionService.processRequest(),
+        // which takes (AiChatRequest, String userEmail) per Phase 1).
+        String email = principal != null ? principal.getName() : "unknown";
+        String summary = transcriptService.generateSummary(transcriptId, email);
         return ResponseEntity.ok(Map.of("summary", summary));
     }
 
@@ -97,9 +102,12 @@ public class AiTranscriptController {
     @PostMapping("/{transcriptId}/ask")
     public ResponseEntity<Map<String, String>> askAboutTranscript(
         @PathVariable Long transcriptId,
-        @RequestBody AiTranscriptAskRequest req
+        @RequestBody AiTranscriptAskRequest req,
+        Principal principal
     ) {
-        String answer = transcriptService.askAboutTranscript(transcriptId, req);
+        // CHANGED — same userEmail threading as generateSummary() above.
+        String email = principal != null ? principal.getName() : "unknown";
+        String answer = transcriptService.askAboutTranscript(transcriptId, req, email);
         return ResponseEntity.ok(Map.of("answer", answer));
     }
 }

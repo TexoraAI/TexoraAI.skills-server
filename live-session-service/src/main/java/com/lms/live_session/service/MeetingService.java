@@ -3,11 +3,15 @@ package com.lms.live_session.service;
 import com.lms.live_session.dto.MeetingJoinRequestDTO;
 import com.lms.live_session.dto.MeetingRequestDTO;
 import com.lms.live_session.dto.MeetingResponseDTO;
+import com.lms.live_session.dto.MeetingSummaryRequestDTO;
+import com.lms.live_session.dto.TexoraMeetingRequestDTO;
+import com.lms.live_session.dto.TexoraMeetingResponseDTO;
 import com.lms.live_session.entity.JoinRequestStatus;
 import com.lms.live_session.entity.Meeting;
 import com.lms.live_session.entity.MeetingJoinRequest;
 import com.lms.live_session.entity.MeetingStatus;
 import com.lms.live_session.entity.MeetingType;
+import com.lms.live_session.event.MeetingSummaryRequestedEvent;
 import com.lms.live_session.exception.MeetingException;
 import com.lms.live_session.repository.MeetingJoinRequestRepository;
 import com.lms.live_session.repository.MeetingRepository;
@@ -26,24 +30,45 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
+import com.lms.live_session.kafka.*;
 @Service
 public class MeetingService {
 
     private final MeetingRepository repository;
     private final MeetingTokenService tokenService;
     private final MeetingJoinRequestRepository joinRequestRepository;
+    private final EgressService egressService;
+    private final RecordingService recordingService;
+    private final LiveSessionProducer liveSessionProducer;
 
+    @Value("${aws.s3.bucket}")
+    private String bucket;
+
+    @Value("${aws.region}")
+    private String awsRegion;
     @Value("${app.base-url}")
     private String baseUrl;
 
+//    public MeetingService(MeetingRepository repository,
+//                           MeetingTokenService tokenService,
+//                           MeetingJoinRequestRepository joinRequestRepository) {
+//        this.repository = repository;
+//        this.tokenService = tokenService;
+//        this.joinRequestRepository = joinRequestRepository;
+//    }
     public MeetingService(MeetingRepository repository,
-                           MeetingTokenService tokenService,
-                           MeetingJoinRequestRepository joinRequestRepository) {
-        this.repository = repository;
-        this.tokenService = tokenService;
-        this.joinRequestRepository = joinRequestRepository;
-    }
+            MeetingTokenService tokenService,
+            MeetingJoinRequestRepository joinRequestRepository,
+            EgressService egressService,
+            RecordingService recordingService,
+            LiveSessionProducer liveSessionProducer) {
+this.repository = repository;
+this.tokenService = tokenService;
+this.joinRequestRepository = joinRequestRepository;
+this.egressService = egressService;
+this.recordingService = recordingService;
+this.liveSessionProducer = liveSessionProducer;
+}
 
     // ─────────────────────────────────────────────────────────────
     // CREATE — INSTANT
@@ -62,10 +87,14 @@ public class MeetingService {
         meeting.setMeetingType(MeetingType.INSTANT);
         meeting.setMeetingStatus(MeetingStatus.ACTIVE);
         meeting.setReusable(true);
-
+//       
+//        assignJoinCodeAndUrl(meeting);
+//        meeting = claimAndStartEgress(meeting); 
+//        Meeting saved = repository.save(meeting);
+//        return toResponseDTO(saved, creatorId);
         assignJoinCodeAndUrl(meeting);
-
-        Meeting saved = repository.save(meeting);
+        Meeting saved = repository.save(meeting); // persist first so meeting.getId() exists
+        saved = claimAndStartEgress(saved);
         return toResponseDTO(saved, creatorId);
     }
 
@@ -181,8 +210,13 @@ public class MeetingService {
             throw new MeetingException("Meeting cannot be started from status " + meeting.getMeetingStatus());
         }
 
+//        meeting.setMeetingStatus(MeetingStatus.ACTIVE);
+//        meeting = claimAndStartEgress(meeting); 
+//        Meeting saved = repository.save(meeting);
+//        return toResponseDTO(saved, saved.getCreatorId());
         meeting.setMeetingStatus(MeetingStatus.ACTIVE);
-        Meeting saved = repository.save(meeting);
+        Meeting saved = repository.save(meeting); // persist ACTIVE status first
+        saved = claimAndStartEgress(saved);
         return toResponseDTO(saved, saved.getCreatorId());
     }
 
@@ -191,6 +225,27 @@ public class MeetingService {
 
         meeting.setMeetingStatus(MeetingStatus.ENDED);
         meeting.setEndedAt(LocalDateTime.now());
+        // NEW — stop egress if one is running, same recipe as LiveSessionService.endSession()
+        if (meeting.getEgressId() != null) {
+            String egressIdToStop = meeting.getEgressId();
+            livekit.LivekitEgress.EgressInfo info = egressService.stopRecordingAndGetInfo(egressIdToStop);
+
+            if (info != null && info.getFileResultsCount() > 0) {
+                String realFilename = info.getFileResults(0).getFilename();
+                String s3Url = "https://" + bucket + ".s3." + awsRegion + ".amazonaws.com/" + realFilename;
+                meeting.setRecordingS3Url(s3Url);
+                System.out.println("[endMeeting] realFilename=[" + realFilename + "] s3Url=[" + s3Url + "]");
+
+                recordingService.createAutoRecordPlaceholder(
+                    meeting.getId(), null, meeting.getCreatorId(),
+                    meeting.getTitle(), s3Url
+                );
+            } else {
+                System.err.println("[endMeeting] No usable EgressInfo for " + egressIdToStop
+                    + " — NOT setting recordingS3Url.");
+            }
+            meeting.setEgressId(null);
+        }
         Meeting saved = repository.save(meeting);
 
         // A meeting that just ended can't still have guests waiting in the
@@ -494,4 +549,89 @@ public class MeetingService {
 
      return grouped;
  }
+ private Meeting claimAndStartEgress(Meeting meeting) {
+	    Long id = meeting.getId();
+	    String claimToken = "PENDING:" + java.util.UUID.randomUUID();
+
+	    int claimed = repository.atomicClaimEgressSlot(id, claimToken);
+	    if (claimed == 0) {
+	        return findOrThrow(id); // someone else already claimed/started
+	    }
+
+	    EgressService.EgressStartResult result = egressService.startRecording(id, meeting.getRoomName());
+	    if (result == null) {
+	        repository.atomicClearEgressId(id, claimToken);
+	        return findOrThrow(id);
+	    }
+
+	    int finalized = repository.atomicFinalizeEgressId(id, claimToken, result.egressId);
+	    if (finalized == 0) {
+	        egressService.stopRecording(result.egressId);
+	        return findOrThrow(id);
+	    }
+
+	    Meeting fresh = findOrThrow(id);
+	    fresh.setCurrentEgressFileSuffix(result.fileSuffix);
+	    return repository.save(fresh);
+	}
+ public Map<String, Object> requestSummary(Long meetingId, MeetingSummaryRequestDTO body, String requesterId) {
+	    Meeting meeting = findOrThrow(meetingId);
+	    verifyHost(meeting, requesterId);
+
+	    MeetingSummaryRequestedEvent event = new MeetingSummaryRequestedEvent(
+	        meeting.getId(), meeting.getTitle(), meeting.getCreatorId(), meeting.getCreatorRole(),
+	        meeting.getOrganizationId(), meeting.getEndedAt(), meeting.getRecordingS3Url(),
+	        requesterId, meeting.getCreatorRole(), body.getMessages()
+	    );
+	    liveSessionProducer.publishMeetingSummaryRequested(event);
+	    return Map.of("requested", true);
+	}
+//─────────────────────────────────────────────────────────────
+ // TEXORA INTEGRATION — additive only, does not alter existing flows
+ // ─────────────────────────────────────────────────────────────
+
+ public TexoraMeetingResponseDTO createTexoraMeeting(TexoraMeetingRequestDTO dto) {
+     if (dto.getTopic() == null || dto.getTopic().isBlank()) {
+         throw new MeetingException("Field 'topic' is required.");
+     }
+     if (dto.getStartTime() == null || dto.getStartTime().isBlank()) {
+         throw new MeetingException("Field 'startTime' is required.");
+     }
+     if (dto.getDurationMinutes() == null || dto.getDurationMinutes() <= 0) {
+         throw new MeetingException("Field 'durationMinutes' must be a positive integer.");
+     }
+
+     LocalDateTime startUtc;
+     try {
+         startUtc = ZonedDateTime.parse(dto.getStartTime())
+                 .withZoneSameInstant(ZoneId.of("UTC"))
+                 .toLocalDateTime();
+     } catch (Exception e) {
+         throw new MeetingException("Field 'startTime' must be a valid ISO 8601 UTC datetime string.");
+     }
+
+     Meeting meeting = new Meeting();
+     meeting.setTitle(dto.getTopic());
+     meeting.setCreatorId("texora-integration"); // service-account identity, no human host
+     meeting.setCreatorRole("EXTERNAL_INTEGRATION");
+     meeting.setCreatorName("Texora");
+     meeting.setMeetingType(MeetingType.SCHEDULED);
+     meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
+     meeting.setTimezone("UTC");
+     meeting.setScheduledTimeUtc(startUtc);
+     meeting.setReusable(false);
+
+     assignJoinCodeAndUrl(meeting);
+
+     Meeting saved = repository.save(meeting);
+
+     LocalDateTime expiresAt = startUtc.plusMinutes(dto.getDurationMinutes()).plusHours(4);
+
+     return new TexoraMeetingResponseDTO(
+             saved.getMeetingUrl(),
+             "mtg_" + saved.getId(),
+             expiresAt.atZone(ZoneId.of("UTC")).toString()
+     );
+ }
+ 
 }

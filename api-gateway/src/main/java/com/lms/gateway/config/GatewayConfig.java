@@ -235,7 +235,7 @@ public class GatewayConfig {
             
          // ================= CHAT SERVICE (✅ NEW) =================
             .route("chat-service", r -> r.path("/api/chat/**","/api/feedback/**","/api/notebooks/**", 
-            		"/api/chat-feature-flags/**")
+            		"/api/chat-feature-flags/**","/api/meeting-summaries/**")
                     .uri(chatService))
            
 //         // ================= LIVE SESSION SERVICE =================
@@ -254,7 +254,8 @@ public class GatewayConfig {
                     "/api/attendance/**",
                     "/api/v1/live-sessions/**",    // ← ADD: whiteboard endpoints
                     "/api/v1/ai-companion/**" ,     // ← ADD: AI companion endpoints
-                    "/api/meetings/**"   
+                    "/api/meetings/**",
+                    "/api/v1/texorameetings/**" 
             )
             		.uri(liveSessionService)).build();
     }

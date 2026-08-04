@@ -49,8 +49,19 @@ logging:
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
   expiration: ${JWT_EXPIRATION:3600000}
-  
+
+  aws:
+    access-key: ${AWS_ACCESS_KEY}
+    secret-key: ${AWS_SECRET_KEY}
+    region: ${AWS_REGION}
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+
 openai:
   api:
       key: ${OPENAI_API_KEY}
   model: ${OPENAI_MODEL:gpt-3.5-turbo}
+
+app:
+  ffmpeg:
+    path: ${FFMPEG_PATH:ffmpeg}

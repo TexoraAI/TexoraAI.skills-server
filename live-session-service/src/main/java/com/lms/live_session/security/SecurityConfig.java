@@ -57,6 +57,9 @@ public class SecurityConfig {
                     // Everything else under /api/meetings — host only
                     .requestMatchers("/api/meetings/**").authenticated()
                     
+                    
+                    .requestMatchers(HttpMethod.POST, "/api/v1/texorameetings").permitAll()
+                    
                     // everything else requires authentication
                     .anyRequest().authenticated()
             );

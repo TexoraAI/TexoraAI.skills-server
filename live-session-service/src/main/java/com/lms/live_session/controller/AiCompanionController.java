@@ -45,8 +45,14 @@ public class AiCompanionController {
         // TODO: pass principal.getName() to service for activity logging when AiActivityLogService exists
         // String userEmail = principal != null ? principal.getName() : "unknown";
  
+//        try {
+//            AiChatResponse response = aiService.processRequest(request);
+//            return ResponseEntity.ok(response);
+     // The principal.getName() returns the JWT subject (email) — used in service for logs
+        String userEmail = principal != null ? principal.getName() : null;
+ 
         try {
-            AiChatResponse response = aiService.processRequest(request);
+            AiChatResponse response = aiService.processRequest(request, userEmail);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()

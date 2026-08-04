@@ -36,6 +36,12 @@ public class Recording {
     private LocalDateTime uploadedAt;
     private LocalDateTime createdAt;
 
+    @Column(columnDefinition = "TEXT")
+    private String transcriptText;
+
+    @Column(name = "transcript_status")
+    private String transcriptStatus; // NOT_STARTED | PROCESSING | DONE | FAILED
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
@@ -43,6 +49,7 @@ public class Recording {
         if (this.status == null) this.status = "PROCESSING";
         if (this.viewCount == null) this.viewCount = 0L;
         if (this.recordingType == null) this.recordingType = "UPLOADED";
+        if (this.transcriptStatus == null) this.transcriptStatus = "NOT_STARTED";
     }
 
     public Recording() {}
@@ -100,4 +107,10 @@ public class Recording {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getTranscriptText() { return transcriptText; }
+    public void setTranscriptText(String transcriptText) { this.transcriptText = transcriptText; }
+
+    public String getTranscriptStatus() { return transcriptStatus; }
+    public void setTranscriptStatus(String transcriptStatus) { this.transcriptStatus = transcriptStatus; }
 }

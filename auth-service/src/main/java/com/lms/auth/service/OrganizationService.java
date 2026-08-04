@@ -9,7 +9,7 @@
 // 4. All write methods annotated with @CacheEvict targeting the relevant keys.
 
 package com.lms.auth.service;
-
+import org.springframework.web.server.ResponseStatusException;
 import com.lms.auth.dto.AdminOrgUpdateRequest;
 import com.lms.auth.dto.CreateOrganizationRequest;
 import com.lms.auth.dto.OrganizationResponse;
@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 import com.lms.auth.event.AuthEvent;
 import com.lms.auth.producer.AuthEventProducer;
 import com.lms.auth.model.User;
-
+import org.springframework.http.HttpStatus;
 @Service
 public class OrganizationService {
 
@@ -278,4 +278,30 @@ public class OrganizationService {
         res.setCurrentTrainers(trainers);
         return res;
     }
+ // ─────────────────────── ADMIN PROFILE BY EMAIL ─────────────────────────
+ // Never used for STUDENT/TRAINER — those live in the User Service.
+ // This resolves the TENANT_ADMIN/BUSINESS user's organizationId, then
+ // reuses the existing org-capacity/profile mapping.
+ public Map<String, Object> getOrgProfileByAdminEmail(String email) {
+     User user = userRepository.findByEmail(email)
+             .orElseThrow(() -> new ResponseStatusException(
+                     HttpStatus.NOT_FOUND, "User not found"));
+     if (user.getOrganizationId() == null) {
+         throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                 "No organization linked to this account");
+     }
+     return getOrgCapacity(user.getOrganizationId());
+ }
+
+ @Transactional
+ public OrganizationResponse updateOrgProfileByAdminEmail(String email, AdminOrgUpdateRequest req) {
+     User user = userRepository.findByEmail(email)
+             .orElseThrow(() -> new ResponseStatusException(
+                     HttpStatus.NOT_FOUND, "User not found"));
+     if (user.getOrganizationId() == null) {
+         throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                 "No organization linked to this account");
+     }
+     return updateOrgProfile(user.getOrganizationId(), req);
+ }
 }

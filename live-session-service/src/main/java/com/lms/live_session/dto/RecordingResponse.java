@@ -24,32 +24,36 @@ public class RecordingResponse {
     private Long viewCount;
     private LocalDateTime uploadedAt;
     private LocalDateTime createdAt;
+    private String transcriptText;
+    private String transcriptStatus;
 
     public RecordingResponse() {}
 
     public static RecordingResponse from(Recording r) {
         RecordingResponse res = new RecordingResponse();
-        res.id              = r.getId();
-        res.sessionId       = r.getSessionId();
-        res.batchId         = r.getBatchId();
-        res.trainerEmail    = r.getTrainerEmail();   // ✅ changed
-        res.title           = r.getTitle();
-        res.description     = r.getDescription();
-        res.batchName       = r.getBatchName();
-        res.fileName        = r.getFileName();
-        res.filePath        = r.getFilePath();
-        res.fileType        = r.getFileType();
-        res.fileSizeBytes   = r.getFileSizeBytes();
-        res.fileSizeMb      = r.getFileSizeBytes() != null
+        res.id                = r.getId();
+        res.sessionId         = r.getSessionId();
+        res.batchId           = r.getBatchId();
+        res.trainerEmail      = r.getTrainerEmail();   // ✅ changed
+        res.title             = r.getTitle();
+        res.description       = r.getDescription();
+        res.batchName         = r.getBatchName();
+        res.fileName          = r.getFileName();
+        res.filePath          = r.getFilePath();
+        res.fileType          = r.getFileType();
+        res.fileSizeBytes     = r.getFileSizeBytes();
+        res.fileSizeMb        = r.getFileSizeBytes() != null
             ? String.format("%.2f MB", r.getFileSizeBytes() / (1024.0 * 1024.0))
             : "—";
-        res.thumbnail       = r.getThumbnail();
-        res.recordingType   = r.getRecordingType();
-        res.status          = r.getStatus();
-        res.durationMinutes = r.getDurationMinutes();
-        res.viewCount       = r.getViewCount();
-        res.uploadedAt      = r.getUploadedAt();
-        res.createdAt       = r.getCreatedAt();
+        res.thumbnail         = r.getThumbnail();
+        res.recordingType     = r.getRecordingType();
+        res.status            = r.getStatus();
+        res.durationMinutes   = r.getDurationMinutes();
+        res.viewCount         = r.getViewCount();
+        res.uploadedAt        = r.getUploadedAt();
+        res.createdAt         = r.getCreatedAt();
+        res.transcriptText    = r.getTranscriptText();
+        res.transcriptStatus  = r.getTranscriptStatus();
         return res;
     }
 
@@ -72,4 +76,6 @@ public class RecordingResponse {
     public Long getViewCount() { return viewCount; }
     public LocalDateTime getUploadedAt() { return uploadedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getTranscriptText() { return transcriptText; }
+    public String getTranscriptStatus() { return transcriptStatus; }
 }

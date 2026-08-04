@@ -28,13 +28,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // OPTIMIZATION: Replaces findAll() + Java stream filter in getOnboardingResponses().
     // Filters to only STUDENT/TRAINER/TENANT_ADMIN/BUSINESS roles with no org assigned.
     // DB-level sort by created_at DESC. Pageable prevents unbounded result sets.
+//    @Query("""
+//        SELECT u FROM User u
+//        WHERE u.role IN ('STUDENT', 'TRAINER', 'TENANT_ADMIN', 'BUSINESS')
+//          AND u.organizationId IS NULL
+//        ORDER BY u.createdAt DESC
+//        """)
+//    List<User> findOnboardingUsers(Pageable pageable);
+//
+// 
     @Query("""
-        SELECT u FROM User u
-        WHERE u.role IN ('STUDENT', 'TRAINER', 'TENANT_ADMIN', 'BUSINESS')
-          AND u.organizationId IS NULL
-        ORDER BY u.createdAt DESC
-        """)
-    List<User> findOnboardingUsers(Pageable pageable);
-
- 
+    	    SELECT u FROM User u
+    	    WHERE (u.role IN ('STUDENT', 'TRAINER', 'BUSINESS') AND u.organizationId IS NULL)
+    	       OR u.role = 'TENANT_ADMIN'
+    	    ORDER BY u.createdAt DESC
+    	    """)
+    	List<User> findOnboardingUsers(Pageable pageable);
 }
