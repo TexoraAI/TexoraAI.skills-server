@@ -37,19 +37,7 @@ public class AuthController {
     }
 
   
-//    @PostMapping("/register")
-//    public void register(@RequestBody RegisterRequest request,
-//                          @RequestHeader(value = "Authorization", required = false) String authHeader) {
-//        String requesterEmail = null;
-//        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-//            try {
-//                requesterEmail = jwtUtil.extractEmail(authHeader.replace("Bearer ", ""));
-//            } catch (Exception e) {
-//                requesterEmail = null; // bad/expired token → treat as public self-signup
-//            }
-//        }
-//        authService.register(request, requesterEmail);
-//    }
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request,
                           @RequestHeader(value = "Authorization", required = false) String authHeader) {
