@@ -83,6 +83,7 @@ public class GatewaySecurityConfig {
             // Public content
             if (path.startsWith("/api/courses/")
             		 || path.startsWith("/api/course/v1/featurecourse") 
+            		 && !path.contains("/superadmin/")
             		 || path.startsWith("/api/v1/mentor-feedback/public/")  
                     || path.startsWith("/api/content/student/course/")
                     || path.startsWith("/api/content/course/")
@@ -155,7 +156,23 @@ public class GatewaySecurityConfig {
             if (path.startsWith("/api/featured-courses") && method == HttpMethod.GET) {
                 return chain.filter(exchange);
             }
-
+            
+         // ── Public featured-session video streaming (course-details / player) ──
+            if (path.startsWith("/api/video/v1/featured/session/stream/")
+                    && method == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
+            
+         // ── Public featured-session video transcript (course-details / player) ──
+            if (path.matches("/api/video/v1/featured/session/\\d+/transcript")
+                    && method == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
+         // ── Public featured-session file downloads (course-details / player) ──
+            if (path.startsWith("/api/featured-files/download/")
+                    && method == HttpMethod.GET) {
+                return chain.filter(exchange);
+            }
             // ════════════════════════════════════════════════════════════════
             //  WATCH NOW – PUBLIC GET endpoints
             //  (replaces old /api/upload-course public rules)
@@ -258,6 +275,32 @@ public class GatewaySecurityConfig {
                         return exchange.getResponse().setComplete();
                     }
                 }
+             // ════════════════════════════════════════════════════════════════
+            //  FEATURED SESSION VIDEO UPLOAD (video-service, direct-to-video-service)
+            // ════════════════════════════════════════════════════════════════
+            if (path.startsWith("/api/video/v1/featured/session")
+                    && method == HttpMethod.POST) {
+                if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role)) {
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+            }
+            if (path.startsWith("/api/featured-files/upload")
+                    && method == HttpMethod.POST) {
+                if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role)) {
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+            }
+            // ════════════════════════════════════════════════════════════════
+            //  FEATURED PROGRAM SUPERADMIN (course-service) — session video ping/status/delete
+            // ════════════════════════════════════════════════════════════════
+            if (path.startsWith("/api/course/v1/featurecourse/superadmin")) {
+                if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role)) {
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    return exchange.getResponse().setComplete();
+                }
+            }
                 if (!"ADMIN".equalsIgnoreCase(role)
                         && !"TENANT_ADMIN".equalsIgnoreCase(role)
                         && !"TRAINER".equalsIgnoreCase(role)
@@ -737,4 +780,5 @@ public class GatewaySecurityConfig {
             return chain.filter(exchange);
         };
     }
+    
 }

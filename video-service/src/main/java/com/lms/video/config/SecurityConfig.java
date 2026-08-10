@@ -79,7 +79,9 @@ public class SecurityConfig {
 
             // ══ VIDEO FEATURE FLAGS – public reads ══════════════════════════
             .requestMatchers(HttpMethod.GET, "/api/video-feature-flags/**").permitAll()
-
+         // ══ FEATURED SESSION VIDEOS — stream is public, upload requires JWT ═══
+            .requestMatchers(HttpMethod.GET, "/api/video/v1/featured/session/stream/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/video/v1/featured/session/*/transcript").permitAll()
             // ── Everything else requires a valid JWT ───────────────────────
             .anyRequest().authenticated()
         );

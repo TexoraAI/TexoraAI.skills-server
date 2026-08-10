@@ -50,9 +50,19 @@ topics:
   batch-lifecycle: batch-lifecycle
   file-uploaded: file-uploaded
   content: content-events
+  # NEW: featured session-file feature — must match course-service's values exactly
+  featured-content: featured-content-events
+  featured-program-lifecycle: featured-program-lifecycle
+  featured-file-status: featured-file-status
 
 file:
   storage-dir: files
+
+# NEW: gateway base URL, used to build public-facing featured-file download links.
+# Matches API Gateway's server.port (9000) — this was already the value hardcoded
+# in FeaturedSessionFileService before this change; now it's externalized.
+gateway:
+  base-url: ${GATEWAY_BASE_URL:http://localhost:9000}
 
 logging:
   level:

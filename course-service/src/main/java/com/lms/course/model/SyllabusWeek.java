@@ -33,6 +33,12 @@ public class SyllabusWeek {
     @Column(name = "item", columnDefinition = "TEXT")
     private List<String> items = new ArrayList<>();
 
+    // NEW: Week -> Module -> Session hierarchy, additive alongside the flat `items` list above.
+    // `items` is NOT removed and continues to work exactly as before.
+    @OneToMany(mappedBy = "week", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orderIndex ASC")
+    private List<SyllabusModule> modules = new ArrayList<>();
+
     public SyllabusWeek() {
     }
 
@@ -82,5 +88,13 @@ public class SyllabusWeek {
 
     public void setItems(List<String> items) {
         this.items = items;
+    }
+
+    public List<SyllabusModule> getModules() {
+        return modules;
+    }
+
+    public void setModules(List<SyllabusModule> modules) {
+        this.modules = modules;
     }
 }

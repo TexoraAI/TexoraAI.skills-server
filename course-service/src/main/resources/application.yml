@@ -83,6 +83,12 @@ topics:
   batch-lifecycle: ${TOPIC_BATCH_LIFECYCLE:batch-lifecycle}
   course: ${TOPIC_COURSE:course-events}
   content: ${TOPIC_CONTENT:content-events}
+  # NEW: featured-content session-video topics (must match video-service's application.yml exactly)
+  featured-content: ${TOPIC_FEATURED_CONTENT:featured-content-events}
+  featured-program-lifecycle: ${TOPIC_FEATURED_PROGRAM_LIFECYCLE:featured-program-lifecycle}
+  featured-video-status: ${TOPIC_FEATURED_VIDEO_STATUS:featured-video-status}
+  # NEW: featured-content session-file topic (upload-complete direction, file-service → course-service)
+  featured-file-status: ${TOPIC_FEATURED_FILE_STATUS:featured-file-status}
 
 openai:
   api:

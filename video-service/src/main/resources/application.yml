@@ -66,3 +66,42 @@ topics:
   batch-assignment: batch-assignment
   batch-lifecycle: batch-lifecycle
   content: content-events
+  # NEW: featured-content session-video topics (must match course-service's application.yml exactly)
+  featured-content: featured-content-events
+  featured-program-lifecycle: featured-program-lifecycle
+  featured-video-status: featured-video-status
+
+app:
+  # Same env var + same property path as chat-service (app.ffmpeg.path) --
+  # both services point at one shared FFMPEG_PATH env var, no hardcoding here.
+  ffmpeg:
+    path: ${FFMPEG_PATH:ffmpeg}
+
+  # Featured-session-video transcript generation (video-service only --
+  # chat-service has no equivalent of this block).
+  #
+  # Transcription now happens via a persistent Python microservice
+  # (transcribe_server.py, FastAPI + openai-whisper) instead of spawning a
+  # fresh whisper CLI process per job. That microservice loads the model
+  # ONCE at startup and stays warm, eliminating the per-job model-reload
+  # cost that was dominating total time for short videos.
+  #
+  # Start it separately before running video-service:
+  #   cd transcript-microservice
+  #   pip install -r requirements.txt
+  #   python transcribe_server.py
+  # It listens on http://localhost:5001 by default.
+  transcript:
+    # Base URL of the running transcribe_server.py instance.
+    microservice-url: ${TRANSCRIPT_MICROSERVICE_URL:http://localhost:5001}
+
+    # Safety valve so ffmpeg extraction or the HTTP call to the
+    # microservice can't hang forever.
+    process-timeout-minutes: ${TRANSCRIPT_PROCESS_TIMEOUT_MINUTES:90}
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.kafka: INFO

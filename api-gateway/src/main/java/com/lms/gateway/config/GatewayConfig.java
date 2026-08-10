@@ -219,6 +219,11 @@ public class GatewayConfig {
                     "/api/file-feature-flags/**"
             ).uri(fileService))
             
+         // ================= FEATURED SESSION FILES (Reading-type syllabus) =================
+            .route("file-service", r -> r.path(
+                    "/api/featured-files/**"
+            ).uri(fileService))
+            
             // ================= STUDENT + TRAINER SERVICE =================
             .route("student-service", r -> r.path(
                     "/api/students/**",

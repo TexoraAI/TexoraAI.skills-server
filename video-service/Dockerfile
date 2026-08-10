@@ -8,7 +8,14 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # -------- Run Stage --------
-FROM eclipse-temurin:17-jdk-jammy      
+FROM eclipse-temurin:17-jdk-jammy
+
+# Same ffmpeg install as chat-service -- needed here for featured-session
+# transcript generation (TranscriptGenerationService extracts wav audio
+# via ffmpeg before sending it to transcript-microservice).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
