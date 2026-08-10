@@ -10,12 +10,16 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY requirements.txt .
-# Upgrade build tooling first -- openai-whisper's setup.py needs
-# pkg_resources, which recent pip/setuptools no longer bundle by default
-# in this base image. Without this line the build fails with:
-#   ModuleNotFoundError: No module named 'pkg_resources'
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir -r requirements.txt
+# openai-whisper's setup.py needs pkg_resources, which PyPI's setuptools
+# removed entirely starting at v81. Two things are required together:
+#   1. Pin setuptools below 81 so pkg_resources still exists.
+#   2. --no-build-isolation, because pip otherwise builds openai-whisper
+#      in a throwaway isolated env that fetches the LATEST setuptools
+#      from PyPI regardless of what's installed globally -- so just
+#      upgrading/pinning setuptools here does nothing without this flag.
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir "setuptools<81" wheel
+RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 # Model name used both to bake the model into the image at build time
 # (so prod containers never pay a download cost on first request) and
