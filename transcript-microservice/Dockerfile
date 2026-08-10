@@ -10,6 +10,11 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY requirements.txt .
+# Upgrade build tooling first -- openai-whisper's setup.py needs
+# pkg_resources, which recent pip/setuptools no longer bundle by default
+# in this base image. Without this line the build fails with:
+#   ModuleNotFoundError: No module named 'pkg_resources'
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Model name used both to bake the model into the image at build time
