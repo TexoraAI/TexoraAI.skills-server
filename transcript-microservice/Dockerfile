@@ -10,6 +10,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY requirements.txt .
+
 # openai-whisper's setup.py needs pkg_resources, which PyPI's setuptools
 # removed entirely starting at v81. Two things are required together:
 #   1. Pin setuptools below 81 so pkg_resources still exists.
@@ -20,14 +21,25 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir "setuptools<81" wheel
 
-# Install CPU-only torch FIRST, from PyTorch's own CPU wheel index.
-# Without this, pip resolves the default GPU/CUDA build of torch as an
-# openai-whisper dependency, which drags in several GB of NVIDIA CUDA
-# libraries this server has no GPU to use -- that's what filled the disk
-# and caused "No space left on device" on the previous build.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-
-RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
+# Install everything -- including torch -- in ONE pip resolve, with the
+# CPU-only wheel index as the PRIMARY source and PyPI as fallback for
+# packages that aren't on the PyTorch index (fastapi, tiktoken, etc).
+#
+# This MUST be a single command, not "install torch first, then -r
+# requirements.txt" as two separate pip calls. openai-whisper's dependency
+# spec just says "torch, any version" with no index pin -- so a second,
+# separate pip invocation with no --index-url will happily re-resolve
+# torch against plain PyPI to "satisfy" whisper, and PyPI's default Linux
+# wheel for torch is the GPU/CUDA build. That silently re-drags in ~5GB of
+# nvidia-*-cu12 packages and is what filled the disk both previous times
+# ("no space left on device" on libcusparseLt, then again on triton).
+#
+# Keeping it one resolve means pip only ever sees the CPU build of torch
+# as a candidate, so it can't "upgrade" its way back to CUDA.
+RUN pip install --no-cache-dir --no-build-isolation \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    -r requirements.txt
 
 # Model name used both to bake the model into the image at build time
 # (so prod containers never pay a download cost on first request) and
