@@ -19,6 +19,14 @@ COPY requirements.txt .
 #      upgrading/pinning setuptools here does nothing without this flag.
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir "setuptools<81" wheel
+
+# Install CPU-only torch FIRST, from PyTorch's own CPU wheel index.
+# Without this, pip resolves the default GPU/CUDA build of torch as an
+# openai-whisper dependency, which drags in several GB of NVIDIA CUDA
+# libraries this server has no GPU to use -- that's what filled the disk
+# and caused "No space left on device" on the previous build.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
 RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 # Model name used both to bake the model into the image at build time
