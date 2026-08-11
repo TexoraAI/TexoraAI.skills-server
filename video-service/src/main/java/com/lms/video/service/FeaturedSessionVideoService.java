@@ -6,7 +6,9 @@ import com.lms.video.model.FeaturedVideoStatus;
 import com.lms.video.repository.FeaturedSessionVideoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.lms.video.model.TranscriptSourceType;
+import com.lms.video.repository.FeaturedVideoTranscriptRepository;
+import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,16 +23,21 @@ public class FeaturedSessionVideoService {
     private final FeaturedSessionVideoRepository repo;
     private final FeaturedVideoKafkaProducer featuredVideoKafkaProducer;
     private final TranscriptGenerationService transcriptGenerationService;
-
+    private final FeaturedVideoTranscriptRepository transcriptRepo;
+    private final FeaturedTranscriptSegmentRepository segmentRepo;
     private static final String VIDEO_DIR =
             System.getProperty("user.dir") + "/videos/featured-content/";
 
     public FeaturedSessionVideoService(FeaturedSessionVideoRepository repo,
                                         FeaturedVideoKafkaProducer featuredVideoKafkaProducer,
-                                        TranscriptGenerationService transcriptGenerationService) {
+                                        TranscriptGenerationService transcriptGenerationService,
+                                        FeaturedVideoTranscriptRepository transcriptRepo,
+                                        FeaturedTranscriptSegmentRepository segmentRepo) {
         this.repo = repo;
         this.featuredVideoKafkaProducer = featuredVideoKafkaProducer;
         this.transcriptGenerationService = transcriptGenerationService;
+        this.transcriptRepo = transcriptRepo;
+        this.segmentRepo = segmentRepo;
     }
 
     // ================= UPLOAD =================
@@ -135,6 +142,11 @@ public class FeaturedSessionVideoService {
             }
         }
         repo.delete(video);
+        transcriptRepo.findBySessionIdAndSourceType(id, TranscriptSourceType.FEATURED)
+        .ifPresent(t -> {
+            segmentRepo.deleteAll(segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(t.getId()));
+            transcriptRepo.delete(t);
+        });
     }
 
     private String toDataUri(MultipartFile thumbnail) throws IOException {

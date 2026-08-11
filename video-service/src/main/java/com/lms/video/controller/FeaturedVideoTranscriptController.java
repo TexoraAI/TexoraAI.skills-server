@@ -7,7 +7,7 @@ import com.lms.video.model.TranscriptStatus;
 import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
 import com.lms.video.repository.FeaturedVideoTranscriptRepository;
 import org.springframework.web.bind.annotation.*;
-
+import com.lms.video.model.TranscriptSourceType;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,8 +32,9 @@ public class FeaturedVideoTranscriptController {
     // /stream/{fileName} endpoint (also unrestricted beyond normal auth).
     @GetMapping("/{sessionId}/transcript")
     public TranscriptResponse getTranscript(@PathVariable Long sessionId) {
-        Optional<FeaturedVideoTranscript> transcriptOpt = transcriptRepo.findBySessionId(sessionId);
-
+//        Optional<FeaturedVideoTranscript> transcriptOpt = transcriptRepo.findBySessionId(sessionId);
+    	Optional<FeaturedVideoTranscript> transcriptOpt =
+    	        transcriptRepo.findBySessionIdAndSourceType(sessionId, TranscriptSourceType.FEATURED);
         if (transcriptOpt.isEmpty()) {
             return new TranscriptResponse("NONE", null, null, List.of());
         }

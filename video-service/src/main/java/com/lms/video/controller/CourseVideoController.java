@@ -1,7 +1,13 @@
 
 
 package com.lms.video.controller;
-
+import com.lms.video.dto.TranscriptResponse;
+import com.lms.video.model.FeaturedTranscriptSegment;
+import com.lms.video.model.TranscriptSourceType;
+import com.lms.video.model.TranscriptStatus;
+import com.lms.video.repository.FeaturedVideoTranscriptRepository;
+import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
+import java.util.List;
 import com.lms.video.model.CourseVideo;
 import com.lms.video.service.CourseVideoService;
 import org.springframework.core.io.*;
@@ -11,18 +17,27 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
-
+import com.lms.video.repository.CourseVideoRepository;
 @RestController
 @RequestMapping("/api/course-videos")
 public class CourseVideoController {
 
     private final CourseVideoService service;
-
+    private final FeaturedVideoTranscriptRepository transcriptRepo;
+    private final FeaturedTranscriptSegmentRepository segmentRepo;
+    private final CourseVideoRepository repo;
+   
     private static final String VIDEO_DIR =
             System.getProperty("user.dir") + "/videos/course-content/";
 
-    public CourseVideoController(CourseVideoService service) {
+    public CourseVideoController(CourseVideoService service,
+            CourseVideoRepository repo,
+            FeaturedVideoTranscriptRepository transcriptRepo,
+            FeaturedTranscriptSegmentRepository segmentRepo) {
         this.service = service;
+        this.repo = repo;
+        this.transcriptRepo = transcriptRepo;
+        this.segmentRepo = segmentRepo;
     }
 
     // ================= UPLOAD =================
@@ -115,5 +130,50 @@ public class CourseVideoController {
                 .contentType(MediaTypeFactory.getMediaType(fileName)
                         .orElse(MediaType.APPLICATION_OCTET_STREAM))
                 .body(new InputStreamResource(inputStream));
+    }
+ // ================= TRANSCRIPT =================
+    @GetMapping("/{id}/transcript")
+    public TranscriptResponse getTranscript(@PathVariable Long id) {
+        return transcriptRepo.findBySessionIdAndSourceType(id, TranscriptSourceType.COURSE_VIDEO)
+                .map(transcript -> {
+                    if (transcript.getStatus() == TranscriptStatus.READY) {
+                        List<FeaturedTranscriptSegment> segments =
+                                segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(transcript.getId());
+                        List<TranscriptResponse.SegmentDto> segmentDtos = segments.stream()
+                                .map(s -> new TranscriptResponse.SegmentDto(s.getStartSeconds(), s.getEndSeconds(), s.getText()))
+                                .toList();
+                        return new TranscriptResponse("READY", transcript.getLanguage(), null, segmentDtos);
+                    }
+                    if (transcript.getStatus() == TranscriptStatus.FAILED) {
+                        return new TranscriptResponse("FAILED", transcript.getLanguage(), transcript.getErrorMessage(), List.of());
+                    }
+                    return new TranscriptResponse(transcript.getStatus().name(), transcript.getLanguage(), null, List.of());
+                })
+                .orElse(new TranscriptResponse("NONE", null, null, List.of()));
+    }
+ // ================= TRANSCRIPT BY URL =================
+    // ContentItem (course-service) only stores the video's url, not
+    // video-service's internal CourseVideo.id — same reason
+    // ContentEventConsumer resolves by url instead of id. This endpoint
+    // lets the frontend do the same lookup.
+    @GetMapping("/transcript-by-url")
+    public TranscriptResponse getTranscriptByUrl(@RequestParam String url) {
+        return repo.findByUrl(url)
+                .flatMap(video -> transcriptRepo.findBySessionIdAndSourceType(video.getId(), TranscriptSourceType.COURSE_VIDEO))
+                .map(transcript -> {
+                    if (transcript.getStatus() == TranscriptStatus.READY) {
+                        List<FeaturedTranscriptSegment> segments =
+                                segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(transcript.getId());
+                        List<TranscriptResponse.SegmentDto> segmentDtos = segments.stream()
+                                .map(s -> new TranscriptResponse.SegmentDto(s.getStartSeconds(), s.getEndSeconds(), s.getText()))
+                                .toList();
+                        return new TranscriptResponse("READY", transcript.getLanguage(), null, segmentDtos);
+                    }
+                    if (transcript.getStatus() == TranscriptStatus.FAILED) {
+                        return new TranscriptResponse("FAILED", transcript.getLanguage(), transcript.getErrorMessage(), List.of());
+                    }
+                    return new TranscriptResponse(transcript.getStatus().name(), transcript.getLanguage(), null, List.of());
+                })
+                .orElse(new TranscriptResponse("NONE", null, null, List.of()));
     }
 }

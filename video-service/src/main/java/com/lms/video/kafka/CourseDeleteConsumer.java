@@ -3,6 +3,9 @@
 package com.lms.video.kafka;
 
 import com.lms.video.model.CourseVideo;
+import com.lms.video.model.TranscriptSourceType;
+import com.lms.video.repository.FeaturedVideoTranscriptRepository;
+import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
 import com.lms.video.repository.CourseVideoRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -15,14 +18,18 @@ import java.util.Map;
 public class CourseDeleteConsumer {
 
     private final CourseVideoRepository repo;
-
+    private final FeaturedVideoTranscriptRepository transcriptRepo;
+    private final FeaturedTranscriptSegmentRepository segmentRepo;
     private static final String VIDEO_DIR =
             System.getProperty("user.dir") + "/videos/course-content/";
 
-    public CourseDeleteConsumer(CourseVideoRepository repo) {
+    public CourseDeleteConsumer(CourseVideoRepository repo,
+            FeaturedVideoTranscriptRepository transcriptRepo,
+            FeaturedTranscriptSegmentRepository segmentRepo) {
         this.repo = repo;
+        this.transcriptRepo = transcriptRepo;
+        this.segmentRepo = segmentRepo;
     }
-
     @KafkaListener(
             topics  = "course-lifecycle",
             groupId = "video-service-group"
@@ -46,9 +53,19 @@ public class CourseDeleteConsumer {
                         System.out.println("ℹ️ No videos found for courseId=" + courseId);
                         return;
                     }
+//                    for (CourseVideo video : videos) {
+//                        deleteFileFromDisk(video.getFileName());
+//                        repo.delete(video);
+//                    }
                     for (CourseVideo video : videos) {
                         deleteFileFromDisk(video.getFileName());
+                        Long videoId = video.getId();
                         repo.delete(video);
+                        transcriptRepo.findBySessionIdAndSourceType(videoId, TranscriptSourceType.COURSE_VIDEO)
+                                .ifPresent(t -> {
+                                    segmentRepo.deleteAll(segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(t.getId()));
+                                    transcriptRepo.delete(t);
+                                });
                     }
                     System.out.println("🧹 VIDEO SERVICE cleaned "
                             + videos.size() + " video(s) for courseId=" + courseId);

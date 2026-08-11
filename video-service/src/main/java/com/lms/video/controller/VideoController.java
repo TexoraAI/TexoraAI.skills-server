@@ -13,7 +13,14 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-
+import com.lms.video.dto.TranscriptResponse;
+import com.lms.video.model.FeaturedTranscriptSegment;
+import com.lms.video.model.FeaturedVideoTranscript;
+import com.lms.video.model.TranscriptSourceType;
+import com.lms.video.model.TranscriptStatus;
+import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
+import com.lms.video.repository.FeaturedVideoTranscriptRepository;
+import java.util.Optional;
 @RestController
 @RequestMapping("/api/video")
 public class VideoController {
@@ -22,12 +29,20 @@ public class VideoController {
     private final JwtUtil jwtUtil;
     private final VideoFeatureFlagsService featureFlagsService; // NEW
 
+
+    private final FeaturedVideoTranscriptRepository transcriptRepo;
+    private final FeaturedTranscriptSegmentRepository segmentRepo;
+
     public VideoController(VideoService service,
                            JwtUtil jwtUtil,
-                           VideoFeatureFlagsService featureFlagsService) { // NEW
+                           VideoFeatureFlagsService featureFlagsService,
+                           FeaturedVideoTranscriptRepository transcriptRepo,
+                           FeaturedTranscriptSegmentRepository segmentRepo) {
         this.service             = service;
         this.jwtUtil             = jwtUtil;
-        this.featureFlagsService = featureFlagsService; // NEW
+        this.featureFlagsService = featureFlagsService;
+        this.transcriptRepo      = transcriptRepo;
+        this.segmentRepo         = segmentRepo;
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -292,5 +307,32 @@ public class VideoController {
                 organizationId
         );
         return ResponseEntity.ok(updated);
+    }
+ // ── GET VIDEO TRANSCRIPT ──────────────────────────────────────────────────
+    @GetMapping("/{id}/transcript")
+    public TranscriptResponse getVideoTranscript(@PathVariable Long id) {
+        Optional<FeaturedVideoTranscript> transcriptOpt =
+                transcriptRepo.findBySessionIdAndSourceType(id, TranscriptSourceType.LIBRARY_VIDEO);
+
+        if (transcriptOpt.isEmpty()) {
+            return new TranscriptResponse("NONE", null, null, List.of());
+        }
+
+        FeaturedVideoTranscript transcript = transcriptOpt.get();
+
+        if (transcript.getStatus() == TranscriptStatus.READY) {
+            List<FeaturedTranscriptSegment> segments =
+                    segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(transcript.getId());
+            List<TranscriptResponse.SegmentDto> segmentDtos = segments.stream()
+                    .map(s -> new TranscriptResponse.SegmentDto(s.getStartSeconds(), s.getEndSeconds(), s.getText()))
+                    .toList();
+            return new TranscriptResponse("READY", transcript.getLanguage(), null, segmentDtos);
+        }
+
+        if (transcript.getStatus() == TranscriptStatus.FAILED) {
+            return new TranscriptResponse("FAILED", transcript.getLanguage(), transcript.getErrorMessage(), List.of());
+        }
+
+        return new TranscriptResponse(transcript.getStatus().name(), transcript.getLanguage(), null, List.of());
     }
 }

@@ -1,6 +1,9 @@
 
 package com.lms.video.service;
-
+import com.lms.video.model.TranscriptSourceType;
+import com.lms.video.model.FeaturedVideoTranscript;
+import com.lms.video.repository.FeaturedVideoTranscriptRepository;
+import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
 import com.lms.video.kafka.VideoProducer;
 import com.lms.video.model.Video;
 import com.lms.video.model.TrainerBatchMap;
@@ -30,15 +33,25 @@ public class VideoService {
     private final VideoProducer videoProducer;
     private final TrainerBatchMapRepository trainerBatchMapRepository;
     private final StudentBatchMapRepository studentBatchMapRepository;
+    private final TranscriptGenerationService transcriptGenerationService;
+    private final FeaturedVideoTranscriptRepository transcriptRepo;
+    private final FeaturedTranscriptSegmentRepository segmentRepo;
+
 
     public VideoService(VideoRepository repo,
             VideoProducer videoProducer,
             TrainerBatchMapRepository trainerBatchMapRepository,
-            StudentBatchMapRepository studentBatchMapRepository) {
+            StudentBatchMapRepository studentBatchMapRepository,
+            TranscriptGenerationService transcriptGenerationService,
+            FeaturedVideoTranscriptRepository transcriptRepo,
+            FeaturedTranscriptSegmentRepository segmentRepo) {
 this.repo = repo;
 this.videoProducer = videoProducer;
 this.trainerBatchMapRepository = trainerBatchMapRepository;
 this.studentBatchMapRepository = studentBatchMapRepository;
+this.transcriptGenerationService = transcriptGenerationService;
+this.transcriptRepo = transcriptRepo;
+this.segmentRepo = segmentRepo;
 }
 
     // ✅ NEW — centralized org-isolation check, reused everywhere a single
@@ -119,6 +132,12 @@ this.studentBatchMapRepository = studentBatchMapRepository;
         video.setCourse(course != null ? course : "");
         video.setStatus(status != null ? status : "draft");
         Video saved = repo.save(video);
+        try {
+            transcriptGenerationService.generateAsync(
+                    saved.getId(), filePath.toString(), TranscriptSourceType.LIBRARY_VIDEO);
+        } catch (Exception ignored) {
+            // transcript kickoff failures must never affect the upload response
+        }
 
         // ✅ Only send Kafka event if batch is assigned
         if (batchId != null) {
@@ -247,6 +266,11 @@ this.studentBatchMapRepository = studentBatchMapRepository;
         }
 
         repo.delete(video);
+        transcriptRepo.findBySessionIdAndSourceType(id, TranscriptSourceType.LIBRARY_VIDEO)
+        .ifPresent(t -> {
+            segmentRepo.deleteAll(segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(t.getId()));
+            transcriptRepo.delete(t);
+        });
 
         try {
             videoProducer.sendVideoDeletedEvent(video.getStoredFileName());
@@ -456,6 +480,22 @@ this.studentBatchMapRepository = studentBatchMapRepository;
             video.setSize(file.getSize());
             // Clear URL fields when switching from URL → file
             video.setVideoUrl(null);
+         // New file content means the old transcript no longer matches
+            // this video — delete stale transcript/segments and kick off a
+            // fresh transcription job for the new file, same pattern as
+            // deleteVideo()'s cleanup + uploadVideo()'s kickoff.
+            transcriptRepo.findBySessionIdAndSourceType(videoId, TranscriptSourceType.LIBRARY_VIDEO)
+                    .ifPresent(t -> {
+                        segmentRepo.deleteAll(segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(t.getId()));
+                        transcriptRepo.delete(t);
+                    });
+
+            try {
+                transcriptGenerationService.generateAsync(
+                        videoId, filePath.toString(), TranscriptSourceType.LIBRARY_VIDEO);
+            } catch (Exception ignored) {
+                // transcript kickoff failures must never affect the edit response
+            }
         }
 
         // ── Update metadata ──

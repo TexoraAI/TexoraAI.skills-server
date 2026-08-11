@@ -1,5 +1,5 @@
 package com.lms.live_session.dto;
-
+import java.util.List;
 public class MeetingRequestDTO {
 
     private String title;
@@ -20,6 +20,10 @@ public class MeetingRequestDTO {
     // time (already known client-side from the logged-in user's profile).
     // The JWT carries no "name" claim, so this cannot be derived server-side.
     private String creatorName;
+    
+    private List<String> participantEmails;
+    
+    
 
     public MeetingRequestDTO() {}
 
@@ -40,4 +44,7 @@ public class MeetingRequestDTO {
 
     public String getCreatorName() { return creatorName; }
     public void setCreatorName(String creatorName) { this.creatorName = creatorName; }
+    
+    public List<String> getParticipantEmails() { return participantEmails; }
+    public void setParticipantEmails(List<String> participantEmails) { this.participantEmails = participantEmails; }
 }

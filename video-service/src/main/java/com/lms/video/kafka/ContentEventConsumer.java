@@ -6,17 +6,24 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.util.Map;
-
+import com.lms.video.model.TranscriptSourceType;
+import com.lms.video.repository.FeaturedVideoTranscriptRepository;
+import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
 @Service
 public class ContentEventConsumer {
 
     private final CourseVideoRepository repo;
-
+    private final FeaturedVideoTranscriptRepository transcriptRepo;
+    private final FeaturedTranscriptSegmentRepository segmentRepo;
     private static final String VIDEO_DIR =
             System.getProperty("user.dir") + "/videos/course-content/";
 
-    public ContentEventConsumer(CourseVideoRepository repo) {
+    public ContentEventConsumer(CourseVideoRepository repo,
+            FeaturedVideoTranscriptRepository transcriptRepo,
+            FeaturedTranscriptSegmentRepository segmentRepo) {
         this.repo = repo;
+        this.transcriptRepo = transcriptRepo;
+        this.segmentRepo = segmentRepo;
     }
 
     @KafkaListener(
@@ -52,14 +59,28 @@ public class ContentEventConsumer {
                         System.out.println("⚠️ CONTENT_DELETED: url is null");
                         return;
                     }
+//                    repo.findByUrl(url).ifPresentOrElse(
+//                        courseVideo -> {
+//                            deleteFileFromDisk(courseVideo.getFileName());
+//                            repo.delete(courseVideo);
+//                            System.out.println("🧹 VIDEO deleted → url=" + url);
+//                        },
+//                        () -> System.out.println("⚠️ VIDEO not found for url=" + url)
+//                    );
                     repo.findByUrl(url).ifPresentOrElse(
-                        courseVideo -> {
-                            deleteFileFromDisk(courseVideo.getFileName());
-                            repo.delete(courseVideo);
-                            System.out.println("🧹 VIDEO deleted → url=" + url);
-                        },
-                        () -> System.out.println("⚠️ VIDEO not found for url=" + url)
-                    );
+                            courseVideo -> {
+                                deleteFileFromDisk(courseVideo.getFileName());
+                                Long videoId = courseVideo.getId();
+                                repo.delete(courseVideo);
+                                transcriptRepo.findBySessionIdAndSourceType(videoId, TranscriptSourceType.COURSE_VIDEO)
+                                        .ifPresent(t -> {
+                                            segmentRepo.deleteAll(segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(t.getId()));
+                                            transcriptRepo.delete(t);
+                                        });
+                                System.out.println("🧹 VIDEO deleted → url=" + url);
+                            },
+                            () -> System.out.println("⚠️ VIDEO not found for url=" + url)
+                        );
                 }
 
                 case "CONTENT_UPDATED" -> {
@@ -73,14 +94,28 @@ public class ContentEventConsumer {
                         System.out.println("ℹ️ CONTENT_UPDATED: oldUrl == newUrl, nothing to clean");
                         return;
                     }
+//                    repo.findByUrl(oldUrl).ifPresentOrElse(
+//                        courseVideo -> {
+//                            deleteFileFromDisk(courseVideo.getFileName());
+//                            repo.delete(courseVideo);
+//                            System.out.println("🧹 VIDEO old file cleaned → oldUrl=" + oldUrl);
+//                        },
+//                        () -> System.out.println("⚠️ VIDEO not found for oldUrl=" + oldUrl)
+//                    );
                     repo.findByUrl(oldUrl).ifPresentOrElse(
-                        courseVideo -> {
-                            deleteFileFromDisk(courseVideo.getFileName());
-                            repo.delete(courseVideo);
-                            System.out.println("🧹 VIDEO old file cleaned → oldUrl=" + oldUrl);
-                        },
-                        () -> System.out.println("⚠️ VIDEO not found for oldUrl=" + oldUrl)
-                    );
+                            courseVideo -> {
+                                deleteFileFromDisk(courseVideo.getFileName());
+                                Long videoId = courseVideo.getId();
+                                repo.delete(courseVideo);
+                                transcriptRepo.findBySessionIdAndSourceType(videoId, TranscriptSourceType.COURSE_VIDEO)
+                                        .ifPresent(t -> {
+                                            segmentRepo.deleteAll(segmentRepo.findByTranscriptIdOrderByOrderIndexAsc(t.getId()));
+                                            transcriptRepo.delete(t);
+                                        });
+                                System.out.println("🧹 VIDEO old file cleaned → oldUrl=" + oldUrl);
+                            },
+                            () -> System.out.println("⚠️ VIDEO not found for oldUrl=" + oldUrl)
+                        );
                 }
 
                 default -> System.out.println("ℹ️ VIDEO ignoring content event type=" + type);

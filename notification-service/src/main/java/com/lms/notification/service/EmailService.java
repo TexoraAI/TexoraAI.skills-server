@@ -241,4 +241,45 @@ public class EmailService {
             </div>
             """.formatted(fullName, sessionTitle, scheduledDate, scheduledTime, joinLink);
     }
+    public void sendMeetingInviteEmail(String toEmail, String sessionTitle,
+            String scheduledDate, String scheduledTime,
+            String joinLink) {
+try {
+MimeMessage message = mailSender.createMimeMessage();
+MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+helper.setTo(toEmail);
+helper.setSubject("📅 Meeting Scheduled — " + sessionTitle);
+helper.setText(buildMeetingInviteHtml(sessionTitle, scheduledDate, scheduledTime, joinLink), true);
+mailSender.send(message);
+log.info("✅ Meeting invite email sent to: {}", toEmail);
+} catch (Exception e) {
+log.error("❌ Failed to send meeting invite to {}: {}", toEmail, e.getMessage());
+}
+}
+
+private String buildMeetingInviteHtml(String sessionTitle, String scheduledDate,
+               String scheduledTime, String joinLink) {
+return """
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 32px; border-radius: 12px;">
+<div style="background: #2563eb; border-radius: 10px; padding: 28px; text-align: center; margin-bottom: 24px;">
+<h1 style="color: white; margin: 0; font-size: 24px;">📅 You've Been Invited</h1>
+<p style="color: #bfdbfe; margin: 8px 0 0;">A meeting has been scheduled for you</p>
+</div>
+<div style="background: white; border-radius: 10px; padding: 24px; margin-bottom: 16px;">
+<p style="color: #374151; font-size: 16px;">Hi,</p>
+<p style="color: #6b7280;">We have scheduled a meeting for you. Details below:</p>
+<div style="background: #eff6ff; border-left: 4px solid #2563eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
+<p style="margin: 0 0 6px; font-size: 18px; font-weight: bold; color: #1e3a8a;">%s</p>
+<p style="margin: 0; color: #374151;">📅 %s &nbsp;|&nbsp; ⏰ %s</p>
+</div>
+<div style="text-align: center; margin: 24px 0;">
+<a href="%s" style="background: #2563eb; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">Join Meeting →</a>
+</div>
+</div>
+<p style="color: #d1d5db; font-size: 12px; text-align: center; margin: 0;">
+ILM ORA · If you weren't expecting this invite, you can ignore this email.
+</p>
+</div>
+""".formatted(sessionTitle, scheduledDate, scheduledTime, joinLink);
+}
 }

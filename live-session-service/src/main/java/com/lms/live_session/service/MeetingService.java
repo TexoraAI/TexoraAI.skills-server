@@ -1,6 +1,7 @@
 package com.lms.live_session.service;
 
 import com.lms.live_session.dto.MeetingJoinRequestDTO;
+
 import com.lms.live_session.dto.MeetingRequestDTO;
 import com.lms.live_session.dto.MeetingResponseDTO;
 import com.lms.live_session.dto.MeetingSummaryRequestDTO;
@@ -18,6 +19,7 @@ import com.lms.live_session.repository.MeetingRepository;
 import com.lms.live_session.util.JoinCodeGenerator;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import com.lms.live_session.event.SessionNotificationEvent;
 import org.springframework.stereotype.Service;
 import java.time.YearMonth;
 import java.util.TreeMap;
@@ -40,7 +42,7 @@ public class MeetingService {
     private final EgressService egressService;
     private final RecordingService recordingService;
     private final LiveSessionProducer liveSessionProducer;
-
+    private final MeetingInviteProducer meetingInviteProducer;
     @Value("${aws.s3.bucket}")
     private String bucket;
 
@@ -49,25 +51,21 @@ public class MeetingService {
     @Value("${app.base-url}")
     private String baseUrl;
 
-//    public MeetingService(MeetingRepository repository,
-//                           MeetingTokenService tokenService,
-//                           MeetingJoinRequestRepository joinRequestRepository) {
-//        this.repository = repository;
-//        this.tokenService = tokenService;
-//        this.joinRequestRepository = joinRequestRepository;
-//    }
+
     public MeetingService(MeetingRepository repository,
             MeetingTokenService tokenService,
             MeetingJoinRequestRepository joinRequestRepository,
             EgressService egressService,
             RecordingService recordingService,
-            LiveSessionProducer liveSessionProducer) {
+            LiveSessionProducer liveSessionProducer,
+            MeetingInviteProducer meetingInviteProducer) {
 this.repository = repository;
 this.tokenService = tokenService;
 this.joinRequestRepository = joinRequestRepository;
 this.egressService = egressService;
 this.recordingService = recordingService;
 this.liveSessionProducer = liveSessionProducer;
+this.meetingInviteProducer = meetingInviteProducer;
 }
 
     // ─────────────────────────────────────────────────────────────
@@ -126,10 +124,41 @@ this.liveSessionProducer = liveSessionProducer;
 //        Meeting saved = repository.save(meeting);
 //        return toResponseDTO(saved, creatorId);
 //    }
+//    public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
+//        if (dto.getDate() == null || dto.getTime() == null || dto.getTimezone() == null) {
+//            throw new MeetingException("date, time and timezone are required to schedule a meeting");
+//        }
+//
+//        LocalDateTime scheduledTimeUtc = toUtc(dto.getDate(), dto.getTime(), dto.getTimezone());
+//
+//        if (!scheduledTimeUtc.isAfter(LocalDateTime.now(ZoneId.of("UTC")))) {
+//            throw new MeetingException("Scheduled time must be in the future");
+//        }
+//
+//        Meeting meeting = new Meeting();
+//        meeting.setTitle(blankToDefault(dto.getTitle(), "Scheduled meeting"));
+//        meeting.setCreatorId(creatorId);
+//        meeting.setCreatorRole(creatorRole);
+//        meeting.setCreatorName(dto.getCreatorName());
+//        meeting.setOrganizationId(dto.getOrganizationId());
+//        meeting.setMeetingType(MeetingType.SCHEDULED);
+//        meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
+//        meeting.setTimezone(dto.getTimezone());
+//        meeting.setScheduledTimeUtc(scheduledTimeUtc);
+//        meeting.setReusable(true);
+//
+//        assignJoinCodeAndUrl(meeting);
+//
+//        Meeting saved = repository.save(meeting);
+//        return toResponseDTO(saved, creatorId);
+//    }
     public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
         if (dto.getDate() == null || dto.getTime() == null || dto.getTimezone() == null) {
             throw new MeetingException("date, time and timezone are required to schedule a meeting");
         }
+
+        // NEW — validate participant emails before doing anything else
+        List<String> validEmails = validateAndNormalizeEmails(dto.getParticipantEmails());
 
         LocalDateTime scheduledTimeUtc = toUtc(dto.getDate(), dto.getTime(), dto.getTimezone());
 
@@ -152,9 +181,13 @@ this.liveSessionProducer = liveSessionProducer;
         assignJoinCodeAndUrl(meeting);
 
         Meeting saved = repository.save(meeting);
+
+        // NEW — fire invite emails via Kafka after the meeting is saved
+        // (so meeting.getId() and meeting.getMeetingUrl() are populated)
+        publishMeetingInvites(saved, validEmails, dto.getDate(), dto.getTime());
+
         return toResponseDTO(saved, creatorId);
     }
-
     // ─────────────────────────────────────────────────────────────
     // JOIN CODE LOOKUP
     // ─────────────────────────────────────────────────────────────
@@ -302,6 +335,27 @@ this.liveSessionProducer = liveSessionProducer;
 //        MeetingJoinRequest saved = joinRequestRepository.save(request);
 //        return toJoinRequestDTO(saved);
 //    }
+//    public MeetingJoinRequestDTO requestToJoin(Long meetingId, String guestName, String guestEmail) {
+//        Meeting meeting = findOrThrow(meetingId);
+//
+//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
+//            throw new MeetingException("Meeting is not active — nothing to join yet");
+//        }
+//
+//        if (guestEmail == null || guestEmail.isBlank() || !guestEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+//            throw new MeetingException("A valid email is required to join");
+//        }
+//
+//        MeetingJoinRequest request = new MeetingJoinRequest();
+//        request.setMeetingId(meetingId);
+//        request.setGuestIdentity(UUID.randomUUID().toString());
+//        request.setGuestName(blankToDefault(guestName, "Guest"));
+//        request.setGuestEmail(guestEmail.trim().toLowerCase());
+//        request.setStatus(JoinRequestStatus.PENDING);
+//
+//        MeetingJoinRequest saved = joinRequestRepository.save(request);
+//        return toJoinRequestDTO(saved);
+//    }
     public MeetingJoinRequestDTO requestToJoin(Long meetingId, String guestName, String guestEmail) {
         Meeting meeting = findOrThrow(meetingId);
 
@@ -318,7 +372,16 @@ this.liveSessionProducer = liveSessionProducer;
         request.setGuestIdentity(UUID.randomUUID().toString());
         request.setGuestName(blankToDefault(guestName, "Guest"));
         request.setGuestEmail(guestEmail.trim().toLowerCase());
-        request.setStatus(JoinRequestStatus.PENDING);
+
+        // ✅ NEW — Texora-integration meetings have no real logged-in host
+        // (creatorId is the service account "texora-integration"), so there
+        // is nobody who can ever call admitJoinRequest(). Auto-admit instead
+        // of leaving guests stuck in the lobby forever.
+        boolean isExternalIntegrationMeeting = "texora-integration".equals(meeting.getCreatorId());
+        request.setStatus(isExternalIntegrationMeeting ? JoinRequestStatus.ADMITTED : JoinRequestStatus.PENDING);
+        if (isExternalIntegrationMeeting) {
+            request.setRespondedAt(LocalDateTime.now());
+        }
 
         MeetingJoinRequest saved = joinRequestRepository.save(request);
         return toJoinRequestDTO(saved);
@@ -633,5 +696,33 @@ this.liveSessionProducer = liveSessionProducer;
              expiresAt.atZone(ZoneId.of("UTC")).toString()
      );
  }
- 
+//NEW
+private List<String> validateAndNormalizeEmails(List<String> emails) {
+  if (emails == null || emails.isEmpty()) return List.of();
+
+  List<String> normalized = new java.util.ArrayList<>();
+  for (String e : emails) {
+      if (e == null || e.isBlank()) continue;
+      String trimmed = e.trim().toLowerCase();
+      if (!trimmed.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+          throw new MeetingException("Invalid participant email: " + e);
+      }
+      normalized.add(trimmed);
+  }
+  return normalized;
+}
+
+//NEW
+private void publishMeetingInvites(Meeting meeting, List<String> emails, String date, String time) {
+  if (emails == null || emails.isEmpty()) return;
+  for (String email : emails) {
+      SessionNotificationEvent event = new SessionNotificationEvent(
+              meeting.getId(), null, null, meeting.getTitle(),
+              date, time, null,
+              "MEETING_INVITE", email, email, "PARTICIPANT",
+              meeting.getMeetingUrl()
+      );
+      meetingInviteProducer.publishMeetingInvite(event);
+  }
+}
 }

@@ -29,6 +29,11 @@ public class FeaturedVideoTranscript {
 
     private Instant updatedAt = Instant.now();
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(20) default 'FEATURED'")
+    private TranscriptSourceType sourceType = TranscriptSourceType.FEATURED;
+    
+    
     public FeaturedVideoTranscript() {}
 
     public Long getId() { return id; }
@@ -50,4 +55,7 @@ public class FeaturedVideoTranscript {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    
+    public TranscriptSourceType getSourceType() { return sourceType; }
+    public void setSourceType(TranscriptSourceType sourceType) { this.sourceType = sourceType; }
 }
