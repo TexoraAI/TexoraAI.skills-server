@@ -85,11 +85,6 @@ this.meetingInviteProducer = meetingInviteProducer;
         meeting.setMeetingType(MeetingType.INSTANT);
         meeting.setMeetingStatus(MeetingStatus.ACTIVE);
         meeting.setReusable(true);
-//       
-//        assignJoinCodeAndUrl(meeting);
-//        meeting = claimAndStartEgress(meeting); 
-//        Meeting saved = repository.save(meeting);
-//        return toResponseDTO(saved, creatorId);
         assignJoinCodeAndUrl(meeting);
         Meeting saved = repository.save(meeting); // persist first so meeting.getId() exists
         saved = claimAndStartEgress(saved);
@@ -97,62 +92,7 @@ this.meetingInviteProducer = meetingInviteProducer;
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CREATE — SCHEDULED
-    // ─────────────────────────────────────────────────────────────
-
-//    public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
-//        if (dto.getDate() == null || dto.getTime() == null || dto.getTimezone() == null) {
-//            throw new MeetingException("date, time and timezone are required to schedule a meeting");
-//        }
-//
-//        LocalDateTime scheduledTimeUtc = toUtc(dto.getDate(), dto.getTime(), dto.getTimezone());
-//
-//        Meeting meeting = new Meeting();
-//        meeting.setTitle(blankToDefault(dto.getTitle(), "Scheduled meeting"));
-//        meeting.setCreatorId(creatorId);
-//        meeting.setCreatorRole(creatorRole);
-//        meeting.setCreatorName(dto.getCreatorName());
-//        meeting.setOrganizationId(dto.getOrganizationId());
-//        meeting.setMeetingType(MeetingType.SCHEDULED);
-//        meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
-//        meeting.setTimezone(dto.getTimezone());
-//        meeting.setScheduledTimeUtc(scheduledTimeUtc);
-//        meeting.setReusable(true);
-//
-//        assignJoinCodeAndUrl(meeting);
-//
-//        Meeting saved = repository.save(meeting);
-//        return toResponseDTO(saved, creatorId);
-//    }
-//    public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
-//        if (dto.getDate() == null || dto.getTime() == null || dto.getTimezone() == null) {
-//            throw new MeetingException("date, time and timezone are required to schedule a meeting");
-//        }
-//
-//        LocalDateTime scheduledTimeUtc = toUtc(dto.getDate(), dto.getTime(), dto.getTimezone());
-//
-//        if (!scheduledTimeUtc.isAfter(LocalDateTime.now(ZoneId.of("UTC")))) {
-//            throw new MeetingException("Scheduled time must be in the future");
-//        }
-//
-//        Meeting meeting = new Meeting();
-//        meeting.setTitle(blankToDefault(dto.getTitle(), "Scheduled meeting"));
-//        meeting.setCreatorId(creatorId);
-//        meeting.setCreatorRole(creatorRole);
-//        meeting.setCreatorName(dto.getCreatorName());
-//        meeting.setOrganizationId(dto.getOrganizationId());
-//        meeting.setMeetingType(MeetingType.SCHEDULED);
-//        meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
-//        meeting.setTimezone(dto.getTimezone());
-//        meeting.setScheduledTimeUtc(scheduledTimeUtc);
-//        meeting.setReusable(true);
-//
-//        assignJoinCodeAndUrl(meeting);
-//
-//        Meeting saved = repository.save(meeting);
-//        return toResponseDTO(saved, creatorId);
-//    }
-    public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
+        public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
         if (dto.getDate() == null || dto.getTime() == null || dto.getTimezone() == null) {
             throw new MeetingException("date, time and timezone are required to schedule a meeting");
         }
@@ -212,11 +152,9 @@ this.meetingInviteProducer = meetingInviteProducer;
                 .orElseThrow(() -> new MeetingException("No meeting found for join code: " + joinCode));
         return toResponseDTO(meeting, requesterId);
     }
-
     // ─────────────────────────────────────────────────────────────
     // QUERIES
     // ─────────────────────────────────────────────────────────────
-
     public MeetingResponseDTO getMeetingById(Long id, String requesterId) {
         return toResponseDTO(findOrThrow(id), requesterId);
     }
@@ -227,11 +165,9 @@ this.meetingInviteProducer = meetingInviteProducer;
                 .map(m -> toResponseDTO(m, creatorId))
                 .collect(Collectors.toList());
     }
-
     // ─────────────────────────────────────────────────────────────
     // START / END
     // ─────────────────────────────────────────────────────────────
-
     public MeetingResponseDTO startScheduledMeeting(Long id) {
         Meeting meeting = findOrThrow(id);
 
@@ -243,10 +179,6 @@ this.meetingInviteProducer = meetingInviteProducer;
             throw new MeetingException("Meeting cannot be started from status " + meeting.getMeetingStatus());
         }
 
-//        meeting.setMeetingStatus(MeetingStatus.ACTIVE);
-//        meeting = claimAndStartEgress(meeting); 
-//        Meeting saved = repository.save(meeting);
-//        return toResponseDTO(saved, saved.getCreatorId());
         meeting.setMeetingStatus(MeetingStatus.ACTIVE);
         Meeting saved = repository.save(meeting); // persist ACTIVE status first
         saved = claimAndStartEgress(saved);
@@ -297,6 +229,23 @@ this.meetingInviteProducer = meetingInviteProducer;
     // LIVEKIT TOKEN — HOST ONLY (guests go through the lobby below)
     // ─────────────────────────────────────────────────────────────
 
+//    public Map<String, String> generateJoinToken(Long id, String identity, String displayName) {
+//        Meeting meeting = findOrThrow(id);
+//
+//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
+//            throw new MeetingException("Meeting is not active — cannot issue a join token");
+//        }
+//        if (identity == null || !identity.equals(meeting.getCreatorId())) {
+//            throw new MeetingException("Only the host can join directly — guests must request to join");
+//        }
+//
+////        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, displayName, true);
+//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, displayName, true, meeting.getCreatorId());
+//        return Map.of(
+//                "room", meeting.getRoomName(),
+//                "token", token
+//        );
+//    }
     public Map<String, String> generateJoinToken(Long id, String identity, String displayName) {
         Meeting meeting = findOrThrow(id);
 
@@ -307,7 +256,14 @@ this.meetingInviteProducer = meetingInviteProducer;
             throw new MeetingException("Only the host can join directly — guests must request to join");
         }
 
-        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, displayName, true);
+        // NEW — fall back to the creator's saved display name (set at
+        // meeting-creation time) instead of the raw email identity, since
+        // the frontend never sends a displayName param for the host path.
+        String resolvedDisplayName = (displayName != null && !displayName.isBlank())
+                ? displayName
+                : meeting.getCreatorName();
+
+        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, resolvedDisplayName, true, meeting.getCreatorId());
 
         return Map.of(
                 "room", meeting.getRoomName(),
@@ -319,43 +275,7 @@ this.meetingInviteProducer = meetingInviteProducer;
     // LOBBY — GUEST JOIN REQUESTS
     // ─────────────────────────────────────────────────────────────
 
-//    public MeetingJoinRequestDTO requestToJoin(Long meetingId, String guestName) {
-//        Meeting meeting = findOrThrow(meetingId);
-//
-//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
-//            throw new MeetingException("Meeting is not active — nothing to join yet");
-//        }
-//
-//        MeetingJoinRequest request = new MeetingJoinRequest();
-//        request.setMeetingId(meetingId);
-//        request.setGuestIdentity(UUID.randomUUID().toString());
-//        request.setGuestName(blankToDefault(guestName, "Guest"));
-//        request.setStatus(JoinRequestStatus.PENDING);
-//
-//        MeetingJoinRequest saved = joinRequestRepository.save(request);
-//        return toJoinRequestDTO(saved);
-//    }
-//    public MeetingJoinRequestDTO requestToJoin(Long meetingId, String guestName, String guestEmail) {
-//        Meeting meeting = findOrThrow(meetingId);
-//
-//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
-//            throw new MeetingException("Meeting is not active — nothing to join yet");
-//        }
-//
-//        if (guestEmail == null || guestEmail.isBlank() || !guestEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-//            throw new MeetingException("A valid email is required to join");
-//        }
-//
-//        MeetingJoinRequest request = new MeetingJoinRequest();
-//        request.setMeetingId(meetingId);
-//        request.setGuestIdentity(UUID.randomUUID().toString());
-//        request.setGuestName(blankToDefault(guestName, "Guest"));
-//        request.setGuestEmail(guestEmail.trim().toLowerCase());
-//        request.setStatus(JoinRequestStatus.PENDING);
-//
-//        MeetingJoinRequest saved = joinRequestRepository.save(request);
-//        return toJoinRequestDTO(saved);
-//    }
+
     public MeetingJoinRequestDTO requestToJoin(Long meetingId, String guestName, String guestEmail) {
         Meeting meeting = findOrThrow(meetingId);
 
@@ -371,15 +291,32 @@ this.meetingInviteProducer = meetingInviteProducer;
         request.setMeetingId(meetingId);
         request.setGuestIdentity(UUID.randomUUID().toString());
         request.setGuestName(blankToDefault(guestName, "Guest"));
-        request.setGuestEmail(guestEmail.trim().toLowerCase());
+//        request.setGuestEmail(guestEmail.trim().toLowerCase());
+//
+//        // ✅ NEW — Texora-integration meetings have no real logged-in host
+//        // (creatorId is the service account "texora-integration"), so there
+//        // is nobody who can ever call admitJoinRequest(). Auto-admit instead
+//        // of leaving guests stuck in the lobby forever.
+//        boolean isExternalIntegrationMeeting = "texora-integration".equals(meeting.getCreatorId());
+//        request.setStatus(isExternalIntegrationMeeting ? JoinRequestStatus.ADMITTED : JoinRequestStatus.PENDING);
+//        if (isExternalIntegrationMeeting) {
+//            request.setRespondedAt(LocalDateTime.now());
+//        }
+        String normalizedEmail = guestEmail.trim().toLowerCase();
+        request.setGuestEmail(normalizedEmail);
 
-        // ✅ NEW — Texora-integration meetings have no real logged-in host
-        // (creatorId is the service account "texora-integration"), so there
-        // is nobody who can ever call admitJoinRequest(). Auto-admit instead
-        // of leaving guests stuck in the lobby forever.
+        // ✅ Texora-integration meetings have no real logged-in host —
+        // auto-admit so guests never get stuck in the lobby forever.
         boolean isExternalIntegrationMeeting = "texora-integration".equals(meeting.getCreatorId());
-        request.setStatus(isExternalIntegrationMeeting ? JoinRequestStatus.ADMITTED : JoinRequestStatus.PENDING);
-        if (isExternalIntegrationMeeting) {
+
+        // NEW — Task A: returning guest. If this email was ever ADMITTED
+        // into any meeting created by this same host, skip the lobby again.
+        boolean isReturningGuest = joinRequestRepository.existsAdmittedForHost(
+                meeting.getCreatorId(), normalizedEmail, JoinRequestStatus.ADMITTED);
+
+        boolean autoAdmit = isExternalIntegrationMeeting || isReturningGuest;
+        request.setStatus(autoAdmit ? JoinRequestStatus.ADMITTED : JoinRequestStatus.PENDING);
+        if (autoAdmit) {
             request.setRespondedAt(LocalDateTime.now());
         }
 
@@ -453,18 +390,16 @@ this.meetingInviteProducer = meetingInviteProducer;
         }
 
         String name = displayName != null ? displayName : request.getGuestName();
-        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false);
-
+//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false);
+        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false, request.getGuestEmail());
         return Map.of(
                 "room", meeting.getRoomName(),
                 "token", token
         );
     }
-
     // ─────────────────────────────────────────────────────────────
     // SCHEDULER HOOK — called by MeetingScheduler
     // ─────────────────────────────────────────────────────────────
-
     public void activateDueMeetings() {
         List<Meeting> due = repository.findByMeetingStatusAndScheduledTimeUtcLessThanEqual(
                 MeetingStatus.SCHEDULED, LocalDateTime.now());
@@ -474,7 +409,6 @@ this.meetingInviteProducer = meetingInviteProducer;
             repository.save(meeting);
         }
     }
-
     // ─────────────────────────────────────────────────────────────
     // HELPERS
     // ─────────────────────────────────────────────────────────────
@@ -483,13 +417,11 @@ this.meetingInviteProducer = meetingInviteProducer;
         return repository.findById(id)
                 .orElseThrow(() -> new MeetingException("Meeting not found: " + id));
     }
-
     private void verifyHost(Meeting meeting, String requesterId) {
         if (requesterId == null || !requesterId.equals(meeting.getCreatorId())) {
             throw new MeetingException("Only the host can perform this action");
         }
     }
-
     private MeetingJoinRequestDTO resolveJoinRequest(Long meetingId, Long requestId, JoinRequestStatus newStatus) {
         MeetingJoinRequest request = joinRequestRepository.findByIdAndMeetingId(requestId, meetingId)
                 .orElseThrow(() -> new MeetingException("Join request not found"));
@@ -503,7 +435,6 @@ this.meetingInviteProducer = meetingInviteProducer;
         MeetingJoinRequest saved = joinRequestRepository.save(request);
         return toJoinRequestDTO(saved);
     }
-
     private void assignJoinCodeAndUrl(Meeting meeting) {
         String code;
         do {
@@ -514,7 +445,6 @@ this.meetingInviteProducer = meetingInviteProducer;
         meeting.setRoomName("meeting-" + code);
         meeting.setMeetingUrl(baseUrl + "/ilmorameet/" + code);
     }
-
     private LocalDateTime toUtc(String date, String time, String timezone) {
         try {
             LocalDate localDate = LocalDate.parse(date);
@@ -527,15 +457,12 @@ this.meetingInviteProducer = meetingInviteProducer;
             throw new MeetingException("Invalid date/time/timezone: " + e.getMessage());
         }
     }
-
     private String normalizeCode(String joinCode) {
         return joinCode == null ? null : joinCode.trim().toLowerCase();
     }
-
     private String blankToDefault(String value, String fallback) {
         return (value == null || value.isBlank()) ? fallback : value;
     }
-
     private MeetingResponseDTO toResponseDTO(Meeting m, String requesterId) {
         MeetingResponseDTO dto = new MeetingResponseDTO();
         dto.setId(m.getId());
@@ -558,11 +485,9 @@ this.meetingInviteProducer = meetingInviteProducer;
         dto.setHost(requesterId != null && requesterId.equals(m.getCreatorId()));
         return dto;
     }
-
     private MeetingJoinRequestDTO toJoinRequestDTO(MeetingJoinRequest r) {
         return new MeetingJoinRequestDTO(r.getId(), r.getGuestIdentity(), r.getGuestName(), r.getGuestEmail(), r.getStatus().name(), r.getRequestedAt());
     }
-    
     public List<MeetingJoinRequestDTO> listAllJoinRequests(Long meetingId, String requesterId) {
         Meeting meeting = findOrThrow(meetingId);
         verifyHost(meeting, requesterId);
@@ -582,11 +507,9 @@ this.meetingInviteProducer = meetingInviteProducer;
         joinRequestRepository.deleteByMeetingId(id);
         repository.delete(meeting);
     }
-    
  // ─────────────────────────────────────────────────────────────
  // CALENDAR — meetings for a given month, grouped by date
  // ─────────────────────────────────────────────────────────────
-
  public Map<String, List<MeetingResponseDTO>> getMyMeetingsGroupedByDate(String creatorId, String month) {
      List<Meeting> meetings = repository.findByCreatorIdOrderByCreatedAtDesc(creatorId);
 
@@ -620,19 +543,16 @@ this.meetingInviteProducer = meetingInviteProducer;
 	    if (claimed == 0) {
 	        return findOrThrow(id); // someone else already claimed/started
 	    }
-
 	    EgressService.EgressStartResult result = egressService.startRecording(id, meeting.getRoomName());
 	    if (result == null) {
 	        repository.atomicClearEgressId(id, claimToken);
 	        return findOrThrow(id);
 	    }
-
 	    int finalized = repository.atomicFinalizeEgressId(id, claimToken, result.egressId);
 	    if (finalized == 0) {
 	        egressService.stopRecording(result.egressId);
 	        return findOrThrow(id);
 	    }
-
 	    Meeting fresh = findOrThrow(id);
 	    fresh.setCurrentEgressFileSuffix(result.fileSuffix);
 	    return repository.save(fresh);

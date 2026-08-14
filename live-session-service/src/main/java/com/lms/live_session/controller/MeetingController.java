@@ -136,14 +136,7 @@ public class MeetingController {
     // LOBBY — GUEST JOIN REQUESTS (all public, guarded by guestIdentity)
     // ═══════════════════════════════════════════════════════
 
-//    @PostMapping("/{id}/join-requests")
-//    public ResponseEntity<?> requestToJoin(@PathVariable Long id, @RequestBody Map<String, String> body) {
-//        try {
-//            return ResponseEntity.ok(service.requestToJoin(id, body.get("guestName")));
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
+
     @PostMapping("/{id}/join-requests")
     public ResponseEntity<?> requestToJoin(@PathVariable Long id, @RequestBody Map<String, String> body) {
         try {
