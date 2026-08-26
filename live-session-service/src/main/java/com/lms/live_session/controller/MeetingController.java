@@ -266,4 +266,24 @@ public class MeetingController {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
+    @PostMapping("/permanent")
+    public ResponseEntity<?> createPermanentMeeting(@RequestBody MeetingRequestDTO dto, Authentication auth) {
+        try {
+            String creatorId = auth.getName();
+            String creatorRole = extractRole(auth);
+            MeetingResponseDTO created = service.createPermanentMeeting(dto, creatorId, creatorRole);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to create Task Orbit meeting: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/permanent/my")
+    public ResponseEntity<?> getMyPermanentMeetings(Authentication auth) {
+        try {
+            return ResponseEntity.ok(service.getMyPermanentMeetings(auth.getName()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
 }

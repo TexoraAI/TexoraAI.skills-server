@@ -109,19 +109,56 @@ public class AssessmentFeatureFlagsService {
     // ── Feature check (used by controllers to guard endpoints) ────────────────
     // Returns true if the feature is enabled for this org or user.
     // If both organizationId and email are blank (e.g. non-org super admin), always allows.
+//    public boolean isFeatureEnabled(String organizationId, String email,
+//                                    String featureKey) {
+//        if ((organizationId == null || organizationId.isBlank())
+//                && (email == null || email.isBlank())) {
+//            return true;
+//        }
+//        AssessmentFeatureFlagsDTO dto = getFlags(organizationId, email);
+//        if (!dto.isEnabled()) return false;
+//        Map<String, Boolean> features = dto.getFeatures();
+//        if (features == null) return true;
+//        Boolean val = features.get(featureKey);
+//        return val == null || val; // missing key → default enabled
+//    }
     public boolean isFeatureEnabled(String organizationId, String email,
-                                    String featureKey) {
-        if ((organizationId == null || organizationId.isBlank())
-                && (email == null || email.isBlank())) {
-            return true;
-        }
-        AssessmentFeatureFlagsDTO dto = getFlags(organizationId, email);
-        if (!dto.isEnabled()) return false;
-        Map<String, Boolean> features = dto.getFeatures();
-        if (features == null) return true;
-        Boolean val = features.get(featureKey);
-        return val == null || val; // missing key → default enabled
-    }
+            String featureKey) {
+boolean hasOrg   = organizationId != null && !organizationId.isBlank();
+boolean hasEmail = email != null && !email.isBlank();
+
+if (!hasOrg && !hasEmail) {
+return true;
+}
+
+if (hasOrg) {
+// STEP 1 — org admin's master switch always wins
+AssessmentFeatureFlagsDTO orgDto = getOrgFlags(organizationId);
+if (!isEnabledInDto(orgDto, featureKey)) {
+return false;
+}
+
+if (hasEmail) {
+// STEP 2 — per-user-in-org override; defaults enabled until set
+AssessmentFeatureFlagsDTO adminUserDto = getAdminUserFlags(organizationId, email);
+return isEnabledInDto(adminUserDto, featureKey);
+}
+
+return true;
+}
+
+// STEP 3 — org-less individual user, existing behavior unchanged
+AssessmentFeatureFlagsDTO dto = getIndividualFlags(email);
+return isEnabledInDto(dto, featureKey);
+}
+
+private boolean isEnabledInDto(AssessmentFeatureFlagsDTO dto, String featureKey) {
+if (!dto.isEnabled()) return false;
+Map<String, Boolean> features = dto.getFeatures();
+if (features == null) return true;
+Boolean val = features.get(featureKey);
+return val == null || val;
+}
 
     // ── Enforce (throws 403 if feature is disabled) ────────────────────────────
     // Call this at the top of controller methods you want to gate.
@@ -160,4 +197,32 @@ public class AssessmentFeatureFlagsService {
             throw new RuntimeException("Failed to serialize assessment feature flags", e);
         }
     }
+ // ── ADMIN-SCOPED PER-USER-IN-ORG OVERRIDE ─────────────────────────────────
+ // Composite scope key = organizationId + "::" + email. Brand-new key space —
+ // can never collide with an org-only or email-only row.
+ private String resolveAdminUserScopeKey(String organizationId, String email) {
+     if (organizationId == null || organizationId.isBlank()
+             || email == null || email.isBlank()) {
+         return null;
+     }
+     return organizationId + "::" + email.trim().toLowerCase();
+ }
+
+ @Cacheable(value = "feature-flags:assessment:admin-user",
+            key = "#organizationId + '::' + #email.toLowerCase()")
+ public AssessmentFeatureFlagsDTO getAdminUserFlags(String organizationId, String email) {
+     String scopeKey = resolveAdminUserScopeKey(organizationId, email);
+     if (scopeKey == null) return defaultFlags();
+     return repo.findByScopeKey(scopeKey)
+             .map(this::deserialize)
+             .orElseGet(this::defaultFlags);
+ }
+
+ @CacheEvict(value = "feature-flags:assessment:admin-user",
+             key = "#organizationId + '::' + #email.toLowerCase()")
+ public AssessmentFeatureFlagsDTO updateAdminUserFlags(String organizationId, String email,
+                                                       AssessmentFeatureFlagsDTO dto) {
+     String scopeKey = resolveAdminUserScopeKey(organizationId, email);
+     return save(scopeKey, dto);
+ }
 }

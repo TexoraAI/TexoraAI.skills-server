@@ -260,7 +260,15 @@ public class GatewayConfig {
                     "/api/v1/live-sessions/**",    // ← ADD: whiteboard endpoints
                     "/api/v1/ai-companion/**" ,     // ← ADD: AI companion endpoints
                     "/api/meetings/**",
-                    "/api/v1/texorameetings/**" 
+                    "/api/v1/texorameetings/**",
+                    // ========= NEW: PERSONAL PRODUCTIVITY MODULES (7 controllers) =========
+                    "/api/events/**",           // EventController
+                    "/api/schedules/**",        // ScheduleController
+                    "/api/contacts/**",         // ContactController
+                    "/api/reminders/**",        // ReminderController
+                    "/api/emails/**",           // EmailController
+                    "/api/calendar-sync/**",    // CalendarSyncController
+                    "/api/availability/**"      // AvailabilityController
             )
             		.uri(liveSessionService)).build();
     }

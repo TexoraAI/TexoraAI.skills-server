@@ -62,6 +62,9 @@ public class Meeting {
     // Scheduled time normalized to UTC. Null for INSTANT meetings.
     @Column(name = "scheduled_time_utc")
     private LocalDateTime scheduledTimeUtc;
+    
+    @Column(name = "scheduled_end_time_utc")
+    private LocalDateTime scheduledEndTimeUtc;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -76,7 +79,20 @@ public class Meeting {
     // reused for a future session by the same creator.
     @Column(nullable = false)
     private Boolean reusable = true;
-
+    
+//
+//    @PrePersist
+//    protected void onCreate() {
+//        LocalDateTime now = LocalDateTime.now();
+//        this.createdAt = now;
+//        this.updatedAt = now;
+//        if (this.meetingStatus == null) {
+//            this.meetingStatus = MeetingStatus.CREATED;
+//        }
+//        if (this.reusable == null) {
+//            this.reusable = true;
+//        }
+//    }
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -88,6 +104,10 @@ public class Meeting {
         if (this.reusable == null) {
             this.reusable = true;
         }
+        if (this.waitingRoom == null) this.waitingRoom = false;
+        if (this.muteOnEntry == null) this.muteOnEntry = false;
+        if (this.recordMeeting == null) this.recordMeeting = false;
+        if (this.allowScreenShare == null) this.allowScreenShare = true;
     }
 
     @PreUpdate
@@ -102,6 +122,23 @@ public class Meeting {
 
     @Column(name = "current_egress_file_suffix")
     private String currentEgressFileSuffix;
+    
+    
+    @Column(name = "permanent", nullable = false)
+    private boolean permanent = false;
+    
+    @Column(name = "waiting_room", nullable = false)
+    private Boolean waitingRoom = false;
+
+    @Column(name = "mute_on_entry", nullable = false)
+    private Boolean muteOnEntry = false;
+
+    @Column(name = "record_meeting", nullable = false)
+    private Boolean recordMeeting = false;
+
+    @Column(name = "allow_screen_share", nullable = false)
+    private Boolean allowScreenShare = true;
+
 
     public String getEgressId() { return egressId; }
     public void setEgressId(String egressId) { this.egressId = egressId; }
@@ -165,4 +202,28 @@ public class Meeting {
 
     public Boolean getReusable() { return reusable; }
     public void setReusable(Boolean reusable) { this.reusable = reusable; }
+    
+
+    public boolean isPermanent() {
+        return permanent;
+    }
+
+    public void setPermanent(boolean permanent) {
+        this.permanent = permanent;
+    }
+    
+    public Boolean getWaitingRoom() { return waitingRoom; }
+    public void setWaitingRoom(Boolean waitingRoom) { this.waitingRoom = waitingRoom; }
+
+    public Boolean getMuteOnEntry() { return muteOnEntry; }
+    public void setMuteOnEntry(Boolean muteOnEntry) { this.muteOnEntry = muteOnEntry; }
+
+    public Boolean getRecordMeeting() { return recordMeeting; }
+    public void setRecordMeeting(Boolean recordMeeting) { this.recordMeeting = recordMeeting; }
+
+    public Boolean getAllowScreenShare() { return allowScreenShare; }
+    public void setAllowScreenShare(Boolean allowScreenShare) { this.allowScreenShare = allowScreenShare; }
+    
+    public LocalDateTime getScheduledEndTimeUtc() { return scheduledEndTimeUtc; }
+    public void setScheduledEndTimeUtc(LocalDateTime scheduledEndTimeUtc) { this.scheduledEndTimeUtc = scheduledEndTimeUtc; }
 }

@@ -45,5 +45,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
     @Query("UPDATE Meeting m SET m.egressId = NULL " +
            "WHERE m.id = :id AND m.egressId = :expectedEgressId")
     int atomicClearEgressId(@Param("id") Long id, @Param("expectedEgressId") String expectedEgressId);
+    List<Meeting> findByCreatorIdAndPermanentTrueOrderByCreatedAtDesc(String creatorId);
     
+    List<Meeting> findByMeetingStatusAndScheduledEndTimeUtcLessThanEqual(MeetingStatus status, LocalDateTime time);
 }

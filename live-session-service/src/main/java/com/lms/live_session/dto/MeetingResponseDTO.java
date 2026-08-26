@@ -18,7 +18,10 @@ public class MeetingResponseDTO {
     private String meetingType;
     private String meetingStatus;
     private String timezone;
-
+    private Boolean waitingRoom;
+    private Boolean muteOnEntry;
+    private Boolean recordMeeting;
+    private Boolean allowScreenShare;
     // Explicit pattern (no fractional seconds) so the frontend's
     // `new Date(value)` always gets a JS-parseable ISO string. Without
     // this, Jackson's default LocalDateTime output can include 6-9 digit
@@ -100,4 +103,17 @@ public class MeetingResponseDTO {
 
     public boolean isHost() { return host; }
     public void setHost(boolean host) { this.host = host; }
+    
+
+public Boolean getWaitingRoom() { return waitingRoom; }
+public void setWaitingRoom(Boolean waitingRoom) { this.waitingRoom = waitingRoom; }
+
+public Boolean getMuteOnEntry() { return muteOnEntry; }
+public void setMuteOnEntry(Boolean muteOnEntry) { this.muteOnEntry = muteOnEntry; }
+
+public Boolean getRecordMeeting() { return recordMeeting; }
+public void setRecordMeeting(Boolean recordMeeting) { this.recordMeeting = recordMeeting; }
+
+public Boolean getAllowScreenShare() { return allowScreenShare; }
+public void setAllowScreenShare(Boolean allowScreenShare) { this.allowScreenShare = allowScreenShare; }
 }

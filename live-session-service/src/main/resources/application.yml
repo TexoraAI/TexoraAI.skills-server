@@ -73,6 +73,17 @@ app:
   base-url: ${APP_BASE_URL:http://localhost:5173}
   api-base-url: ${APP_API_BASE_URL:http://localhost:9000/api}
 
+# ✅ NEW: Google Calendar Sync
+# client-id/client-secret must belong to the SAME OAuth client (verify via
+# DevTools Network tab on your login flow before setting these). redirect-uri
+# defaults to app.api-base-url + /calendar-sync/callback so it stays in sync
+# with app.api-base-url automatically if that ever changes.
+google:
+  calendar:
+    client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
+    client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET}
+    redirect-uri: ${GOOGLE_CALENDAR_REDIRECT_URI:${app.api-base-url}/calendar-sync/callback}
+
 # ✅ AWS S3 Configuration
 aws:
   access-key: ${AWS_ACCESS_KEY}

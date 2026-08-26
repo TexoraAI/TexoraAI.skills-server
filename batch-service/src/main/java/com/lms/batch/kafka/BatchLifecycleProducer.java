@@ -23,7 +23,7 @@ public class BatchLifecycleProducer {
     public void branchDeleted(Long branchId) {
         send("BRANCH_DELETED", null, branchId, null, null);
     }
-
+    
     // NEW — fires when a department is deleted (after all its branches are cleaned up)
     public void departmentDeleted(Long departmentId) {
         send("DEPARTMENT_DELETED", null, null, departmentId, null);

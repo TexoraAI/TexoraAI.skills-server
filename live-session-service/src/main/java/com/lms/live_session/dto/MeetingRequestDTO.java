@@ -23,6 +23,12 @@ public class MeetingRequestDTO {
     
     private List<String> participantEmails;
     
+    private Boolean waitingRoom;
+    private Boolean muteOnEntry;
+    private Boolean recordMeeting;
+    private Boolean allowScreenShare;
+    
+    
     
 
     public MeetingRequestDTO() {}
@@ -47,4 +53,16 @@ public class MeetingRequestDTO {
     
     public List<String> getParticipantEmails() { return participantEmails; }
     public void setParticipantEmails(List<String> participantEmails) { this.participantEmails = participantEmails; }
+    
+    public Boolean getWaitingRoom() { return waitingRoom; }
+    public void setWaitingRoom(Boolean waitingRoom) { this.waitingRoom = waitingRoom; }
+
+    public Boolean getMuteOnEntry() { return muteOnEntry; }
+    public void setMuteOnEntry(Boolean muteOnEntry) { this.muteOnEntry = muteOnEntry; }
+
+    public Boolean getRecordMeeting() { return recordMeeting; }
+    public void setRecordMeeting(Boolean recordMeeting) { this.recordMeeting = recordMeeting; }
+
+    public Boolean getAllowScreenShare() { return allowScreenShare; }
+    public void setAllowScreenShare(Boolean allowScreenShare) { this.allowScreenShare = allowScreenShare; }
 }

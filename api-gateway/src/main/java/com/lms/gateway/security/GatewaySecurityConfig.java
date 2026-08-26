@@ -104,6 +104,20 @@ public class GatewaySecurityConfig {
                 return chain.filter(exchange);
             }
             
+         // ── Google Calendar OAuth callback ───────────────────────────────
+
+         // Hit by Google's browser redirect, which carries NO JWT. Must be
+
+         // public or the gateway 401s it before it can reach the service.
+
+         // Only the callback is public; /auth-url etc. still require a token.
+
+         if (path.startsWith("/api/calendar-sync/callback")) {
+
+             return chain.filter(exchange);
+
+         }
+            
          // ✅ NEW — Texora integration, bypasses JWT check entirely.
          // API key validation happens inside TexoraMeetingController itself.
          if (path.startsWith("/api/v1/texorameetings")) {
@@ -370,6 +384,21 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
+            if (path.startsWith("/api/progress/roadmaps")) {
+
+                if ("SUPER_ADMIN".equalsIgnoreCase(role)
+                        || "ADMIN".equalsIgnoreCase(role)
+                        || "TENANT_ADMIN".equalsIgnoreCase(role)
+                        || "TRAINER".equalsIgnoreCase(role)
+                        || "STUDENT".equalsIgnoreCase(role)) {
+
+                    return chain.filter(exchange);
+                }
+
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+
             if (path.startsWith("/api/progress")) {
                 if ("STUDENT".equalsIgnoreCase(role)) {
                     if (path.startsWith("/api/progress/mark-complete")
@@ -384,7 +413,7 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
-
+           
             // ── Video progress ───────────────────────────────────────────────
             if (path.startsWith("/api/video-progress")) {
                 if ("STUDENT".equalsIgnoreCase(role)) {
@@ -650,6 +679,15 @@ public class GatewaySecurityConfig {
                     return exchange.getResponse().setComplete();
                 }
                 return chain.filter(exchange);
+                
+            }
+         // ── Feature flags (Access Control) ────────────────────────────────
+            if (path.startsWith("/api/feature-flags")) {
+                if ("ADMIN".equalsIgnoreCase(role) || "TENANT_ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
             }
 
             // ════════════════════════════════════════════════════════════════
@@ -767,7 +805,30 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
-
+         // ════════════════════════════════════════════════════════════════
+        //  PERSONAL PRODUCTIVITY MODULES
+        //  Events / Schedules / Contacts / Reminders / Emails /
+        //  Calendar Sync / Availability
+        //  Creator-owned resources — any authenticated role may call these;
+        //  live-session-service enforces creatorId ownership internally.
+        // ════════════════════════════════════════════════════════════════
+        if (path.startsWith("/api/events")
+                || path.startsWith("/api/schedules")
+                || path.startsWith("/api/contacts")
+                || path.startsWith("/api/reminders")
+                || path.startsWith("/api/emails")
+                || path.startsWith("/api/calendar-sync")
+                || path.startsWith("/api/availability")) {
+            if ("STUDENT".equalsIgnoreCase(role)
+                    || "TRAINER".equalsIgnoreCase(role)
+                    || "ADMIN".equalsIgnoreCase(role)
+                    || "TENANT_ADMIN".equalsIgnoreCase(role)
+                    || "SUPER_ADMIN".equalsIgnoreCase(role)) {
+                return chain.filter(exchange);
+            }
+            exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+            return exchange.getResponse().setComplete();
+        }
             // ── Organizations ────────────────────────────────────────────────
             if (path.startsWith("/api/organizations")) {
                 if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role)) {

@@ -20,7 +20,7 @@ public class AttendanceFeatureFlagsService {
 
     private final AttendanceFeatureFlagsRepository repo;
     private final ObjectMapper objectMapper;
-
+    private static final String USER_SCOPE_DELIMITER = "::";
     public AttendanceFeatureFlagsService(AttendanceFeatureFlagsRepository repo,
                                           ObjectMapper objectMapper) {
         this.repo         = repo;
@@ -103,17 +103,57 @@ public class AttendanceFeatureFlagsService {
     }
 
     // ── Feature check ───────────────────────────────────────────────────────
+//    public boolean isFeatureEnabled(String organizationId, String email, String featureKey) {
+//        if ((organizationId == null || organizationId.isBlank())
+//                && (email == null || email.isBlank())) {
+//            return true;
+//        }
+//        AttendanceFeatureFlagsDTO dto = getFlags(organizationId, email);
+//        if (!dto.isEnabled()) return false;
+//        Map<String, Boolean> features = dto.getFeatures();
+//        if (features == null) return true;
+//        Boolean val = features.get(featureKey);
+//        return val == null || val; // missing key → default enabled
+//    }
     public boolean isFeatureEnabled(String organizationId, String email, String featureKey) {
-        if ((organizationId == null || organizationId.isBlank())
-                && (email == null || email.isBlank())) {
+        boolean hasOrg   = organizationId != null && !organizationId.isBlank();
+        boolean hasEmail = email != null && !email.isBlank();
+
+        if (!hasOrg && !hasEmail) {
             return true;
         }
-        AttendanceFeatureFlagsDTO dto = getFlags(organizationId, email);
-        if (!dto.isEnabled()) return false;
-        Map<String, Boolean> features = dto.getFeatures();
-        if (features == null) return true;
-        Boolean val = features.get(featureKey);
-        return val == null || val; // missing key → default enabled
+
+        if (hasOrg) {
+            AttendanceFeatureFlagsDTO orgDto = getOrgFlags(organizationId);
+            if (!orgDto.isEnabled()) return false;
+            Map<String, Boolean> orgFeatures = orgDto.getFeatures();
+            if (orgFeatures != null) {
+                Boolean orgVal = orgFeatures.get(featureKey);
+                if (orgVal != null && !orgVal) return false;
+            }
+        }
+
+        if (hasOrg && hasEmail) {
+            AttendanceFeatureFlagsDTO userDto = getAdminUserFlags(organizationId, email);
+            if (!userDto.isEnabled()) return false;
+            Map<String, Boolean> userFeatures = userDto.getFeatures();
+            if (userFeatures != null) {
+                Boolean userVal = userFeatures.get(featureKey);
+                if (userVal != null && !userVal) return false;
+            }
+            return true;
+        }
+
+        if (!hasOrg) {
+            AttendanceFeatureFlagsDTO dto = getIndividualFlags(email);
+            if (!dto.isEnabled()) return false;
+            Map<String, Boolean> features = dto.getFeatures();
+            if (features == null) return true;
+            Boolean val = features.get(featureKey);
+            return val == null || val;
+        }
+
+        return true;
     }
 
     // ── Enforce (throws 403 if feature is disabled) ────────────────────────────
@@ -149,5 +189,35 @@ public class AttendanceFeatureFlagsService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize attendance feature flags", e);
         }
+    }
+ // NEW: composite scope key for "this specific user, inside this org"
+    private String resolveAdminUserScopeKey(String organizationId, String email) {
+        if (organizationId == null || organizationId.isBlank()
+                || email == null || email.isBlank()) {
+            return null;
+        }
+        return organizationId + USER_SCOPE_DELIMITER + email.trim().toLowerCase();
+    }
+    @Cacheable(value = "feature-flags:attendance:admin-user",
+            key = "#organizationId + '::' + #email.toLowerCase()")
+    public AttendanceFeatureFlagsDTO getAdminUserFlags(String organizationId, String email) {
+        String scopeKey = resolveAdminUserScopeKey(organizationId, email);
+        if (scopeKey == null) return defaultFlags();
+        return repo.findByScopeKey(scopeKey)
+                .map(this::deserialize)
+                .orElseGet(this::defaultFlags);
+    }
+
+    @CacheEvict(value = "feature-flags:attendance:admin-user",
+            key = "#organizationId + '::' + #email.toLowerCase()")
+    public AttendanceFeatureFlagsDTO updateAdminUserFlags(String organizationId,
+                                                           String email,
+                                                           AttendanceFeatureFlagsDTO dto) {
+        String scopeKey = resolveAdminUserScopeKey(organizationId, email);
+        if (scopeKey == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "organizationId and email are both required to set per-user feature flags.");
+        }
+        return save(scopeKey, dto);
     }
 }

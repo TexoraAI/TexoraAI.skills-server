@@ -184,6 +184,20 @@ public class LiveSessionEventConsumer {
                 }
 
                 // ✅ NEW — Phase 4 workflow action node "Send email to trainer"
+                // ✅ NEW — Reminder System: a scheduled event/schedule reminder is due
+                case "REMINDER_DUE" -> {
+                    dto.setType("REMINDER_DUE");
+                    dto.setTitle("⏰ Reminder — " + (sessionTitle != null ? sessionTitle : "Upcoming item"));
+                    dto.setMessage("Reminder: \"" + sessionTitle + "\" is coming up"
+                            + (scheduledDate != null ? " on " + scheduledDate : "")
+                            + (scheduledTime != null ? " at " + scheduledTime : "") + ".");
+
+                    String subject = "Reminder — " + (sessionTitle != null ? sessionTitle : "Upcoming item");
+                    String htmlBody = buildReminderDueEmailHtml(sessionTitle, scheduledDate, scheduledTime);
+                    emailService.sendAutoReplyEmail(recipientEmail, subject, htmlBody);
+                }
+
+                // ✅ NEW — Phase 4 workflow action node "Send email to trainer"
                 case "WORKFLOW_TRAINER_EMAIL" -> {
                     dto.setType("WORKFLOW_TRAINER_EMAIL");
                     dto.setTitle("🤖 Workflow Notification — " + (sessionTitle != null ? sessionTitle : "Session"));
@@ -336,5 +350,17 @@ public class LiveSessionEventConsumer {
      } catch (Exception e) {
          System.err.println("❌ LiveSessionEventConsumer [meeting-invite-notifications] error: " + e.getMessage());
      }
+ }
+ private String buildReminderDueEmailHtml(String sessionTitle, String scheduledDate, String scheduledTime) {
+     return "<html><body style=\"font-family:sans-serif;background:#f4f6fb;padding:32px;\">"
+             + "<div style=\"max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;padding:28px;\">"
+             + "<h2 style=\"color:#1a2340;margin-bottom:6px;\">⏰ Reminder</h2>"
+             + "<p style=\"color:#374151;font-size:16px;\"><strong>"
+             +    (sessionTitle != null ? sessionTitle : "Your item") + "</strong></p>"
+             + "<p style=\"color:#5a6173;\">📅 " + (scheduledDate != null ? scheduledDate : "N/A")
+             +    " &nbsp;|&nbsp; ⏰ " + (scheduledTime != null ? scheduledTime : "N/A") + "</p>"
+             + "<hr style=\"border:none;border-top:1px solid #e5e7eb;margin:16px 0;\"/>"
+             + "<p style=\"color:#9ca3af;font-size:13px;\">This is an automated reminder from ILM ORA.</p>"
+             + "</div></body></html>";
  }
 }

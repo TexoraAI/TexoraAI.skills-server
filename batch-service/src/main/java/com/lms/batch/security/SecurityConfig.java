@@ -54,7 +54,7 @@ public class SecurityConfig {
                 // STUDENT APIs
                 .requestMatchers("/api/batch/student/**").hasRole("STUDENT")
 
-                .requestMatchers("/api/feature-flags/**").hasAnyRole("ADMIN", "SUPER_ADMIN") 
+                .requestMatchers("/api/feature-flags/**").hasAnyRole("ADMIN", "TENANT_ADMIN", "SUPER_ADMIN")
 //                
                 // everything else must be authenticated
                 .anyRequest().authenticated()

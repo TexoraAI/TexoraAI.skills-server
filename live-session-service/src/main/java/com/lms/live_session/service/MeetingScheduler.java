@@ -26,5 +26,10 @@ public class MeetingScheduler {
         } catch (Exception e) {
             System.err.println("❌ MeetingScheduler.activateScheduledMeetings failed: " + e.getMessage());
         }
+        try {
+            meetingService.endDueMeetings();
+        } catch (Exception e) {
+            System.err.println("❌ MeetingScheduler.endDueMeetings failed: " + e.getMessage());
+        }
     }
 }

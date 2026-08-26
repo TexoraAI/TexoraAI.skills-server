@@ -1,5 +1,5 @@
 package com.lms.live_session.service;
-
+import com.lms.live_session.entity.Event;
 import com.lms.live_session.dto.MeetingJoinRequestDTO;
 
 import com.lms.live_session.dto.MeetingRequestDTO;
@@ -85,6 +85,10 @@ this.meetingInviteProducer = meetingInviteProducer;
         meeting.setMeetingType(MeetingType.INSTANT);
         meeting.setMeetingStatus(MeetingStatus.ACTIVE);
         meeting.setReusable(true);
+        meeting.setWaitingRoom(dto.getWaitingRoom());
+        meeting.setMuteOnEntry(dto.getMuteOnEntry());
+        meeting.setRecordMeeting(dto.getRecordMeeting());
+        meeting.setAllowScreenShare(dto.getAllowScreenShare());
         assignJoinCodeAndUrl(meeting);
         Meeting saved = repository.save(meeting); // persist first so meeting.getId() exists
         saved = claimAndStartEgress(saved);
@@ -117,6 +121,10 @@ this.meetingInviteProducer = meetingInviteProducer;
         meeting.setTimezone(dto.getTimezone());
         meeting.setScheduledTimeUtc(scheduledTimeUtc);
         meeting.setReusable(true);
+        meeting.setWaitingRoom(dto.getWaitingRoom());
+        meeting.setMuteOnEntry(dto.getMuteOnEntry());
+        meeting.setRecordMeeting(dto.getRecordMeeting());
+        meeting.setAllowScreenShare(dto.getAllowScreenShare());
 
         assignJoinCodeAndUrl(meeting);
 
@@ -187,9 +195,12 @@ this.meetingInviteProducer = meetingInviteProducer;
 
     public MeetingResponseDTO endMeeting(Long id) {
         Meeting meeting = findOrThrow(id);
-
+     // NEW — permanent (Task Orbit) meetings never end via "End", only delete kills them
+        if (meeting.isPermanent()) {
+            return toResponseDTO(meeting, meeting.getCreatorId());
+        }
         meeting.setMeetingStatus(MeetingStatus.ENDED);
-        meeting.setEndedAt(LocalDateTime.now());
+        meeting.setEndedAt(LocalDateTime.now(ZoneId.of("UTC")));
         // NEW — stop egress if one is running, same recipe as LiveSessionService.endSession()
         if (meeting.getEgressId() != null) {
             String egressIdToStop = meeting.getEgressId();
@@ -400,9 +411,18 @@ this.meetingInviteProducer = meetingInviteProducer;
     // ─────────────────────────────────────────────────────────────
     // SCHEDULER HOOK — called by MeetingScheduler
     // ─────────────────────────────────────────────────────────────
+//    public void activateDueMeetings() {
+//        List<Meeting> due = repository.findByMeetingStatusAndScheduledTimeUtcLessThanEqual(
+//                MeetingStatus.SCHEDULED, LocalDateTime.now());
+//
+//        for (Meeting meeting : due) {
+//            meeting.setMeetingStatus(MeetingStatus.ACTIVE);
+//            repository.save(meeting);
+//        }
+//    }
     public void activateDueMeetings() {
         List<Meeting> due = repository.findByMeetingStatusAndScheduledTimeUtcLessThanEqual(
-                MeetingStatus.SCHEDULED, LocalDateTime.now());
+                MeetingStatus.SCHEDULED, LocalDateTime.now(ZoneId.of("UTC")));
 
         for (Meeting meeting : due) {
             meeting.setMeetingStatus(MeetingStatus.ACTIVE);
@@ -483,6 +503,10 @@ this.meetingInviteProducer = meetingInviteProducer;
         dto.setEndedAt(m.getEndedAt());
         dto.setReusable(m.getReusable());
         dto.setHost(requesterId != null && requesterId.equals(m.getCreatorId()));
+        dto.setWaitingRoom(m.getWaitingRoom());
+        dto.setMuteOnEntry(m.getMuteOnEntry());
+        dto.setRecordMeeting(m.getRecordMeeting());
+        dto.setAllowScreenShare(m.getAllowScreenShare());
         return dto;
     }
     private MeetingJoinRequestDTO toJoinRequestDTO(MeetingJoinRequest r) {
@@ -644,5 +668,173 @@ private void publishMeetingInvites(Meeting meeting, List<String> emails, String 
       );
       meetingInviteProducer.publishMeetingInvite(event);
   }
+}
+
+//─────────────────────────────────────────────────────────────
+//TASK ORBIT — named, permanent, always-joinable meetings
+//─────────────────────────────────────────────────────────────
+
+public MeetingResponseDTO createPermanentMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
+ if (dto.getTitle() == null || dto.getTitle().isBlank()) {
+     throw new MeetingException("A meeting name is required");
+ }
+
+ Meeting meeting = new Meeting();
+ meeting.setTitle(dto.getTitle().trim());
+ meeting.setCreatorId(creatorId);
+ meeting.setCreatorRole(creatorRole);
+ meeting.setCreatorName(dto.getCreatorName());
+ meeting.setOrganizationId(dto.getOrganizationId());
+ meeting.setMeetingType(MeetingType.INSTANT);
+ meeting.setMeetingStatus(MeetingStatus.ACTIVE);
+ meeting.setReusable(true);
+ meeting.setPermanent(true);
+ meeting.setWaitingRoom(dto.getWaitingRoom());
+ meeting.setMuteOnEntry(dto.getMuteOnEntry());
+ meeting.setRecordMeeting(dto.getRecordMeeting());
+ meeting.setAllowScreenShare(dto.getAllowScreenShare());
+ assignJoinCodeAndUrl(meeting);
+
+ Meeting saved = repository.save(meeting);
+ saved = claimAndStartEgress(saved);
+ return toResponseDTO(saved, creatorId);
+}
+
+public List<MeetingResponseDTO> getMyPermanentMeetings(String creatorId) {
+ return repository.findByCreatorIdAndPermanentTrueOrderByCreatedAtDesc(creatorId)
+         .stream()
+         .map(m -> toResponseDTO(m, creatorId))
+         .collect(Collectors.toList());
+}
+//
+//public MeetingResponseDTO createMeetingForEvent(Event event) {
+//    if (event.getDate() == null || event.getStartTime() == null) {
+//        throw new MeetingException("Event date and startTime are required to create its meeting");
+//    }
+//
+//    // Event has no timezone field of its own — falls back to server default.
+//    String timezone = ZoneId.systemDefault().getId();
+//
+//    LocalDateTime scheduledTimeUtc = toUtc(
+//            event.getDate().toString(),
+//            event.getStartTime().toString(),
+//            timezone
+//    );
+//
+//    Meeting meeting = new Meeting();
+//    meeting.setTitle(blankToDefault(event.getTitle(), "Scheduled meeting"));
+//    meeting.setCreatorId(event.getCreatorId());
+//    meeting.setCreatorRole(event.getCreatorRole());
+//    meeting.setCreatorName(event.getCreatorName());
+//    meeting.setOrganizationId(event.getOrganizationId());
+//    meeting.setMeetingType(MeetingType.SCHEDULED);
+//    meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
+//    meeting.setTimezone(timezone);
+//    meeting.setScheduledTimeUtc(scheduledTimeUtc);
+//    meeting.setReusable(true);
+//    meeting.setWaitingRoom(event.getWaitingRoom());
+//    meeting.setMuteOnEntry(event.getMuteOnEntry());
+//    meeting.setRecordMeeting(event.getRecordMeeting());
+//    meeting.setAllowScreenShare(event.getAllowScreenShare());
+//
+//    assignJoinCodeAndUrl(meeting);
+//
+//    Meeting saved = repository.save(meeting);
+//
+//    return toResponseDTO(saved, event.getCreatorId());
+//}
+public MeetingResponseDTO createMeetingForEvent(Event event) {
+    if (event.getDate() == null || event.getStartTime() == null) {
+        throw new MeetingException("Event date and startTime are required to create its meeting");
+    }
+
+    // Event has no timezone field of its own — falls back to server default.
+    String timezone = ZoneId.systemDefault().getId();
+
+    LocalDateTime scheduledTimeUtc = toUtc(
+            event.getDate().toString(),
+            event.getStartTime().toString(),
+            timezone
+    );
+
+    Meeting meeting = new Meeting();
+    meeting.setTitle(blankToDefault(event.getTitle(), "Scheduled meeting"));
+    meeting.setCreatorId(event.getCreatorId());
+    meeting.setCreatorRole(event.getCreatorRole());
+    meeting.setCreatorName(event.getCreatorName());
+    meeting.setOrganizationId(event.getOrganizationId());
+    meeting.setMeetingType(MeetingType.SCHEDULED);
+    meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
+    meeting.setTimezone(timezone);
+    meeting.setScheduledTimeUtc(scheduledTimeUtc);
+    meeting.setReusable(true);
+    meeting.setWaitingRoom(event.getWaitingRoom());
+    meeting.setMuteOnEntry(event.getMuteOnEntry());
+    meeting.setRecordMeeting(event.getRecordMeeting());
+    meeting.setAllowScreenShare(event.getAllowScreenShare());
+
+    if (event.getEndTime() != null) {
+        meeting.setScheduledEndTimeUtc(toUtc(
+                event.getDate().toString(),
+                event.getEndTime().toString(),
+                timezone
+        ));
+    }
+
+    assignJoinCodeAndUrl(meeting);
+
+    Meeting saved = repository.save(meeting);
+
+    return toResponseDTO(saved, event.getCreatorId());
+}
+// ─────────────────────────────────────────────────────────────
+// SCHEDULE INTEGRATION — creates a real meeting for a Schedule item
+// ─────────────────────────────────────────────────────────────
+public MeetingResponseDTO createMeetingForSchedule(String title, String date, String startTime,
+        String endTime, String timezone, String creatorId,
+        String creatorRole, String creatorName,
+        Long organizationId) {
+if (date == null || startTime == null) {
+throw new MeetingException("Schedule date and startTime are required to create its meeting");
+}
+
+String tz = (timezone != null && !timezone.isBlank()) ? timezone : ZoneId.systemDefault().getId();
+
+LocalDateTime scheduledTimeUtc = toUtc(date, startTime, tz);
+
+Meeting meeting = new Meeting();
+meeting.setTitle(blankToDefault(title, "Scheduled meeting"));
+meeting.setCreatorId(creatorId);
+meeting.setCreatorRole(creatorRole);
+meeting.setCreatorName(creatorName);
+meeting.setOrganizationId(organizationId);
+meeting.setMeetingType(MeetingType.SCHEDULED);
+meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
+meeting.setTimezone(tz);
+meeting.setScheduledTimeUtc(scheduledTimeUtc);
+meeting.setReusable(true);
+
+if (endTime != null && !endTime.isBlank()) {
+meeting.setScheduledEndTimeUtc(toUtc(date, endTime, tz));
+}
+
+assignJoinCodeAndUrl(meeting);
+
+Meeting saved = repository.save(meeting);
+
+return toResponseDTO(saved, creatorId);
+}
+public void endDueMeetings() {
+    List<Meeting> due = repository.findByMeetingStatusAndScheduledEndTimeUtcLessThanEqual(
+            MeetingStatus.ACTIVE, LocalDateTime.now(ZoneId.of("UTC")));
+
+    for (Meeting meeting : due) {
+        if (meeting.isPermanent()) continue; // Task Orbit meetings never auto-end
+        try {
+            endMeeting(meeting.getId());
+        } catch (Exception e) {
+            System.err.println("Failed to auto-end meeting " + meeting.getId() + ": " + e.getMessage());
+        }
+    }
 }
 }

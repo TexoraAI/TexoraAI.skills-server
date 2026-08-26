@@ -1,25 +1,4 @@
-//
-//
-//package com.lms.attendance.repository;
-//
-//import com.lms.attendance.entity.TrainerBatchAccess;
-//import org.springframework.data.jpa.repository.JpaRepository;
-//
-//import java.util.Optional;
-//
-//public interface TrainerBatchAccessRepository
-//        extends JpaRepository<TrainerBatchAccess, Long> {
-//
-//    Optional<TrainerBatchAccess> findByBatchIdAndTrainerEmail(Long batchId, String trainerEmail);
-//
-//    // NEW — used when the authenticated trainer belongs to an organization
-//    Optional<TrainerBatchAccess> findByBatchIdAndTrainerEmailAndOrganizationId(
-//            Long batchId, String trainerEmail, String organizationId);
-//
-//    void deleteByBatchIdAndTrainerEmail(Long batchId, String trainerEmail);
-//
-//    void deleteByBatchId(Long batchId);
-//}
+
 package com.lms.attendance.repository;
 
 import com.lms.attendance.entity.TrainerBatchAccess;
@@ -56,4 +35,7 @@ public interface TrainerBatchAccessRepository
     // Used to resolve which trainer(s) own a given batch, for org-match checks on the
     // admin/{batchId} and superadmin/{batchId} endpoints
     List<TrainerBatchAccess> findByBatchId(Long batchId);
+    
+ // NEW — idempotency check for Kafka TRAINER_ASSIGNED replay (BatchAssignmentConsumer)
+    boolean existsByBatchIdAndTrainerEmail(Long batchId, String trainerEmail);
 }

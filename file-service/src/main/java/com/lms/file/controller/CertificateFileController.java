@@ -1,37 +1,3 @@
-//package com.lms.file.controller;
-//
-//import com.lms.file.service.CertificateFileService;
-//import org.springframework.web.bind.annotation.*;
-//import com.lms.file.dto.CertificateResponse;
-//import java.util.List;
-//@RestController
-//@RequestMapping("/api/files/certificates")
-//public class CertificateFileController {
-//
-//    private final CertificateFileService service;
-//
-//    public CertificateFileController(CertificateFileService service) {
-//        this.service = service;
-//    }
-//
-//    @PostMapping("/generate")
-//    public String generateCertificate(
-//            @RequestParam String email,
-//            @RequestParam String studentName,
-//            @RequestParam String courseName,
-//            @RequestParam String type) {
-//
-//        return service.generateCertificate(
-//                email, studentName, courseName, type
-//        );
-//    }
-//    @GetMapping("/student")
-//    public List<CertificateResponse> getStudentCertificates(
-//            @RequestParam String email) {
-//
-//        return service.getCertificatesByStudent(email);
-//    }
-//}
 
 
 

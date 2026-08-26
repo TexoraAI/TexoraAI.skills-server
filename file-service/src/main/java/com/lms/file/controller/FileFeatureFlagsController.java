@@ -4,7 +4,8 @@ import com.lms.file.dto.FileFeatureFlagsDTO;
 import com.lms.file.service.FileFeatureFlagsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.lms.file.security.SecurityUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 @RestController
 @RequestMapping("/api/file-feature-flags")
 public class FileFeatureFlagsController {
@@ -46,4 +47,25 @@ public class FileFeatureFlagsController {
             @RequestBody FileFeatureFlagsDTO dto) {
         return ResponseEntity.ok(featureFlagsService.updateIndividualFlags(email, dto));
     }
+ // ── ADMIN: GET /api/file-feature-flags/admin/user/{email} ────────────────
+ // organizationId is pulled ONLY from the caller's own JWT (SecurityUtils,
+ // same pattern as FileController) — never from the path/body/params.
+ // This is what keeps an admin scoped to their own org's users.
+ @PreAuthorize("hasRole('ADMIN')")
+ @GetMapping("/admin/user/{email}")
+ public ResponseEntity<FileFeatureFlagsDTO> getAdminUserFlags(
+         @PathVariable String email) {
+     String organizationId = SecurityUtils.getCurrentOrganizationId();
+     return ResponseEntity.ok(featureFlagsService.getAdminUserFlags(organizationId, email));
+ }
+
+ // ── ADMIN: PUT /api/file-feature-flags/admin/user/{email} ────────────────
+ @PreAuthorize("hasRole('ADMIN')")
+ @PutMapping("/admin/user/{email}")
+ public ResponseEntity<FileFeatureFlagsDTO> updateAdminUserFlags(
+         @PathVariable String email,
+         @RequestBody FileFeatureFlagsDTO dto) {
+     String organizationId = SecurityUtils.getCurrentOrganizationId();
+     return ResponseEntity.ok(featureFlagsService.updateAdminUserFlags(organizationId, email, dto));
+ }
 }

@@ -4,7 +4,8 @@ import com.lms.attendance.dto.AttendanceFeatureFlagsDTO;
 import com.lms.attendance.service.AttendanceFeatureFlagsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 @RestController
 @RequestMapping("/api/attendance-feature-flags")
 public class AttendanceFeatureFlagsController {
@@ -43,5 +44,30 @@ public class AttendanceFeatureFlagsController {
             @RequestParam String email,
             @RequestBody AttendanceFeatureFlagsDTO dto) {
         return ResponseEntity.ok(featureFlagsService.updateIndividualFlags(email, dto));
+    }
+ // GET /api/attendance-feature-flags/admin/user/{email}
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/user/{email}")
+    public ResponseEntity<AttendanceFeatureFlagsDTO> getAdminUserFlags(
+            @PathVariable String email) {
+        String organizationId = resolveCallerOrgId();
+        return ResponseEntity.ok(featureFlagsService.getAdminUserFlags(organizationId, email));
+    }
+
+    // PUT /api/attendance-feature-flags/admin/user/{email}
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/user/{email}")
+    public ResponseEntity<AttendanceFeatureFlagsDTO> updateAdminUserFlags(
+            @PathVariable String email,
+            @RequestBody AttendanceFeatureFlagsDTO dto) {
+        String organizationId = resolveCallerOrgId();
+        return ResponseEntity.ok(
+                featureFlagsService.updateAdminUserFlags(organizationId, email, dto));
+    }
+
+    private String resolveCallerOrgId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object details = authentication != null ? authentication.getDetails() : null;
+        return details instanceof String ? (String) details : null;
     }
 }

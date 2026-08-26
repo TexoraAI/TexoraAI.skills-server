@@ -1,18 +1,4 @@
-//package com.lms.batch.dto;
-//
-//import java.util.Map;
-//
-//public class BatchFeatureFlagsDTO {
-//
-//    private boolean enabled;
-//    private Map<String, Boolean> features; // featureKey -> on/off
-//
-//    public boolean isEnabled() { return enabled; }
-//    public void setEnabled(boolean enabled) { this.enabled = enabled; }
-//
-//    public Map<String, Boolean> getFeatures() { return features; }
-//    public void setFeatures(Map<String, Boolean> features) { this.features = features; }
-//}
+
 package com.lms.batch.dto;
 
 import java.io.Serializable;

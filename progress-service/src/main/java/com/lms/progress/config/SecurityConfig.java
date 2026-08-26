@@ -42,7 +42,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/quiz-progress/**").authenticated()
                     .requestMatchers("/api/skill-map/**").authenticated()
                  // ✅ REPORT APIs
-                   
+                    .requestMatchers("/api/progress/roadmaps/**").authenticated()
 
                     // Everything else — authenticated
                     .anyRequest().authenticated()

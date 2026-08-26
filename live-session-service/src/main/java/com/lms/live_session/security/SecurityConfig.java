@@ -60,6 +60,8 @@ public class SecurityConfig {
                     
                     .requestMatchers(HttpMethod.POST, "/api/v1/texorameetings").permitAll()
                     
+                    .requestMatchers(HttpMethod.GET, "/api/calendar-sync/callback").permitAll()
+                    
                     // everything else requires authentication
                     .anyRequest().authenticated()
             );

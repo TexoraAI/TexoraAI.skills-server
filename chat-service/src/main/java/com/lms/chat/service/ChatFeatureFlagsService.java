@@ -95,17 +95,53 @@ public class ChatFeatureFlagsService {
 
     // ── Feature check ───────────────────────────────────────────────────────────
     // If both organizationId and email are blank (e.g. Super Admin), always allow.
+//    public boolean isFeatureEnabled(String organizationId, String email, String featureKey) {
+//        if ((organizationId == null || organizationId.isBlank())
+//                && (email == null || email.isBlank())) {
+//            return true;
+//        }
+//        ChatFeatureFlagsDTO dto = getFlags(organizationId, email);
+//        if (!dto.isEnabled()) return false;
+//        Map<String, Boolean> features = dto.getFeatures();
+//        if (features == null) return true;
+//        Boolean val = features.get(featureKey);
+//        return val == null || val; // missing key → default enabled
+//    }
     public boolean isFeatureEnabled(String organizationId, String email, String featureKey) {
-        if ((organizationId == null || organizationId.isBlank())
-                && (email == null || email.isBlank())) {
+        boolean hasOrg   = organizationId != null && !organizationId.isBlank();
+        boolean hasEmail = email != null && !email.isBlank();
+
+        if (!hasOrg && !hasEmail) {
             return true;
         }
-        ChatFeatureFlagsDTO dto = getFlags(organizationId, email);
+
+        if (hasOrg) {
+            // STEP 1 — org admin's master switch always wins
+            ChatFeatureFlagsDTO orgDto = getOrgFlags(organizationId);
+            if (!isEnabledInDto(orgDto, featureKey)) {
+                return false;
+            }
+
+            if (hasEmail) {
+                // STEP 2 — per-user-in-org override; defaults enabled until set
+                ChatFeatureFlagsDTO adminUserDto = getAdminUserFlags(organizationId, email);
+                return isEnabledInDto(adminUserDto, featureKey);
+            }
+
+            return true;
+        }
+
+        // STEP 3 — org-less individual user, existing behavior unchanged
+        ChatFeatureFlagsDTO dto = getIndividualFlags(email);
+        return isEnabledInDto(dto, featureKey);
+    }
+
+    private boolean isEnabledInDto(ChatFeatureFlagsDTO dto, String featureKey) {
         if (!dto.isEnabled()) return false;
         Map<String, Boolean> features = dto.getFeatures();
         if (features == null) return true;
         Boolean val = features.get(featureKey);
-        return val == null || val; // missing key → default enabled
+        return val == null || val;
     }
 
     // ── Enforce (throws 403 if feature is disabled) ─────────────────────────────
@@ -142,4 +178,28 @@ public class ChatFeatureFlagsService {
             throw new RuntimeException("Failed to serialize chat feature flags", e);
         }
     }
+ // ── ADMIN-SCOPED PER-USER-IN-ORG OVERRIDE ─────────────────────────────────
+ // Composite scope key = organizationId + "::" + email. Brand-new key space —
+ // can never collide with an org-only or email-only row.
+ private String resolveAdminUserScopeKey(String organizationId, String email) {
+     if (organizationId == null || organizationId.isBlank()
+             || email == null || email.isBlank()) {
+         return null;
+     }
+     return organizationId + "::" + email.trim().toLowerCase();
+ }
+
+ public ChatFeatureFlagsDTO getAdminUserFlags(String organizationId, String email) {
+     String scopeKey = resolveAdminUserScopeKey(organizationId, email);
+     if (scopeKey == null) return defaultFlags();
+     return repo.findByScopeKey(scopeKey)
+             .map(this::deserialize)
+             .orElseGet(this::defaultFlags);
+ }
+
+ public ChatFeatureFlagsDTO updateAdminUserFlags(String organizationId, String email,
+                                                 ChatFeatureFlagsDTO dto) {
+     String scopeKey = resolveAdminUserScopeKey(organizationId, email);
+     return save(scopeKey, dto);
+ }
 }
