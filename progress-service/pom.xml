@@ -95,6 +95,16 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
+        <!-- 📄 PDF generation (real reference-doc resources for the
+             RoadmapUpgraded feature - see RoadmapUpgradedService.
+             generatePdfResource()/buildPdfDocument()). Pure Java, no native
+             deps, no external API key needed. -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+
         <!-- 🧪 Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

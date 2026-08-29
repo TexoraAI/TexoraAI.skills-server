@@ -61,6 +61,27 @@ jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}
   expiration: ${JWT_EXPIRATION:3600000}
 
+# =============================================================================
+# Roadmap Upgraded feature — OpenAI config used to generate roadmaps.
+# =============================================================================
+roadmap-upgraded:
+  openai:
+    api-key: ${OPENAI_API_KEY}                                  # set as an env var, don't hardcode
+    api-url: https://api.openai.com/v1/chat/completions
+    model: gpt-4o-mini                                           # swap for whatever model tier you want to pay for
+    connect-timeout-ms: 5000
+    read-timeout-ms: 30000
+
+  # ===========================================================================
+  # Roadmap Upgraded feature — YouTube Data API v3 config, used to resolve a
+  # real video ID for each AI-suggested video tutorial title.
+  # ===========================================================================
+  youtube:
+    api-key: ${YOUTUBE_API_KEY}                                  # set as an env var, don't hardcode
+    api-url: https://www.googleapis.com/youtube/v3/search
+    connect-timeout-ms: 5000
+    read-timeout-ms: 15000
+
 logging:
   level:
     org.springframework.kafka: INFO

@@ -143,4 +143,9 @@ public class FeaturedProgramController {
                     "message", "Syllabus extraction failed: " + e.getMessage()));
         }
     }
+    // GET /api/course/v1/featurecourse/summary  (public — lightweight, for homepage)
+    @GetMapping("/summary")
+    public ResponseEntity<List<FeaturedProgramSummaryDTO>> getAllActiveProgramsSummary() {
+        return ResponseEntity.ok(featuredProgramService.getAllActiveProgramsSummary());
+    }
 }

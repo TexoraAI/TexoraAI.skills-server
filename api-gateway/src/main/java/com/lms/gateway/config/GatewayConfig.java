@@ -194,7 +194,8 @@ public class GatewayConfig {
                     "/api/file-progress/**",   
                     "/api/assignment-progress/**",   // ✅ ADD
                     "/api/quiz-progress/**", 
-                    "/api/skill-map/**"
+                    "/api/skill-map/**",
+                    "/api/roadmap-upgraded/**" 
             ).uri(progressService))
 
             // ================= SEARCH =================

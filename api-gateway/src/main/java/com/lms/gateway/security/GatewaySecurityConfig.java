@@ -384,20 +384,7 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
-            if (path.startsWith("/api/progress/roadmaps")) {
-
-                if ("SUPER_ADMIN".equalsIgnoreCase(role)
-                        || "ADMIN".equalsIgnoreCase(role)
-                        || "TENANT_ADMIN".equalsIgnoreCase(role)
-                        || "TRAINER".equalsIgnoreCase(role)
-                        || "STUDENT".equalsIgnoreCase(role)) {
-
-                    return chain.filter(exchange);
-                }
-
-                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-                return exchange.getResponse().setComplete();
-            }
+           
 
             if (path.startsWith("/api/progress")) {
                 if ("STUDENT".equalsIgnoreCase(role)) {
@@ -805,6 +792,36 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
+            
+            // ── AI Companion / Whiteboard ────────────────────────────────────
+            if (path.startsWith("/api/v1/ai-companion")
+                    || path.startsWith("/api/v1/live-sessions")) {
+                if ("ADMIN".equalsIgnoreCase(role)
+                        || "TENANT_ADMIN".equalsIgnoreCase(role)
+                        || "TRAINER".equalsIgnoreCase(role)
+                        || "STUDENT".equalsIgnoreCase(role)) return chain.filter(exchange);
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+
+            // ── Roadmap Upgraded ──────────────────────────────────────────────
+            // Gateway just authenticates + lets the 4 roles through; the
+            // service itself 403s admin/stats and super-admin/stats calls
+            // from the wrong role (see RoadmapUpgradedController javadoc).
+            // SUPER_ADMIN already returned early above.
+            if (path.startsWith("/api/roadmap-upgraded")) {
+                if ("STUDENT".equalsIgnoreCase(role)
+                        || "TRAINER".equalsIgnoreCase(role)
+                        || "ADMIN".equalsIgnoreCase(role)
+                        || "TENANT_ADMIN".equalsIgnoreCase(role)) {
+                    return chain.filter(exchange);
+                }
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+
+         // ════════════════════════════════════════════════════════════════
+        //  PERSONAL PRODUCTIVITY MODULES
          // ════════════════════════════════════════════════════════════════
         //  PERSONAL PRODUCTIVITY MODULES
         //  Events / Schedules / Contacts / Reminders / Emails /

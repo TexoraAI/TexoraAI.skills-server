@@ -18,7 +18,6 @@ public class SecurityConfig {
     public SecurityConfig(JwtFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
-/////
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable());
@@ -42,8 +41,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/quiz-progress/**").authenticated()
                     .requestMatchers("/api/skill-map/**").authenticated()
                  // ✅ REPORT APIs
-                    .requestMatchers("/api/progress/roadmaps/**").authenticated()
-
+                    .requestMatchers("/api/roadmap-upgraded/**").authenticated() 
                     // Everything else — authenticated
                     .anyRequest().authenticated()
         );

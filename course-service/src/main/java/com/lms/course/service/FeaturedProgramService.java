@@ -646,4 +646,8 @@ public class FeaturedProgramService {
      return new SyllabusWeekDto(week.getId(), week.getWeekNumber(), week.getTitle(), week.getDateRange(),
              week.getItems(), moduleDtos);
  }
+ @Transactional(readOnly = true)
+ public List<FeaturedProgramSummaryDTO> getAllActiveProgramsSummary() {
+     return featuredProgramRepository.findSummaryByStatusAndPublishStatus("Active", "Published");
+ }
 }
