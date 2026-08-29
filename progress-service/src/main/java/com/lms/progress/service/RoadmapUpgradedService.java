@@ -1,10 +1,13 @@
 package com.lms.progress.service;
-
+import com.lms.progress.repository.RoadmapUpgradedVideoCacheRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lms.progress.config.RoadmapUpgradedOpenAiClient;
 import com.lms.progress.config.RoadmapUpgradedYoutubeClient;
 import com.lms.progress.dto.RoadmapUpgradedAdminStatsDto;
+import com.lms.progress.repository.RoadmapUpgradedVideoCacheRepository;
+import com.lms.progress.model.RoadmapUpgradedVideoCache;
+import java.util.Optional;
 import com.lms.progress.dto.RoadmapUpgradedGenerateRequestDto;
 import com.lms.progress.dto.RoadmapUpgradedMentorMessageDto;
 import com.lms.progress.dto.RoadmapUpgradedMentorRequestDto;
@@ -109,24 +112,27 @@ public class RoadmapUpgradedService {
     private final JwtUtil jwtUtil;
     private final RoadmapUpgradedOpenAiClient openAiClient;
     private final RoadmapUpgradedYoutubeClient youtubeClient;
+    private final RoadmapUpgradedVideoCacheRepository videoCacheRepository;
     private final ObjectMapper objectMapper;
 
     private static final Executor PARALLEL_EXECUTOR = Executors.newFixedThreadPool(8);
     private static final boolean SKIP_PDF = false;
 
     public RoadmapUpgradedService(RoadmapUpgradedRepository repository,
-                                   RoadmapUpgradedMentorRepository mentorRepository,
-                                   JwtUtil jwtUtil,
-                                   RoadmapUpgradedOpenAiClient openAiClient,
-                                   RoadmapUpgradedYoutubeClient youtubeClient,
-                                   ObjectMapper objectMapper) {
-        this.repository = repository;
-        this.mentorRepository = mentorRepository;
-        this.jwtUtil = jwtUtil;
-        this.openAiClient = openAiClient;
-        this.youtubeClient = youtubeClient;
-        this.objectMapper = objectMapper;
-    }
+            RoadmapUpgradedMentorRepository mentorRepository,
+            JwtUtil jwtUtil,
+            RoadmapUpgradedOpenAiClient openAiClient,
+            RoadmapUpgradedYoutubeClient youtubeClient,
+            RoadmapUpgradedVideoCacheRepository videoCacheRepository,
+            ObjectMapper objectMapper) {
+this.repository = repository;
+this.mentorRepository = mentorRepository;
+this.jwtUtil = jwtUtil;
+this.openAiClient = openAiClient;
+this.youtubeClient = youtubeClient;
+this.videoCacheRepository = videoCacheRepository;
+this.objectMapper = objectMapper;
+}
 
     // =========================================================================
     // Generation
@@ -189,37 +195,7 @@ public class RoadmapUpgradedService {
         return syllabus;
     }
 
-//    private void populateModulesAndResources(RoadmapUpgradedSyllabus syllabus,
-//                                               RoadmapUpgradedGenerateRequestDto request,
-//                                               List<String> contentSources) {
-//        RoadmapOutline outline = generateRoadmapOutline(
-//                request.getDomain(), request.getPathType(), request.getTargetRole(), request.getLanguage());
-//
-//        List<RoadmapUpgradedModule> modules = new ArrayList<>();
-//        int orderIndex = 0;
-//        for (String moduleTitle : outline.moduleTitles) {
-//            RoadmapUpgradedModule module = new RoadmapUpgradedModule();
-//            module.setSyllabus(syllabus);
-//            module.setOrderIndex(orderIndex);
-//            module.setTitle(moduleTitle);
-//            module.setLocked(orderIndex != 0);
-//            module.setProgressPercent(0.0);
-//
-//            List<RoadmapUpgradedResource> resources =
-//                    generateResourcesForTopic(moduleTitle, request.getDomain(), contentSources);
-//            for (RoadmapUpgradedResource resource : resources) {
-//                resource.setModule(module);
-//            }
-//            module.setResources(resources);
-//
-//            modules.add(module);
-//            orderIndex++;
-//        }
-//
-//        syllabus.setModules(modules);
-//        syllabus.setTotalModules(modules.size());
-//        syllabus.setTotalWeeks(outline.totalWeeks);
-//    }
+
     private void populateModulesAndResources(RoadmapUpgradedSyllabus syllabus,
             RoadmapUpgradedGenerateRequestDto request,
             List<String> contentSources) {
@@ -281,35 +257,7 @@ public class RoadmapUpgradedService {
      * outline if the model response can't be parsed, so generation never
      * hard-fails the request.
      */
-//    private RoadmapOutline generateRoadmapOutline(String domain, String pathType, String targetRole, String language) {
-//        String systemPrompt = "You are a curriculum designer for a technical learning platform. "
-//                + "Respond ONLY with a JSON object, no other text.";
-//        String userPrompt = String.format(
-//                "Design a learning roadmap outline for target role \"%s\" in domain \"%s\" (path type: %s, "
-//                        + "language: %s). Respond with JSON: "
-//                        + "{\"totalWeeks\": <int>, \"moduleTitles\": [\"...\", \"...\"]}. "
-//                        + "Include 5 to 10 module titles, ordered from foundational to advanced.",
-//                targetRole, domain, pathType, language);
-//
-//        try {
-//            String raw = openAiClient.completeJson(systemPrompt, userPrompt);
-//            JsonNode node = objectMapper.readTree(raw);
-//            int totalWeeks = node.path("totalWeeks").asInt(4);
-//            List<String> titles = new ArrayList<>();
-//            for (JsonNode titleNode : node.path("moduleTitles")) {
-//                titles.add(titleNode.asText());
-//            }
-//            if (titles.isEmpty()) {
-//                titles.add("Getting Started with " + targetRole);
-//            }
-//            return new RoadmapOutline(totalWeeks, titles);
-//        } catch (Exception e) {
-//            log.warn("Failed to generate/parse roadmap outline for targetRole={}, falling back to default outline", targetRole, e);
-//            List<String> fallback = new ArrayList<>();
-//            fallback.add("Getting Started with " + targetRole);
-//            return new RoadmapOutline(4, fallback);
-//        }
-//    }
+
     private static final int MIN_MODULES = 5;
     private static final int MAX_MODULES = 8;
     private static final int MIN_TOPICS_PER_MODULE = 3;
@@ -512,17 +460,74 @@ public class RoadmapUpgradedService {
      * sourceUrl stores the bare video ID (not a full URL) - the frontend
      * embeds it as https://www.youtube.com/embed/{sourceUrl}.
      */
+//    private String resolveYoutubeVideoId(String suggestedTitle, String topicTitle) {
+//        try {
+//            String videoId = youtubeClient.searchFirstVideoId(suggestedTitle);
+//            if (videoId == null || videoId.isBlank()) {
+//                log.warn("YouTube search returned no results for '{}'", suggestedTitle);
+//                return null;
+//            }
+//            return videoId;
+//        } catch (Exception e) {
+//            log.warn("YouTube lookup failed for topic '{}' (query='{}'), leaving sourceUrl null", topicTitle, suggestedTitle, e);
+//            return null;
+//        }
+//    }
+    private static final int POSITIVE_CACHE_DAYS = 60;
+    private static final int NEGATIVE_CACHE_DAYS = 7;
+    private static volatile LocalDateTime youtubeQuotaExhaustedUntil = null;
+
     private String resolveYoutubeVideoId(String suggestedTitle, String topicTitle) {
+        String searchKey = normalizeSearchKey(suggestedTitle);
+
+        Optional<RoadmapUpgradedVideoCache> cached = videoCacheRepository.findBySearchKey(searchKey);
+        if (cached.isPresent()) {
+            RoadmapUpgradedVideoCache entry = cached.get();
+            int maxAgeDays = entry.getVideoId() != null ? POSITIVE_CACHE_DAYS : NEGATIVE_CACHE_DAYS;
+            if (entry.getCreatedAt().isAfter(LocalDateTime.now().minusDays(maxAgeDays))) {
+                log.debug("YouTube cache hit for '{}' -> {}", searchKey, entry.getVideoId());
+                return entry.getVideoId();
+            }
+        }
+
+        if (youtubeQuotaExhaustedUntil != null && LocalDateTime.now().isBefore(youtubeQuotaExhaustedUntil)) {
+            log.debug("Skipping YouTube search for '{}', quota known exhausted until {}", searchKey, youtubeQuotaExhaustedUntil);
+            return null;
+        }
+
         try {
             String videoId = youtubeClient.searchFirstVideoId(suggestedTitle);
+            saveToCache(searchKey, videoId);
             if (videoId == null || videoId.isBlank()) {
                 log.warn("YouTube search returned no results for '{}'", suggestedTitle);
                 return null;
             }
             return videoId;
+        } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+            youtubeQuotaExhaustedUntil = LocalDateTime.now().plusHours(24);
+            log.warn("YouTube quota exhausted, pausing YouTube lookups for topic '{}'", topicTitle);
+            return null;
         } catch (Exception e) {
             log.warn("YouTube lookup failed for topic '{}' (query='{}'), leaving sourceUrl null", topicTitle, suggestedTitle, e);
             return null;
+        }
+    }
+
+    private String normalizeSearchKey(String title) {
+        return title == null ? "" : title.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
+
+    @Transactional
+    public void saveToCache(String searchKey, String videoId) {
+        try {
+            RoadmapUpgradedVideoCache entry = videoCacheRepository.findBySearchKey(searchKey)
+                    .orElseGet(RoadmapUpgradedVideoCache::new);
+            entry.setSearchKey(searchKey);
+            entry.setVideoId(videoId);
+            entry.setCreatedAt(LocalDateTime.now());
+            videoCacheRepository.save(entry);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            log.debug("Cache entry for '{}' already written by a concurrent thread, ignoring", searchKey);
         }
     }
 
