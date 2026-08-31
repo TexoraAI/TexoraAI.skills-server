@@ -119,16 +119,29 @@ public class MeetingController {
     // ═══════════════════════════════════════════════════════
     // LIVEKIT TOKEN — HOST ONLY
     // ═══════════════════════════════════════════════════════
-
+//
+//    @GetMapping("/{id}/token")
+//    public ResponseEntity<?> getJoinToken(@PathVariable Long id,
+//                                           @RequestParam(required = false) String displayName,
+//                                           Authentication auth) {
+//        try {
+//            String identity = auth.getName();
+//            return ResponseEntity.ok(service.generateJoinToken(id, identity, displayName));
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+//        }
+//    }
     @GetMapping("/{id}/token")
     public ResponseEntity<?> getJoinToken(@PathVariable Long id,
                                            @RequestParam(required = false) String displayName,
                                            Authentication auth) {
         try {
             String identity = auth.getName();
-            return ResponseEntity.ok(service.generateJoinToken(id, identity, displayName));
+            // ✅ NEW: Generate unique sessionId for this token request
+            String sessionId = java.util.UUID.randomUUID().toString();
+            return ResponseEntity.ok(service.generateJoinToken(id, identity, displayName, sessionId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to generate token: " + e.getMessage()));
         }
     }
 
@@ -157,15 +170,28 @@ public class MeetingController {
         }
     }
 
+//    @GetMapping("/{id}/token/guest/{requestId}")
+//    public ResponseEntity<?> getGuestToken(@PathVariable Long id,
+//                                            @PathVariable Long requestId,
+//                                            @RequestParam String guestIdentity,
+//                                            @RequestParam(required = false) String displayName) {
+//        try {
+//            return ResponseEntity.ok(service.generateGuestToken(id, requestId, guestIdentity, displayName));
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+//        }
+//    }
     @GetMapping("/{id}/token/guest/{requestId}")
     public ResponseEntity<?> getGuestToken(@PathVariable Long id,
                                             @PathVariable Long requestId,
                                             @RequestParam String guestIdentity,
                                             @RequestParam(required = false) String displayName) {
         try {
-            return ResponseEntity.ok(service.generateGuestToken(id, requestId, guestIdentity, displayName));
+            // ✅ NEW: Generate unique sessionId for this guest token request
+            String sessionId = java.util.UUID.randomUUID().toString();
+            return ResponseEntity.ok(service.generateGuestToken(id, requestId, guestIdentity, displayName, sessionId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to generate guest token: " + e.getMessage()));
         }
     }
 

@@ -240,6 +240,7 @@ this.meetingInviteProducer = meetingInviteProducer;
     // LIVEKIT TOKEN — HOST ONLY (guests go through the lobby below)
     // ─────────────────────────────────────────────────────────────
 
+//
 //    public Map<String, String> generateJoinToken(Long id, String identity, String displayName) {
 //        Meeting meeting = findOrThrow(id);
 //
@@ -250,14 +251,21 @@ this.meetingInviteProducer = meetingInviteProducer;
 //            throw new MeetingException("Only the host can join directly — guests must request to join");
 //        }
 //
-////        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, displayName, true);
-//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, displayName, true, meeting.getCreatorId());
+//        // NEW — fall back to the creator's saved display name (set at
+//        // meeting-creation time) instead of the raw email identity, since
+//        // the frontend never sends a displayName param for the host path.
+//        String resolvedDisplayName = (displayName != null && !displayName.isBlank())
+//                ? displayName
+//                : meeting.getCreatorName();
+//
+//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, resolvedDisplayName, true, meeting.getCreatorId());
+//
 //        return Map.of(
 //                "room", meeting.getRoomName(),
 //                "token", token
 //        );
 //    }
-    public Map<String, String> generateJoinToken(Long id, String identity, String displayName) {
+    public Map<String, String> generateJoinToken(Long id, String identity, String displayName, String sessionId) {
         Meeting meeting = findOrThrow(id);
 
         if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
@@ -274,14 +282,13 @@ this.meetingInviteProducer = meetingInviteProducer;
                 ? displayName
                 : meeting.getCreatorName();
 
-        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, resolvedDisplayName, true, meeting.getCreatorId());
+        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, resolvedDisplayName, true, meeting.getCreatorId(), sessionId);
 
         return Map.of(
                 "room", meeting.getRoomName(),
                 "token", token
         );
     }
-
     // ─────────────────────────────────────────────────────────────
     // LOBBY — GUEST JOIN REQUESTS
     // ─────────────────────────────────────────────────────────────
@@ -294,8 +301,21 @@ this.meetingInviteProducer = meetingInviteProducer;
             throw new MeetingException("Meeting is not active — nothing to join yet");
         }
 
+//        if (guestEmail == null || guestEmail.isBlank() || !guestEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+//            throw new MeetingException("A valid email is required to join");
+//        }
+//
+//        MeetingJoinRequest request = new MeetingJoinRequest();
         if (guestEmail == null || guestEmail.isBlank() || !guestEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             throw new MeetingException("A valid email is required to join");
+        }
+
+        // ✅ NEW — block a second person (or the same person on another
+        // device) from joining with an email that's already connected to
+        // this meeting right now.
+        String emailToCheck = guestEmail.trim().toLowerCase();
+        if (tokenService.isEmailAlreadyInRoom(meeting.getRoomName(), emailToCheck)) {
+            throw new MeetingException("This email is already in the meeting. If that's you and you just got disconnected, wait a few seconds and try again — otherwise, please use your own email.");
         }
 
         MeetingJoinRequest request = new MeetingJoinRequest();
@@ -385,7 +405,30 @@ this.meetingInviteProducer = meetingInviteProducer;
     // the same opaque id issued at requestToJoin() time — it's the guest's
     // only credential, so it must match both the request row and be reused
     // as the LiveKit participant identity.
-    public Map<String, String> generateGuestToken(Long meetingId, Long requestId, String guestIdentity, String displayName) {
+//    public Map<String, String> generateGuestToken(Long meetingId, Long requestId, String guestIdentity, String displayName) {
+//        Meeting meeting = findOrThrow(meetingId);
+//
+//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
+//            throw new MeetingException("Meeting is not active — cannot issue a join token");
+//        }
+//
+//        MeetingJoinRequest request = joinRequestRepository
+//                .findByIdAndMeetingIdAndGuestIdentity(requestId, meetingId, guestIdentity)
+//                .orElseThrow(() -> new MeetingException("Join request not found"));
+//
+//        if (request.getStatus() != JoinRequestStatus.ADMITTED) {
+//            throw new MeetingException("Not admitted yet — current status: " + request.getStatus());
+//        }
+//
+//        String name = displayName != null ? displayName : request.getGuestName();
+////        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false);
+//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false, request.getGuestEmail());
+//        return Map.of(
+//                "room", meeting.getRoomName(),
+//                "token", token
+//        );
+//    }
+    public Map<String, String> generateGuestToken(Long meetingId, Long requestId, String guestIdentity, String displayName, String sessionId) {
         Meeting meeting = findOrThrow(meetingId);
 
         if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
@@ -401,8 +444,7 @@ this.meetingInviteProducer = meetingInviteProducer;
         }
 
         String name = displayName != null ? displayName : request.getGuestName();
-//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false);
-        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false, request.getGuestEmail());
+        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false, request.getGuestEmail(), sessionId);
         return Map.of(
                 "room", meeting.getRoomName(),
                 "token", token
