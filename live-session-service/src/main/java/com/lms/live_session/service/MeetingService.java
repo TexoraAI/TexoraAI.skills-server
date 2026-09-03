@@ -193,9 +193,52 @@ this.meetingInviteProducer = meetingInviteProducer;
         return toResponseDTO(saved, saved.getCreatorId());
     }
 
+//    public MeetingResponseDTO endMeeting(Long id) {
+//        Meeting meeting = findOrThrow(id);
+//     // NEW — permanent (Task Orbit) meetings never end via "End", only delete kills them
+//        if (meeting.isPermanent()) {
+//            return toResponseDTO(meeting, meeting.getCreatorId());
+//        }
+//        meeting.setMeetingStatus(MeetingStatus.ENDED);
+//        meeting.setEndedAt(LocalDateTime.now(ZoneId.of("UTC")));
+//        // NEW — stop egress if one is running, same recipe as LiveSessionService.endSession()
+//        if (meeting.getEgressId() != null) {
+//            String egressIdToStop = meeting.getEgressId();
+//            livekit.LivekitEgress.EgressInfo info = egressService.stopRecordingAndGetInfo(egressIdToStop);
+//
+//            if (info != null && info.getFileResultsCount() > 0) {
+//                String realFilename = info.getFileResults(0).getFilename();
+//                String s3Url = "https://" + bucket + ".s3." + awsRegion + ".amazonaws.com/" + realFilename;
+//                meeting.setRecordingS3Url(s3Url);
+//                System.out.println("[endMeeting] realFilename=[" + realFilename + "] s3Url=[" + s3Url + "]");
+//
+//                recordingService.createAutoRecordPlaceholder(
+//                    meeting.getId(), null, meeting.getCreatorId(),
+//                    meeting.getTitle(), s3Url
+//                );
+//            } else {
+//                System.err.println("[endMeeting] No usable EgressInfo for " + egressIdToStop
+//                    + " — NOT setting recordingS3Url.");
+//            }
+//            meeting.setEgressId(null);
+//        }
+//        Meeting saved = repository.save(meeting);
+//
+//        // A meeting that just ended can't still have guests waiting in the
+//        // lobby — clear anything left PENDING so a stale poll doesn't hang.
+//        joinRequestRepository.findByMeetingIdAndStatusOrderByRequestedAtAsc(id, JoinRequestStatus.PENDING)
+//                .forEach(r -> {
+//                    r.setStatus(JoinRequestStatus.DENIED);
+//                    r.setRespondedAt(LocalDateTime.now());
+//                    joinRequestRepository.save(r);
+//                });
+//
+//        return toResponseDTO(saved, saved.getCreatorId());
+//    }
+
     public MeetingResponseDTO endMeeting(Long id) {
         Meeting meeting = findOrThrow(id);
-     // NEW — permanent (Task Orbit) meetings never end via "End", only delete kills them
+        // NEW — permanent (Task Orbit) meetings never end via "End", only delete kills them
         if (meeting.isPermanent()) {
             return toResponseDTO(meeting, meeting.getCreatorId());
         }
@@ -224,6 +267,13 @@ this.meetingInviteProducer = meetingInviteProducer;
         }
         Meeting saved = repository.save(meeting);
 
+        // NEW — force-close the LiveKit room the instant the meeting ends,
+        // instead of leaving it to LiveKit's passive idle timeout. This kicks
+        // any still-connected/ghost participants immediately and frees server
+        // resources right away. Does NOT touch recordings or summaries — only
+        // live LiveKit connections.
+        tokenService.closeRoom(meeting.getRoomName());
+
         // A meeting that just ended can't still have guests waiting in the
         // lobby — clear anything left PENDING so a stale poll doesn't hang.
         joinRequestRepository.findByMeetingIdAndStatusOrderByRequestedAtAsc(id, JoinRequestStatus.PENDING)
@@ -235,36 +285,12 @@ this.meetingInviteProducer = meetingInviteProducer;
 
         return toResponseDTO(saved, saved.getCreatorId());
     }
-
+    
+    
     // ─────────────────────────────────────────────────────────────
     // LIVEKIT TOKEN — HOST ONLY (guests go through the lobby below)
     // ─────────────────────────────────────────────────────────────
 
-//
-//    public Map<String, String> generateJoinToken(Long id, String identity, String displayName) {
-//        Meeting meeting = findOrThrow(id);
-//
-//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
-//            throw new MeetingException("Meeting is not active — cannot issue a join token");
-//        }
-//        if (identity == null || !identity.equals(meeting.getCreatorId())) {
-//            throw new MeetingException("Only the host can join directly — guests must request to join");
-//        }
-//
-//        // NEW — fall back to the creator's saved display name (set at
-//        // meeting-creation time) instead of the raw email identity, since
-//        // the frontend never sends a displayName param for the host path.
-//        String resolvedDisplayName = (displayName != null && !displayName.isBlank())
-//                ? displayName
-//                : meeting.getCreatorName();
-//
-//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), identity, resolvedDisplayName, true, meeting.getCreatorId());
-//
-//        return Map.of(
-//                "room", meeting.getRoomName(),
-//                "token", token
-//        );
-//    }
     public Map<String, String> generateJoinToken(Long id, String identity, String displayName, String sessionId) {
         Meeting meeting = findOrThrow(id);
 
@@ -301,11 +327,6 @@ this.meetingInviteProducer = meetingInviteProducer;
             throw new MeetingException("Meeting is not active — nothing to join yet");
         }
 
-//        if (guestEmail == null || guestEmail.isBlank() || !guestEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-//            throw new MeetingException("A valid email is required to join");
-//        }
-//
-//        MeetingJoinRequest request = new MeetingJoinRequest();
         if (guestEmail == null || guestEmail.isBlank() || !guestEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             throw new MeetingException("A valid email is required to join");
         }
@@ -322,17 +343,7 @@ this.meetingInviteProducer = meetingInviteProducer;
         request.setMeetingId(meetingId);
         request.setGuestIdentity(UUID.randomUUID().toString());
         request.setGuestName(blankToDefault(guestName, "Guest"));
-//        request.setGuestEmail(guestEmail.trim().toLowerCase());
-//
-//        // ✅ NEW — Texora-integration meetings have no real logged-in host
-//        // (creatorId is the service account "texora-integration"), so there
-//        // is nobody who can ever call admitJoinRequest(). Auto-admit instead
-//        // of leaving guests stuck in the lobby forever.
-//        boolean isExternalIntegrationMeeting = "texora-integration".equals(meeting.getCreatorId());
-//        request.setStatus(isExternalIntegrationMeeting ? JoinRequestStatus.ADMITTED : JoinRequestStatus.PENDING);
-//        if (isExternalIntegrationMeeting) {
-//            request.setRespondedAt(LocalDateTime.now());
-//        }
+
         String normalizedEmail = guestEmail.trim().toLowerCase();
         request.setGuestEmail(normalizedEmail);
 
@@ -453,15 +464,7 @@ this.meetingInviteProducer = meetingInviteProducer;
     // ─────────────────────────────────────────────────────────────
     // SCHEDULER HOOK — called by MeetingScheduler
     // ─────────────────────────────────────────────────────────────
-//    public void activateDueMeetings() {
-//        List<Meeting> due = repository.findByMeetingStatusAndScheduledTimeUtcLessThanEqual(
-//                MeetingStatus.SCHEDULED, LocalDateTime.now());
-//
-//        for (Meeting meeting : due) {
-//            meeting.setMeetingStatus(MeetingStatus.ACTIVE);
-//            repository.save(meeting);
-//        }
-//    }
+
     public void activateDueMeetings() {
         List<Meeting> due = repository.findByMeetingStatusAndScheduledTimeUtcLessThanEqual(
                 MeetingStatus.SCHEDULED, LocalDateTime.now(ZoneId.of("UTC")));
@@ -564,10 +567,26 @@ this.meetingInviteProducer = meetingInviteProducer;
                 .map(this::toJoinRequestDTO)
                 .collect(Collectors.toList());
     }
+//    @Transactional
+//    public void deleteMeeting(Long id, String requesterId) {
+//        Meeting meeting = findOrThrow(id);
+//        verifyHost(meeting, requesterId);
+//
+//        // Clean up any join-request history first (no DB-level FK, but keep it tidy)
+//        joinRequestRepository.deleteByMeetingId(id);
+//        repository.delete(meeting);
+//    }
     @Transactional
     public void deleteMeeting(Long id, String requesterId) {
         Meeting meeting = findOrThrow(id);
         verifyHost(meeting, requesterId);
+
+        // NEW — force-close the LiveKit room on delete too. Works the same
+        // way for instant, scheduled, and permanent (Task Orbit) meetings.
+        // If the room was already closed (e.g. meeting was ended first), this
+        // is a harmless no-op. Never touches recordings or summaries — those
+        // live in a separate service and are untouched by this call.
+        tokenService.closeRoom(meeting.getRoomName());
 
         // Clean up any join-request history first (no DB-level FK, but keep it tidy)
         joinRequestRepository.deleteByMeetingId(id);
@@ -749,42 +768,7 @@ public List<MeetingResponseDTO> getMyPermanentMeetings(String creatorId) {
          .collect(Collectors.toList());
 }
 //
-//public MeetingResponseDTO createMeetingForEvent(Event event) {
-//    if (event.getDate() == null || event.getStartTime() == null) {
-//        throw new MeetingException("Event date and startTime are required to create its meeting");
-//    }
-//
-//    // Event has no timezone field of its own — falls back to server default.
-//    String timezone = ZoneId.systemDefault().getId();
-//
-//    LocalDateTime scheduledTimeUtc = toUtc(
-//            event.getDate().toString(),
-//            event.getStartTime().toString(),
-//            timezone
-//    );
-//
-//    Meeting meeting = new Meeting();
-//    meeting.setTitle(blankToDefault(event.getTitle(), "Scheduled meeting"));
-//    meeting.setCreatorId(event.getCreatorId());
-//    meeting.setCreatorRole(event.getCreatorRole());
-//    meeting.setCreatorName(event.getCreatorName());
-//    meeting.setOrganizationId(event.getOrganizationId());
-//    meeting.setMeetingType(MeetingType.SCHEDULED);
-//    meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
-//    meeting.setTimezone(timezone);
-//    meeting.setScheduledTimeUtc(scheduledTimeUtc);
-//    meeting.setReusable(true);
-//    meeting.setWaitingRoom(event.getWaitingRoom());
-//    meeting.setMuteOnEntry(event.getMuteOnEntry());
-//    meeting.setRecordMeeting(event.getRecordMeeting());
-//    meeting.setAllowScreenShare(event.getAllowScreenShare());
-//
-//    assignJoinCodeAndUrl(meeting);
-//
-//    Meeting saved = repository.save(meeting);
-//
-//    return toResponseDTO(saved, event.getCreatorId());
-//}
+
 public MeetingResponseDTO createMeetingForEvent(Event event) {
     if (event.getDate() == null || event.getStartTime() == null) {
         throw new MeetingException("Event date and startTime are required to create its meeting");

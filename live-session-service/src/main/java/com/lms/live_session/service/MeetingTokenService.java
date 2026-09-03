@@ -1,63 +1,4 @@
-//package com.lms.live_session.service;
-//
-//import com.lms.live_session.config.LiveKitConfig;
-//import io.livekit.server.AccessToken;
-//import io.livekit.server.RoomJoin;
-//import io.livekit.server.RoomName;
-//import org.springframework.stereotype.Service;
-//import com.fasterxml.jackson.databind.ObjectMapper;
-//import java.util.LinkedHashMap;
-//import java.util.Map;
-///**
-// * Meeting module's own LiveKit token issuance. Reuses the existing
-// * LiveKitConfig bean (api key / secret) only — does NOT call into
-// * LiveKitTokenService or any Live Session business logic, so the
-// * Meeting flows stay fully independent of Live Session.
-// */
-//@Service
-//public class MeetingTokenService {
-//
-//    private final LiveKitConfig config;
-//    private final ObjectMapper objectMapper = new ObjectMapper();
-//    public MeetingTokenService(LiveKitConfig config) {
-//        this.config = config;
-//    }
-//
-//    /**
-//     * @param roomName    LiveKit room name for the meeting (meeting.getRoomName())
-//     * @param identity    unique participant identity (e.g. user email)
-//     * @param displayName display name shown in the room
-//     * @param isHost      reserved for future host-only grants (recording, mute-all, etc.)
-//     */
-//
-//    public String generateMeetingToken(String roomName, String identity, String displayName,
-//            boolean isHost, String avatarSeed) {
-//AccessToken token = new AccessToken(config.getApiKey(), config.getApiSecret());
-//token.setIdentity(identity);
-//token.setName(displayName != null ? displayName : identity);
-//token.addGrants(new RoomJoin(true), new RoomName(roomName));
-//token.setMetadata(buildMetadata(isHost, avatarSeed, identity));
-//return token.toJwt();
-//}
-//
-//public String generateMeetingToken(String roomName, String identity, String displayName, boolean isHost) {
-//return generateMeetingToken(roomName, identity, displayName, isHost, identity);
-//}
-//
-//private String buildMetadata(boolean isHost, String avatarSeed, String fallbackIdentity) {
-//String seed = (avatarSeed != null && !avatarSeed.isBlank()) ? avatarSeed : fallbackIdentity;
-//Map<String, Object> metadata = new LinkedHashMap<>();
-//metadata.put("isHost", isHost);
-//metadata.put("avatarSeed", seed);
-//try {
-//return objectMapper.writeValueAsString(metadata);
-//} catch (Exception e) {
-//return "{\"isHost\":" + isHost + ",\"avatarSeed\":\"" + seed.replace("\"", "") + "\"}";
-//}
-//}
-//}
-
-   package com.lms.live_session.service;
+package com.lms.live_session.service;
 
 import com.lms.live_session.config.LiveKitConfig;
 import io.livekit.server.AccessToken;
@@ -85,31 +26,31 @@ public class MeetingTokenService {
 
     private final LiveKitConfig config;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
     public MeetingTokenService(LiveKitConfig config) {
         this.config = config;
     }
 
     /**
-     * ✅ UPDATED: Now includes sessionId to make identity unique per session
      * @param roomName    LiveKit room name for the meeting (meeting.getRoomName())
-     * @param identity    unique participant identity (e.g. user email)
+     * @param identity    STABLE participant identity (e.g. user email / guestIdentity).
+     *                    Must stay the same across reconnects for the same person in
+     *                    the same meeting — this is what lets LiveKit cleanly replace
+     *                    a stale prior connection instead of leaving a ghost behind.
      * @param displayName display name shown in the room
      * @param isHost      reserved for future host-only grants (recording, mute-all, etc.)
      * @param avatarSeed  seed for avatar generation
-     * @param sessionId   ✅ NEW: Unique per token request to prevent conflicts
+     * @param sessionId   per-token-request id, kept in metadata only (for debugging/logs),
+     *                    never appended to identity anymore
      */
     public String generateMeetingToken(String roomName, String identity, String displayName,
             boolean isHost, String avatarSeed, String sessionId) {
-        
-        // ✅ KEY FIX: Make identity unique by combining email + sessionId
-        String uniqueIdentity = identity + "_" + sessionId;
-        
+
         AccessToken token = new AccessToken(config.getApiKey(), config.getApiSecret());
-        token.setIdentity(uniqueIdentity);  // ✅ Use unique identity
+        token.setIdentity(identity);   // stable — no more "+ sessionId"
         token.setName(displayName != null ? displayName : identity);
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
-        token.setMetadata(buildMetadata(isHost, avatarSeed, identity));
+        token.setMetadata(buildMetadata(isHost, avatarSeed, identity, sessionId)); // sessionId kept here only, for logs
         return token.toJwt();
     }
 
@@ -123,13 +64,13 @@ public class MeetingTokenService {
     /**
      * ✅ OVERLOADED: Another backward compatibility version
      */
-    public String generateMeetingToken(String roomName, String identity, String displayName, 
+    public String generateMeetingToken(String roomName, String identity, String displayName,
             boolean isHost, String avatarSeed) {
         return generateMeetingToken(roomName, identity, displayName, isHost, avatarSeed, UUID.randomUUID().toString());
     }
-    
+
     /**
-     * ✅ NEW: Live presence check — asks LiveKit who is currently connected
+     * Live presence check — asks LiveKit who is currently connected
      * to this room right now, and checks each connected participant's
      * metadata (where the email is stored as avatarSeed) for a match.
      * This catches a duplicate email join even if the earlier session
@@ -173,19 +114,33 @@ public class MeetingTokenService {
         }
     }
 
-   
+    /**
+     * Actually closes a LiveKit room. Call this from endMeeting()/deleteMeeting()
+     * so an ended or deleted meeting doesn't leave an orphaned room still running
+     * on the LiveKit server. This only touches live LiveKit connections/room
+     * state — it never touches recordings, summaries, or any other DB data.
+     */
+    public void closeRoom(String roomName) {
+        if (roomName == null || roomName.isBlank()) return;
+        try {
+            RoomServiceClient client = RoomServiceClient.createClient(
+                    config.getUrl(), config.getApiKey(), config.getApiSecret());
+            client.deleteRoom(roomName).execute();
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to close LiveKit room " + roomName + ": " + e.getMessage());
+        }
+    }
 
-    private String buildMetadata(boolean isHost, String avatarSeed, String fallbackIdentity) {
+    private String buildMetadata(boolean isHost, String avatarSeed, String fallbackIdentity, String sessionId) {
         String seed = (avatarSeed != null && !avatarSeed.isBlank()) ? avatarSeed : fallbackIdentity;
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("isHost", isHost);
         metadata.put("avatarSeed", seed);
+        metadata.put("sessionId", sessionId);
         try {
             return objectMapper.writeValueAsString(metadata);
         } catch (Exception e) {
             return "{\"isHost\":" + isHost + ",\"avatarSeed\":\"" + seed.replace("\"", "") + "\"}";
         }
     }
-    
 }
-   

@@ -119,18 +119,7 @@ public class MeetingController {
     // ═══════════════════════════════════════════════════════
     // LIVEKIT TOKEN — HOST ONLY
     // ═══════════════════════════════════════════════════════
-//
-//    @GetMapping("/{id}/token")
-//    public ResponseEntity<?> getJoinToken(@PathVariable Long id,
-//                                           @RequestParam(required = false) String displayName,
-//                                           Authentication auth) {
-//        try {
-//            String identity = auth.getName();
-//            return ResponseEntity.ok(service.generateJoinToken(id, identity, displayName));
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
+
     @GetMapping("/{id}/token")
     public ResponseEntity<?> getJoinToken(@PathVariable Long id,
                                            @RequestParam(required = false) String displayName,
@@ -170,17 +159,7 @@ public class MeetingController {
         }
     }
 
-//    @GetMapping("/{id}/token/guest/{requestId}")
-//    public ResponseEntity<?> getGuestToken(@PathVariable Long id,
-//                                            @PathVariable Long requestId,
-//                                            @RequestParam String guestIdentity,
-//                                            @RequestParam(required = false) String displayName) {
-//        try {
-//            return ResponseEntity.ok(service.generateGuestToken(id, requestId, guestIdentity, displayName));
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
+
     @GetMapping("/{id}/token/guest/{requestId}")
     public ResponseEntity<?> getGuestToken(@PathVariable Long id,
                                             @PathVariable Long requestId,
