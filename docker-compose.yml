@@ -162,6 +162,8 @@ services:
       AWS_SECRET_KEY: ${AWS_SECRET_KEY}
       AWS_REGION: ${AWS_REGION}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_S3_BUCKET_MEDIA: ${AWS_S3_BUCKET_MEDIA}
+      APP_API_BASE_URL: ${APP_API_BASE_URL}
 
   notification-service:
     image: shareef123/notification-service:latest
@@ -508,6 +510,7 @@ services:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
+      - "50000-50100:50000-50100/udp"
     depends_on:
       - redis
     volumes:
