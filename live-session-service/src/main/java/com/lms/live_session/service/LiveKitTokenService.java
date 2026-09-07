@@ -1,3 +1,93 @@
+//package com.lms.live_session.service;
+//
+//import com.lms.live_session.config.LiveKitConfig;
+//import io.livekit.server.AccessToken;
+//import io.livekit.server.RoomJoin;
+//import io.livekit.server.RoomName;
+//import org.springframework.stereotype.Service;
+//
+//@Service
+//public class LiveKitTokenService {
+//
+//    private final LiveKitConfig config;
+//
+//    public LiveKitTokenService(LiveKitConfig config) {
+//        this.config = config;
+//    }
+//
+//    public String generateTrainerToken(Long sessionId) {
+//
+//        String roomName = "session-" + sessionId;
+//
+//        AccessToken token = new AccessToken(
+//                config.getApiKey(),
+//                config.getApiSecret()
+//        );
+//
+//        token.setIdentity("trainer-" + sessionId);
+//        token.setName("Trainer");
+//
+//        // ✅ Fixed: RoomName is a separate grant
+//        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+//
+//        return token.toJwt();
+//    }
+//
+////    public String generateStudentToken(Long sessionId, Long studentId) {
+////
+////        String roomName = "session-" + sessionId;
+////
+////        AccessToken token = new AccessToken(
+////                config.getApiKey(),
+////                config.getApiSecret()
+////        );
+////
+////        token.setIdentity("student-" + studentId);
+////        token.setName("Student-" + studentId);
+////
+////        // ✅ Fixed: RoomName is a separate grant
+////        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+////
+////        return token.toJwt();
+////    }
+//    public String generateStudentToken(Long sessionId, String studentEmail) {
+//
+//        String roomName = "session-" + sessionId;
+//
+//        AccessToken token = new AccessToken(
+//                config.getApiKey(),
+//                config.getApiSecret()
+//        );
+//
+//        // Email is our one true unique identifier for students in this
+//        // service — no numeric studentId exists anywhere in this database.
+//        token.setIdentity(studentEmail);
+//        token.setName(studentEmail);
+//
+//        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+//
+//        return token.toJwt();
+//    }
+//    public String generateCallToken(String identity, String roomName) {
+//
+//        AccessToken token = new AccessToken(
+//                config.getApiKey(),
+//                config.getApiSecret()
+//        );
+//
+//        token.setIdentity(identity);
+//        token.setName(identity);
+//
+//        token.addGrants(new RoomJoin(true), new RoomName(roomName));
+//
+//        return token.toJwt();
+//    }
+// 
+//}
+
+
+
+
 package com.lms.live_session.service;
 
 import com.lms.live_session.config.LiveKitConfig;
@@ -5,6 +95,8 @@ import io.livekit.server.AccessToken;
 import io.livekit.server.RoomJoin;
 import io.livekit.server.RoomName;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 @Service
 public class LiveKitTokenService {
@@ -16,7 +108,6 @@ public class LiveKitTokenService {
     }
 
     public String generateTrainerToken(Long sessionId) {
-
         String roomName = "session-" + sessionId;
 
         AccessToken token = new AccessToken(
@@ -29,29 +120,12 @@ public class LiveKitTokenService {
 
         // ✅ Fixed: RoomName is a separate grant
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
-
+//        token.setExpiry(Duration.ofHours(6));   // <-- ADDED
+        token.setTtl(Duration.ofHours(6).toMillis());   // <-- FIXED
         return token.toJwt();
     }
 
-//    public String generateStudentToken(Long sessionId, Long studentId) {
-//
-//        String roomName = "session-" + sessionId;
-//
-//        AccessToken token = new AccessToken(
-//                config.getApiKey(),
-//                config.getApiSecret()
-//        );
-//
-//        token.setIdentity("student-" + studentId);
-//        token.setName("Student-" + studentId);
-//
-//        // ✅ Fixed: RoomName is a separate grant
-//        token.addGrants(new RoomJoin(true), new RoomName(roomName));
-//
-//        return token.toJwt();
-//    }
     public String generateStudentToken(Long sessionId, String studentEmail) {
-
         String roomName = "session-" + sessionId;
 
         AccessToken token = new AccessToken(
@@ -65,11 +139,12 @@ public class LiveKitTokenService {
         token.setName(studentEmail);
 
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
-
+//        token.setExpiry(Duration.ofHours(6));   // <-- ADDED
+        token.setTtl(Duration.ofHours(6).toMillis());   // <-- FIXED
         return token.toJwt();
     }
-    public String generateCallToken(String identity, String roomName) {
 
+    public String generateCallToken(String identity, String roomName) {
         AccessToken token = new AccessToken(
                 config.getApiKey(),
                 config.getApiSecret()
@@ -79,8 +154,8 @@ public class LiveKitTokenService {
         token.setName(identity);
 
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
-
+//        token.setExpiry(Duration.ofHours(6));   // <-- ADDED
+        token.setTtl(Duration.ofHours(6).toMillis());   // <-- FIXED
         return token.toJwt();
     }
- 
 }
