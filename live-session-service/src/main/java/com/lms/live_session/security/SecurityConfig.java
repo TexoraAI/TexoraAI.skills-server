@@ -30,7 +30,7 @@ public class SecurityConfig {
                     // allow health checks
                     .requestMatchers("/actuator/**").permitAll()
                     .requestMatchers("/api/livekit/webhook").permitAll()
-
+                    .requestMatchers("/error").permitAll()
                     .requestMatchers("/live-chat/**").permitAll()
                     .requestMatchers("/live-chat-sockjs/**").permitAll()
                     .requestMatchers("/api/live-sessions/public/**").permitAll()

@@ -25,7 +25,7 @@ public class LiveKitWebhookController {
 
     @PostMapping("/api/livekit/webhook")
     public void handleWebhook(
-            @RequestHeader("Authorize") String authHeader,
+    		@RequestHeader("Authorization") String authHeader,
             @RequestBody String body) {
         try {
             WebhookEvent event = webhookReceiver.receive(body, authHeader);
