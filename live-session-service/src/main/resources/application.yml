@@ -74,10 +74,6 @@ app:
   api-base-url: ${APP_API_BASE_URL:http://localhost:9000/api}
 
 # ✅ NEW: Google Calendar Sync
-# client-id/client-secret must belong to the SAME OAuth client (verify via
-# DevTools Network tab on your login flow before setting these). redirect-uri
-# defaults to app.api-base-url + /calendar-sync/callback so it stays in sync
-# with app.api-base-url automatically if that ever changes.
 google:
   calendar:
     client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
@@ -98,12 +94,16 @@ logging:
     com.lms: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # ✅ TEMP: debugging why permitAll() routes (actuator, livekit webhook) are returning 403
+    org.springframework.security: DEBUG
 
-# ✅ OpenAI Configuration (used by AiCompanionService)
+# ✅ OpenAI Configuration (used by AiCompanionService and OpenAiClientService)
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-4o
   max-tokens: 3000
+  connect-timeout-ms: ${OPENAI_CONNECT_TIMEOUT_MS:10000}
+  read-timeout-ms: ${OPENAI_READ_TIMEOUT_MS:120000}
 
 # ✅ NEW: Texora Integration API Key
 texora:
