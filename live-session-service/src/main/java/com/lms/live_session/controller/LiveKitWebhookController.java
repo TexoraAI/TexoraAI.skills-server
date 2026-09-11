@@ -31,10 +31,40 @@ public class LiveKitWebhookController {
             WebhookEvent event = webhookReceiver.receive(body, authHeader);
             String eventType = event.getEvent();
 
-            if ("room_finished".equals(eventType)) {
-                String roomName = event.getRoom().getName();
-                System.out.println("✅ Room finished, closing: " + roomName);
-                meetingTokenService.closeRoom(roomName);
+            switch (eventType) {
+                case "room_finished" -> {
+                    String roomName = event.getRoom().getName();
+                    System.out.println("✅ Room finished, closing: " + roomName);
+                    meetingTokenService.closeRoom(roomName);
+                }
+                case "track_unpublished" -> {
+                    System.out.println("⚠️ [AUDIO-DEBUG] track_unpublished — room="
+                        + event.getRoom().getName()
+                        + " participant=" + event.getParticipant().getIdentity()
+                        + " identity=" + event.getParticipant().getIdentity()
+                        + " track=" + event.getTrack().getSid()
+                        + " kind=" + event.getTrack().getType());
+                }
+                case "track_published" -> {
+                    System.out.println("✅ [AUDIO-DEBUG] track_published — room="
+                        + event.getRoom().getName()
+                        + " participant=" + event.getParticipant().getIdentity()
+                        + " track=" + event.getTrack().getSid()
+                        + " kind=" + event.getTrack().getType());
+                }
+                case "participant_left" -> {
+                    System.out.println("👋 [AUDIO-DEBUG] participant_left — room="
+                        + event.getRoom().getName()
+                        + " participant=" + event.getParticipant().getIdentity());
+                }
+                case "participant_joined" -> {
+                    System.out.println("👋 [AUDIO-DEBUG] participant_joined — room="
+                        + event.getRoom().getName()
+                        + " participant=" + event.getParticipant().getIdentity());
+                }
+                default -> {
+                    // other events ignored for now, but no longer silent-swallowed
+                }
             }
         } catch (Exception e) {
             System.err.println("⚠️ Webhook verification/processing failed: " + e.getMessage());
