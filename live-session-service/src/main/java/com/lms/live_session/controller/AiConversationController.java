@@ -12,9 +12,6 @@ import com.lms.live_session.repository.AiMessageRepository;
 @RequestMapping("/api/v1/ai-companion/conversations")
 public class AiConversationController {
  
-    // @Autowired AiConversationService conversationService;
- 
-    // POST /api/v1/ai-companion/conversations
 	private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
 
@@ -23,12 +20,7 @@ public class AiConversationController {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
     }
-    // Creates a new empty conversation
-//    @PostMapping
-//    public ResponseEntity<?> create(@RequestBody Map<String, Object> body, Principal principal) {
-//        // TODO: return conversationService.create(principal.getName(), body)
-//        return ResponseEntity.ok(Map.of("id", 1L, "status", "ACTIVE"));
-//    }
+   
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body, Principal principal) {
         AiConversation conversation = new AiConversation();
@@ -42,26 +34,14 @@ public class AiConversationController {
         return ResponseEntity.ok(conversation);
     }
  
-    // GET /api/v1/ai-companion/conversations
-    // Returns all conversations for authenticated user
-//    @GetMapping
-//    public ResponseEntity<?> list(Principal principal) {
-//        // TODO: return conversationService.listByUser(principal.getName())
-//        return ResponseEntity.ok(List.of());
-//    }
-// 
+   
     @GetMapping
     public ResponseEntity<?> list(Principal principal) {
         return ResponseEntity.ok(
             conversationRepository.findByUserEmailOrderByUpdatedAtDesc(principal.getName())
         );
     }
-    // GET /api/v1/ai-companion/conversations/{id}
-//    @GetMapping("/{id}")
-//    public ResponseEntity<?> get(@PathVariable Long id, Principal principal) {
-//        // TODO: return conversationService.getById(id, principal.getName())
-//        return ResponseEntity.ok(Map.of("id", id));
-//    }
+  
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable Long id, Principal principal) {
         Optional<AiConversation> convo = conversationRepository.findById(id);
@@ -72,12 +52,7 @@ public class AiConversationController {
         return ResponseEntity.ok(convo.get());
     }
  
-//    // GET /api/v1/ai-companion/conversations/{id}/messages
-//    @GetMapping("/{id}/messages")
-//    public ResponseEntity<?> getMessages(@PathVariable Long id, Principal principal) {
-//        // TODO: return conversationService.getMessages(id, principal.getName())
-//        return ResponseEntity.ok(List.of());
-//    }
+
     @GetMapping("/{id}/messages")
     public ResponseEntity<?> getMessages(@PathVariable Long id, Principal principal) {
         Optional<AiConversation> convo = conversationRepository.findById(id);
@@ -90,12 +65,7 @@ public class AiConversationController {
         );
     }
  
-//    // DELETE /api/v1/ai-companion/conversations/{id}
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<?> delete(@PathVariable Long id, Principal principal) {
-//        // TODO: conversationService.delete(id, principal.getName())
-//        return ResponseEntity.noContent().build();
-//    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Principal principal) {
         Optional<AiConversation> convo = conversationRepository.findById(id);

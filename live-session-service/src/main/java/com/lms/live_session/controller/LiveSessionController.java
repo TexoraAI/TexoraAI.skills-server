@@ -1,12 +1,18 @@
+
 package com.lms.live_session.controller;
 
 import com.lms.live_session.dto.PublicBookingRequest;
+
 import com.lms.live_session.dto.PublicBookingResponse;
 import com.lms.live_session.dto.RecordingResponse;
 import com.lms.live_session.entity.LiveSession;
 import com.lms.live_session.entity.PublicSessionBooking;
 import com.lms.live_session.entity.SessionParticipant;
+import com.lms.live_session.exception.LiveSessionAccessDeniedException;
+import com.lms.live_session.security.LiveSessionAccessValidator;
+import com.lms.live_session.security.JwtUtil;
 import com.lms.live_session.service.*;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
@@ -31,7 +37,10 @@ public class LiveSessionController {
     private final PublicBookingService bookingService;
     private final UrlBuilderService urlBuilderService;
     private final RecordingService recordingService;
-    
+    private final LiveSessionAccessValidator accessValidator;
+    private final JwtUtil jwtUtil;
+    private final LiveSessionUsageService usageService;
+
     public LiveSessionController(
             LiveSessionService service,
             LiveKitTokenService tokenService,
@@ -39,7 +48,10 @@ public class LiveSessionController {
             ParticipantService participantService,
             PublicBookingService bookingService,
             UrlBuilderService urlBuilderService,
-            RecordingService recordingService) {
+            RecordingService recordingService,
+            LiveSessionAccessValidator accessValidator,
+            JwtUtil jwtUtil,
+            LiveSessionUsageService usageService) {
         this.service           = service;
         this.tokenService      = tokenService;
         this.messagingTemplate = messagingTemplate;
@@ -47,20 +59,81 @@ public class LiveSessionController {
         this.bookingService    = bookingService;
         this.urlBuilderService = urlBuilderService;
         this.recordingService  = recordingService;
+        this.accessValidator   = accessValidator;
+        this.jwtUtil            = jwtUtil;
+        this.usageService       = usageService;
     }
-
     // ═══════════════════════════════════════════════════════
     // LIVE SESSION CRUD
     // ═══════════════════════════════════════════════════════
 
+//    @PostMapping
+//    public ResponseEntity<?> createSession(
+//            @RequestBody LiveSession session,
+//            Authentication auth,
+//            HttpServletRequest request) {
+//        try {
+//            session.setTrainerEmail(auth.getName());
+//
+//            String token = extractRawToken(request);
+//            Long organizationId = accessValidator.validateAndResolveOrganizationId(
+//                token, session.getBatchId());
+//            session.setOrganizationId(organizationId);
+//
+//            LiveSession created = service.createSession(session);
+//            return ResponseEntity.ok(created);
+//        } catch (LiveSessionAccessDeniedException e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse("Access denied: " + e.getMessage()));
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to create session: " + e.getMessage()));
+//        }
+//    }
+    
     @PostMapping
-    public ResponseEntity<?> createSession(@RequestBody LiveSession session, Authentication auth) {
+    public ResponseEntity<?> createSession(
+            @RequestBody LiveSession session,
+            Authentication auth,
+            HttpServletRequest request) {
         try {
             session.setTrainerEmail(auth.getName());
+
+            String token = extractRawToken(request);
+            Long organizationId = accessValidator.validateAndResolveOrganizationId(
+                token, session.getBatchId());
+            session.setOrganizationId(organizationId);
+
             LiveSession created = service.createSession(session);
             return ResponseEntity.ok(created);
+        } catch (LiveSessionAccessDeniedException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse("Access denied: " + e.getMessage()));
+        } catch (com.lms.live_session.exception.LiveClassLimitExceededException e) {
+            throw e; // let GlobalExceptionHandler produce 429 + CLASS_LIMIT_EXCEEDED
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse("Failed to create session: " + e.getMessage()));
+        }
+    }
+
+    private String extractRawToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
+    }
+
+    // ✅ NEW — resolves the CALLER's own org id for read-side filtering.
+    // Unlike accessValidator (which checks trainer-vs-batch org match for
+    // writes), this is a simple "what org is this caller in" lookup — no
+    // mismatch is possible on a pure read, so no exception path needed.
+    private Long resolveCallerOrgId(HttpServletRequest request) {
+        String token = extractRawToken(request);
+        if (token == null) return null;
+        String orgIdStr = jwtUtil.extractOrganizationId(token);
+        if (orgIdStr == null) return null;
+        try {
+            return Long.parseLong(orgIdStr);
+        } catch (NumberFormatException e) {
+            return null; // malformed claim on a read path — fail open to unrestricted rather than 500
         }
     }
 
@@ -107,52 +180,62 @@ public class LiveSessionController {
     }
 
     @GetMapping("/batch/{batchId}")
-    public List<LiveSession> getBatchSessions(@PathVariable Long batchId) {
-        return service.getBatchSessions(batchId);
+    public List<LiveSession> getBatchSessions(@PathVariable Long batchId, HttpServletRequest request) {
+        return service.getBatchSessions(batchId, resolveCallerOrgId(request));
     }
 
     @GetMapping("/batch/{batchId}/live")
-    public List<LiveSession> getLiveSessions(@PathVariable Long batchId) {
-        return service.getLiveSessions(batchId);
+    public List<LiveSession> getLiveSessions(@PathVariable Long batchId, HttpServletRequest request) {
+        return service.getLiveSessions(batchId, resolveCallerOrgId(request));
     }
 
- // ADD these 3 endpoints to LiveSessionController — don't touch existing ones
+    @GetMapping("/{id}/meeting-link")
+    public ResponseEntity<?> getMeetingLink(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(service.resolveMeetingLink(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(new ErrorResponse(e.getMessage()));
+        }
+    }
 
- // ── Resolve meeting link (external vs custom) ─────────────────
- 
- @GetMapping("/{id}/meeting-link")
- public ResponseEntity<?> getMeetingLink(@PathVariable Long id) {
-     try {
-         return ResponseEntity.ok(service.resolveMeetingLink(id));
-     } catch (Exception e) {
-         return ResponseEntity.badRequest()
-             .body(new ErrorResponse(e.getMessage()));
-     }
- }
+    @GetMapping("/calendar")
+    public ResponseEntity<List<LiveSession>> getCalendar(
+            @RequestParam String from,
+            @RequestParam String to,
+            Authentication auth) {
+        java.time.LocalDate fromDate = java.time.LocalDate.parse(from);
+        java.time.LocalDate toDate   = java.time.LocalDate.parse(to);
+        return ResponseEntity.ok(
+            service.getTrainerCalendar(auth.getName(), fromDate, toDate));
+    }
 
- // ── Trainer calendar view ─────────────────────────────────────
- // GET /api/live-sessions/calendar?from=2025-05-01&to=2025-05-31
- @GetMapping("/calendar")
- public ResponseEntity<List<LiveSession>> getCalendar(
-         @RequestParam String from,
-         @RequestParam String to,
-         Authentication auth) {
-     java.time.LocalDate fromDate = java.time.LocalDate.parse(from);
-     java.time.LocalDate toDate   = java.time.LocalDate.parse(to);
-     return ResponseEntity.ok(
-         service.getTrainerCalendar(auth.getName(), fromDate, toDate));
- }
+    @GetMapping("/published")
+    public ResponseEntity<List<LiveSession>> getPublishedSessions() {
+        return ResponseEntity.ok(service.getPublishedSessions());
+    }
 
- // ── Published/global sessions (no batchId, anyone can view) ──
- // GET /api/live-sessions/published
- @GetMapping("/published")
- public ResponseEntity<List<LiveSession>> getPublishedSessions() {
-     return ResponseEntity.ok(service.getPublishedSessions());
- }
-    
+    // ═══════════════════════════════════════════════════════
+    // USAGE PREVIEW (ungated)
+    // ═══════════════════════════════════════════════════════
+
+    @GetMapping("/usage/classes")
+    public ResponseEntity<?> getClassUsage(Authentication auth, HttpServletRequest request) {
+        Long orgId = resolveCallerOrgId(request);
+        return ResponseEntity.ok(usageService.getUsageStatus(orgId, auth.getName(), "CLASS_CREATE"));
+    }
+
+    @GetMapping("/usage/ai-companion")
+    public ResponseEntity<?> getAiCompanionUsage(Authentication auth, HttpServletRequest request) {
+        Long orgId = resolveCallerOrgId(request);
+        return ResponseEntity.ok(usageService.getUsageStatus(orgId, auth.getName(), "AI_COMPANION_USE"));
+    }
+
     // ═══════════════════════════════════════════════════════
     // CAN-START CHECK
-    
+    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
+    // CAN-START CHECK
     // ═══════════════════════════════════════════════════════
 
     @GetMapping("/{id}/can-start")
@@ -194,13 +277,11 @@ public class LiveSessionController {
     // LIVEKIT TOKENS
     // ═══════════════════════════════════════════════════════
 
-   
     @PostMapping("/{id}/start-live")
     public ResponseEntity<?> startLiveSession(@PathVariable Long id, Authentication auth) {
         try {
             LiveSession session = service.getSessionById(id);
 
-            // ✅ FIX: If already LIVE, just return a new token (trainer re-joining)
             if ("LIVE".equals(session.getStatus())) {
                 String token = tokenService.generateTrainerToken(id);
                 Map<String, String> response = new HashMap<>();
@@ -209,7 +290,6 @@ public class LiveSessionController {
                 return ResponseEntity.ok(response);
             }
 
-            // Only enforce canStart for SCHEDULED → LIVE transition
             if (!service.canStart(session)) {
                 long minutesAway = 0;
                 if (session.getScheduledDate() != null && session.getScheduledTime() != null) {
@@ -225,7 +305,7 @@ public class LiveSessionController {
                 ));
             }
 
-            service.startSession(id);  // sets LIVE + actualStartTime
+            service.startSession(id);
 
             String token = tokenService.generateTrainerToken(id);
             Map<String, String> response = new HashMap<>();
@@ -243,7 +323,7 @@ public class LiveSessionController {
             @PathVariable Long id,
             Authentication auth) {
         try {
-            String studentEmail = auth.getName(); // extracted from JWT, same pattern as participant/join
+            String studentEmail = auth.getName();
             String token = tokenService.generateStudentToken(id, studentEmail);
             Map<String, String> response = new HashMap<>();
             response.put("room", "session-" + id);
@@ -253,10 +333,6 @@ public class LiveSessionController {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
-   
-    
- // ── ADD new endpoint — anonymous/guest join, no auth required ──────
- 
 
     // ═══════════════════════════════════════════════════════
     // CALLS (WebSocket + LiveKit)
@@ -289,91 +365,92 @@ public class LiveSessionController {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
- // ═══════════════════════════════════════════════════════
- // PARTICIPANTS — email extracted from JWT, not from params
 
- @PostMapping("/{sessionId}/participant/join")
- public ResponseEntity<?> joinSessionAsParticipant(
-         @PathVariable Long sessionId,
-         @RequestParam Long batchId,
-         @RequestParam String trainerEmail,
-         Authentication auth) {          // ✅ studentEmail comes from JWT
-     try {
-         String studentEmail = auth.getName();  // extracted from JWT
-         SessionParticipant participant = participantService.joinSession(
-             sessionId, batchId, studentEmail, trainerEmail
-         );
-         return ResponseEntity.ok(participant);
-     } catch (Exception e) {
-         return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-     }
- }
+    // ═══════════════════════════════════════════════════════
+    // PARTICIPANTS
+    // ═══════════════════════════════════════════════════════
 
- @PostMapping("/{sessionId}/participant/leave")
- public ResponseEntity<?> leaveSessionAsParticipant(
-         @PathVariable Long sessionId,
-         Authentication auth) {          // ✅ studentEmail comes from JWT
-     try {
-         String studentEmail = auth.getName();  // extracted from JWT
-         SessionParticipant participant = participantService.leaveSession(
-             sessionId, studentEmail
-         );
-         return ResponseEntity.ok(participant);
-     } catch (Exception e) {
-         return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-     }
- }
+    @PostMapping("/{sessionId}/participant/join")
+    public ResponseEntity<?> joinSessionAsParticipant(
+            @PathVariable Long sessionId,
+            @RequestParam Long batchId,
+            @RequestParam String trainerEmail,
+            Authentication auth) {
+        try {
+            String studentEmail = auth.getName();
+            SessionParticipant participant = participantService.joinSession(
+                sessionId, batchId, studentEmail, trainerEmail
+            );
+            return ResponseEntity.ok(participant);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
 
- @GetMapping("/{sessionId}/participants")
- public ResponseEntity<List<SessionParticipant>> getParticipants(
-         @PathVariable Long sessionId) {
-     return ResponseEntity.ok(participantService.getSessionParticipants(sessionId));
- }
+    @PostMapping("/{sessionId}/participant/leave")
+    public ResponseEntity<?> leaveSessionAsParticipant(
+            @PathVariable Long sessionId,
+            Authentication auth) {
+        try {
+            String studentEmail = auth.getName();
+            SessionParticipant participant = participantService.leaveSession(
+                sessionId, studentEmail
+            );
+            return ResponseEntity.ok(participant);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
 
- @GetMapping("/{sessionId}/participant/active-count")
- public ResponseEntity<?> getActiveCount(@PathVariable Long sessionId) {
-     return ResponseEntity.ok(Map.of("activeCount", participantService.getActiveCount(sessionId)));
- }
+    @GetMapping("/{sessionId}/participants")
+    public ResponseEntity<List<SessionParticipant>> getParticipants(
+            @PathVariable Long sessionId) {
+        return ResponseEntity.ok(participantService.getSessionParticipants(sessionId));
+    }
 
- @GetMapping("/{sessionId}/participant/has-joined")
- public ResponseEntity<?> hasJoined(
-         @PathVariable Long sessionId,
-         Authentication auth) {          // ✅ from JWT
-     String studentEmail = auth.getName();
-     return ResponseEntity.ok(Map.of("hasJoined", participantService.hasJoined(sessionId, studentEmail)));
- }
+    @GetMapping("/{sessionId}/participant/active-count")
+    public ResponseEntity<?> getActiveCount(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(Map.of("activeCount", participantService.getActiveCount(sessionId)));
+    }
+
+    @GetMapping("/{sessionId}/participant/has-joined")
+    public ResponseEntity<?> hasJoined(
+            @PathVariable Long sessionId,
+            Authentication auth) {
+        String studentEmail = auth.getName();
+        return ResponseEntity.ok(Map.of("hasJoined", participantService.hasJoined(sessionId, studentEmail)));
+    }
+
     // ═══════════════════════════════════════════════════════
     // PUBLIC BOOKINGS
     // ═══════════════════════════════════════════════════════
 
-//── REPLACE ONLY THIS METHOD inside LiveSessionController ──────────
+    @PostMapping("/public/bookings")
+    public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) {
+      try {
+          PublicSessionBooking booking = bookingService.bookSession(
+              request.getSessionId(),
+              request.getFullName(),
+              request.getEmail(),
+              request.getPhoneNumber(),
+              request.getCountry(),
+              request.getGdprConsent(),
+              request.getTopicsOfInterest(),
+              request.getJobRole(),
+              request.getHowDidYouHear(),
+              request.getLearningGoal()
+          );
+          String joinLink = urlBuilderService.generatePublicJoinLink(booking.getUniqueAccessToken());
+          return ResponseEntity.ok(new PublicBookingResponse(
+              booking.getId(), booking.getSessionId(), booking.getFullName(),
+              booking.getEmail(), joinLink, booking.getBookingStatus(),
+              "Booking confirmed! Join link sent to your email."
+          ));
+      } catch (Exception e) {
+          return ResponseEntity.badRequest().body(new ErrorResponse("Booking failed: " + e.getMessage()));
+      }
+    }
 
-@PostMapping("/public/bookings")
-public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) {
-  try {
-      PublicSessionBooking booking = bookingService.bookSession(
-          request.getSessionId(),
-          request.getFullName(),
-          request.getEmail(),
-          request.getPhoneNumber(),
-          request.getCountry(),
-          request.getGdprConsent(),
-          // ✅ 4 new fields
-          request.getTopicsOfInterest(),
-          request.getJobRole(),
-          request.getHowDidYouHear(),
-          request.getLearningGoal()
-      );
-      String joinLink = urlBuilderService.generatePublicJoinLink(booking.getUniqueAccessToken());
-      return ResponseEntity.ok(new PublicBookingResponse(
-          booking.getId(), booking.getSessionId(), booking.getFullName(),
-          booking.getEmail(), joinLink, booking.getBookingStatus(),
-          "Booking confirmed! Join link sent to your email."
-      ));
-  } catch (Exception e) {
-      return ResponseEntity.badRequest().body(new ErrorResponse("Booking failed: " + e.getMessage()));
-  }
-}
     @GetMapping("/public/bookings/verify/{token}")
     public ResponseEntity<?> verifyBooking(@PathVariable String token) {
         return bookingService.getBookingByToken(token)
@@ -457,12 +534,13 @@ public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) 
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
+
     @GetMapping("/public/upcoming")
     public ResponseEntity<List<LiveSession>> getUpcomingSessions() {
         List<LiveSession> sessions = service.getUpcomingPublicSessions();
         return ResponseEntity.ok(sessions);
     }
-    
+
     @GetMapping("/public/session/{id}")
     public ResponseEntity<?> getPublicSessionDetails(@PathVariable Long id) {
         try {
@@ -471,6 +549,7 @@ public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) 
             return ResponseEntity.notFound().build();
         }
     }
+
     // ═══════════════════════════════════════════════════════
     // RECORDINGS
     // ═══════════════════════════════════════════════════════
@@ -484,31 +563,57 @@ public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) 
             @RequestParam("title")                                   String title,
             @RequestParam(value = "batchName",       required = false) String batchName,
             @RequestParam(value = "durationMinutes", required = false) Integer durationMinutes,
-            Authentication auth) {
+            Authentication auth,
+            HttpServletRequest request) { // ✅ NEW
         try {
+            // ✅ NEW — reuse the same trainer-vs-batch org validation as session
+            // creation, since uploading is also a write scoped to a batch.
+            String token = extractRawToken(request);
+            Long organizationId = accessValidator.validateAndResolveOrganizationId(token, batchId);
+
+//            RecordingResponse response = recordingService.uploadRecording(
+//                file, sessionId, batchId, auth.getName(),
+//                title, description, batchName, durationMinutes,
+//                organizationId // ✅ NEW
+//            );
+//            return ResponseEntity.ok(response);
+//        } catch (LiveSessionAccessDeniedException e) { // ✅ NEW
+//            return ResponseEntity.badRequest().body(new ErrorResponse("Access denied: " + e.getMessage()));
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse("Upload failed: " + e.getMessage()));
+//        }
+//    }
             RecordingResponse response = recordingService.uploadRecording(
-                file, sessionId, batchId, auth.getName(),
-                title, description, batchName, durationMinutes
-            );
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse("Upload failed: " + e.getMessage()));
+                    file, sessionId, batchId, auth.getName(),
+                    title, description, batchName, durationMinutes,
+                    organizationId // ✅ NEW
+                );
+                return ResponseEntity.ok(response);
+            } catch (LiveSessionAccessDeniedException e) { // ✅ NEW
+                return ResponseEntity.badRequest().body(new ErrorResponse("Access denied: " + e.getMessage()));
+            } catch (com.lms.live_session.exception.RecordingStorageLimitExceededException
+                    | com.lms.live_session.exception.RecordingDurationLimitExceededException e) {
+                throw e; // let GlobalExceptionHandler produce the documented 403 + error code
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(new ErrorResponse("Upload failed: " + e.getMessage()));
+            }
         }
-    }
 
     @GetMapping("/recording/all")
-    public ResponseEntity<List<RecordingResponse>> getAllRecordings() {
-        return ResponseEntity.ok(recordingService.getAllRecordings());
+    public ResponseEntity<List<RecordingResponse>> getAllRecordings(HttpServletRequest request) { // ✅ NEW param
+        return ResponseEntity.ok(recordingService.getAllRecordings(resolveCallerOrgId(request))); // ✅ CHANGED
     }
 
     @GetMapping("/recording/batch/{batchId}")
-    public ResponseEntity<List<RecordingResponse>> getRecordingsByBatch(@PathVariable Long batchId) {
-        return ResponseEntity.ok(recordingService.getByBatch(batchId));
+    public ResponseEntity<List<RecordingResponse>> getRecordingsByBatch(
+            @PathVariable Long batchId, HttpServletRequest request) { // ✅ NEW param
+        return ResponseEntity.ok(recordingService.getByBatch(batchId, resolveCallerOrgId(request))); // ✅ CHANGED
     }
 
     @GetMapping("/recording/session/{sessionId}")
-    public ResponseEntity<List<RecordingResponse>> getRecordingsBySession(@PathVariable Long sessionId) {
-        return ResponseEntity.ok(recordingService.getBySession(sessionId));
+    public ResponseEntity<List<RecordingResponse>> getRecordingsBySession(
+            @PathVariable Long sessionId, HttpServletRequest request) { // ✅ NEW param
+        return ResponseEntity.ok(recordingService.getBySession(sessionId, resolveCallerOrgId(request))); // ✅ CHANGED
     }
 
     @GetMapping("/recording/trainer/my")
@@ -593,8 +698,7 @@ public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) 
             this.durationMinutes = durationMinutes;
         }
     }
-    
- // ✅ NEW — add near your other /start-live, /end endpoints
+
     @PostMapping("/{id}/recording/start")
     public ResponseEntity<?> startRecordingEndpoint(@PathVariable Long id) {
         try {
@@ -612,4 +716,6 @@ public ResponseEntity<?> bookSession(@RequestBody PublicBookingRequest request) 
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
+    
+    
 }

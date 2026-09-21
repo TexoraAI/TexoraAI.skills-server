@@ -1,3 +1,6 @@
+
+
+
 package com.lms.live_session.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,6 +13,7 @@ import com.lms.live_session.entity.EmailStatus;
 import com.lms.live_session.event.ComposedEmailEvent;
 import com.lms.live_session.kafka.NotificationProducer;
 import com.lms.live_session.repository.EmailRepository;
+import com.lms.live_session.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +24,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import java.util.Map;
 @Service
 @Transactional
 public class EmailService {
@@ -28,6 +32,8 @@ public class EmailService {
     private final EmailRepository emailRepository;
     private final com.lms.live_session.repository.EmailAttachmentRepository attachmentRepository;
     private final NotificationProducer notificationProducer;
+    private final JwtUtil jwtUtil;
+    private final LiveSessionUsageService usageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String UPLOAD_DIR = "uploads/email-attachments";
@@ -35,34 +41,46 @@ public class EmailService {
     @Autowired
     public EmailService(EmailRepository emailRepository,
                          com.lms.live_session.repository.EmailAttachmentRepository attachmentRepository,
-                         NotificationProducer notificationProducer) {
+                         NotificationProducer notificationProducer,
+                         JwtUtil jwtUtil,
+                         LiveSessionUsageService usageService) {
         this.emailRepository = emailRepository;
         this.attachmentRepository = attachmentRepository;
         this.notificationProducer = notificationProducer;
+        this.jwtUtil = jwtUtil;
+        this.usageService = usageService;
     }
 
     public EmailResponseDTO draftEmail(EmailRequestDTO dto, String creatorId, String fromEmail,
-            List<org.springframework.web.multipart.MultipartFile> files) {
-validate(dto);
+            List<org.springframework.web.multipart.MultipartFile> files, String token) {
+        // NO usage check — drafts are never actually sent, no dispatch cost.
+        validate(dto);
 
-Email email = new Email();
-email.setSubject(dto.getSubject());
-email.setBody(dto.getBody());
-email.setFromEmail(fromEmail);
-email.setToEmails(serializeEmailList(dto.getToEmails()));
-email.setCcEmails(serializeEmailList(dto.getCcEmails()));
-email.setBccEmails(serializeEmailList(dto.getBccEmails()));
-email.setStatus(EmailStatus.DRAFT);
-email.setCreatorId(creatorId);
+        Email email = new Email();
+        email.setSubject(dto.getSubject());
+        email.setBody(dto.getBody());
+        email.setFromEmail(fromEmail);
+        email.setToEmails(serializeEmailList(dto.getToEmails()));
+        email.setCcEmails(serializeEmailList(dto.getCcEmails()));
+        email.setBccEmails(serializeEmailList(dto.getBccEmails()));
+        email.setStatus(EmailStatus.DRAFT);
+        email.setCreatorId(creatorId);
+        email.setOrganizationId(resolveOrganizationId(token));
 
-Email saved = emailRepository.save(email);
-saveAttachments(saved.getId(), files);
-return mapToDTO(saved);
-}
+        Email saved = emailRepository.save(email);
+        saveAttachments(saved.getId(), files);
+        return mapToDTO(saved);
+    }
 
     public EmailResponseDTO sendEmail(EmailRequestDTO dto, String creatorId, String fromEmail,
-            List<org.springframework.web.multipart.MultipartFile> files) {
-validate(dto);
+            List<org.springframework.web.multipart.MultipartFile> files, String token) {
+        // Dashboard compose/send is the only gated email path — automatic
+        // meeting-invite emails (MeetingService.publishMeetingInvites,
+        // EventService.notifyAttendeesOfEventCreation) are NOT gated here;
+        // they inherit from the meeting/event creation gate already applied
+        // to their parent action.
+        usageService.checkAndIncrementEmailDispatch(resolveOrganizationId(token), creatorId);
+        validate(dto);
 
         Email email = new Email();
         email.setSubject(dto.getSubject());
@@ -72,6 +90,7 @@ validate(dto);
         email.setCcEmails(serializeEmailList(dto.getCcEmails()));
         email.setBccEmails(serializeEmailList(dto.getBccEmails()));
         email.setCreatorId(creatorId);
+        email.setOrganizationId(resolveOrganizationId(token));
 
         // Delivery itself happens asynchronously downstream in
         // notification-service. SENT here means "handed off to the
@@ -149,6 +168,8 @@ validate(dto);
         email.setToEmails(serializeEmailList(dto.getToEmails()));
         email.setCcEmails(serializeEmailList(dto.getCcEmails()));
         email.setBccEmails(serializeEmailList(dto.getBccEmails()));
+        // organizationId is intentionally left untouched — set once at
+        // creation, never changed afterward.
 
         Email saved = emailRepository.save(email);
         return mapToDTO(saved);
@@ -179,6 +200,12 @@ validate(dto);
         return new EmailStatsDTO((int) unread, (int) sent, (int) drafts);
     }
 
+    // NEW — usage-preview for GET /api/emails/usage
+    @Transactional(readOnly = true)
+    public Map<String, Object> getEmailUsage(String creatorId, String token) {
+        return usageService.getUsageStatus(resolveOrganizationId(token), creatorId, "EMAIL_DISPATCH");
+    }
+
     private void validate(EmailRequestDTO dto) {
         if (!StringUtils.hasText(dto.getSubject())) {
             throw new IllegalArgumentException("Subject is required");
@@ -202,6 +229,28 @@ validate(dto);
     private void verifyOwnership(Email email, String creatorId) {
         if (!email.getCreatorId().equals(creatorId)) {
             throw new IllegalArgumentException("You do not have permission to access this email");
+        }
+    }
+
+    /**
+     * Resolves organizationId server-side from the caller's JWT, same
+     * pattern as Meeting/Event/Schedule. Non-org users (Super Admin-created,
+     * Google Sign-In, self-registered) legitimately have no org claim, so a
+     * null/blank result here just means the email is stamped with a null
+     * organizationId — not an error.
+     */
+    private Long resolveOrganizationId(String token) {
+        if (!StringUtils.hasText(token)) {
+            return null;
+        }
+        String orgId = jwtUtil.extractOrganizationId(token);
+        if (!StringUtils.hasText(orgId)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(orgId);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 

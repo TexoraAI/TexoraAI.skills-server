@@ -1,5 +1,5 @@
 package com.lms.assessment.service;
-
+import java.util.Map;
 import com.lms.assessment.dto.CodeFileDTO;
 import com.lms.assessment.model.CodeFile;
 import com.lms.assessment.repository.CodeFileRepository;
@@ -9,30 +9,50 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
+import com.lms.assessment.constants.AssessmentTierResolver;
+import com.lms.assessment.constants.AssessmentUsageLimits;
+import com.lms.assessment.exception.AssessmentUsageLimitExceededException;
 @Service
 public class CodeFileService {
 
     @Autowired
     private CodeFileRepository repo;
 
+@Autowired
+private AssessmentTierResolver tierResolver;
+
     // ── Save (create or overwrite if same name) ───
-    public CodeFileDTO save(CodeFileDTO.SaveRequest req) {
+public CodeFileDTO save(CodeFileDTO.SaveRequest req, String organizationId) {
 
-        // If a file with same name exists for this student+batch, overwrite it
-        Optional<CodeFile> existing = repo.findByStudentEmailAndBatchIdAndFileName(
-            req.getStudentEmail(), req.getBatchId(), req.getFileName()
-        );
+    // If a file with same name exists for this student+batch, overwrite it
+    Optional<CodeFile> existing = repo.findByStudentEmailAndBatchIdAndFileName(
+        req.getStudentEmail(), req.getBatchId(), req.getFileName()
+    );
 
-        CodeFile file = existing.orElse(new CodeFile());
-        file.setStudentEmail(req.getStudentEmail());
-        file.setBatchId(req.getBatchId());
-        file.setLanguage(req.getLanguage().toUpperCase());
-        file.setFileName(req.getFileName());
-        file.setCode(req.getCode());
-
-        return toDTO(repo.save(file));
+    // Only enforce the cap for a genuinely new file — overwriting an existing
+    // filename must never count against the limit.
+    if (existing.isEmpty()) {
+        String tier = tierResolver.resolveTier(organizationId, req.getStudentEmail());
+        if (!AssessmentUsageLimits.isUnlimited(AssessmentUsageLimits.Action.SAVE_CODE_FILE, tier)) {
+            long currentCount = repo.countByStudentEmail(req.getStudentEmail());
+            int limit = AssessmentUsageLimits.limitFor(AssessmentUsageLimits.Action.SAVE_CODE_FILE, tier);
+            if (currentCount >= limit) {
+                throw new AssessmentUsageLimitExceededException(
+                    req.getStudentEmail(), AssessmentUsageLimits.Action.SAVE_CODE_FILE.name(),
+                    tier, (int) currentCount, limit, "ALL_TIME");
+            }
+        }
     }
+
+    CodeFile file = existing.orElse(new CodeFile());
+    file.setStudentEmail(req.getStudentEmail());
+    file.setBatchId(req.getBatchId());
+    file.setLanguage(req.getLanguage().toUpperCase());
+    file.setFileName(req.getFileName());
+    file.setCode(req.getCode());
+
+    return toDTO(repo.save(file));
+}
 
     // ── Get all files for student in batch ────────
     public List<CodeFileDTO> getAll(String studentEmail, String batchId) {
@@ -83,6 +103,19 @@ public class CodeFileService {
             f.getCode(),
             f.getCreatedAt(),
             f.getUpdatedAt()
+        );
+    }
+ // ADD this method
+    public Map<String, Object> getSaveUsageStatus(String studentEmail, String organizationId) {
+        String tier = tierResolver.resolveTier(organizationId, studentEmail);
+        long used = repo.countByStudentEmail(studentEmail);
+        boolean unlimited = AssessmentUsageLimits.isUnlimited(AssessmentUsageLimits.Action.SAVE_CODE_FILE, tier);
+        int limit = AssessmentUsageLimits.limitFor(AssessmentUsageLimits.Action.SAVE_CODE_FILE, tier);
+        return Map.of(
+            "action", AssessmentUsageLimits.Action.SAVE_CODE_FILE.name(),
+            "tier", tier,
+            "used", used,
+            "limit", unlimited ? "unlimited" : limit
         );
     }
 }

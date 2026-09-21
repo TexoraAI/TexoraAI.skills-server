@@ -1,4 +1,5 @@
 
+
 package com.lms.video.service;
 import com.lms.video.model.TranscriptSourceType;
 import com.lms.video.model.FeaturedVideoTranscript;
@@ -11,6 +12,12 @@ import com.lms.video.repository.VideoRepository;
 import com.lms.video.repository.TrainerBatchMapRepository;
 import com.lms.video.repository.StudentBatchMapRepository;
 import com.lms.video.model.StudentBatchMap;
+import com.lms.video.constants.VideoTierResolver;
+import com.lms.video.constants.VideoTierLimits;
+import com.lms.video.dto.UploadQuotaResponse;
+import com.lms.video.exception.VideoSizeLimitExceededException;
+import com.lms.video.exception.VideoStorageLimitExceededException;
+import com.lms.video.exception.VideoCountLimitExceededException;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
@@ -19,15 +26,11 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.io.IOException;
-import java.nio.file.*;
+import java.time.Duration;
 import java.util.List;
 import java.util.Collections;
 @Service
 public class VideoService {
-
-    @Value("${video.upload-dir}")
-    private String uploadDir;
 
     private final VideoRepository repo;
     private final VideoProducer videoProducer;
@@ -36,6 +39,8 @@ public class VideoService {
     private final TranscriptGenerationService transcriptGenerationService;
     private final FeaturedVideoTranscriptRepository transcriptRepo;
     private final FeaturedTranscriptSegmentRepository segmentRepo;
+    private final S3Service s3Service; // ✅ NEW — all file storage now goes through this
+    private final VideoTierResolver videoTierResolver; // ✅ NEW — plan-tier lookup for upload limits
 
 
     public VideoService(VideoRepository repo,
@@ -44,7 +49,9 @@ public class VideoService {
             StudentBatchMapRepository studentBatchMapRepository,
             TranscriptGenerationService transcriptGenerationService,
             FeaturedVideoTranscriptRepository transcriptRepo,
-            FeaturedTranscriptSegmentRepository segmentRepo) {
+            FeaturedTranscriptSegmentRepository segmentRepo,
+            S3Service s3Service, // ✅ NEW
+            VideoTierResolver videoTierResolver) { // ✅ NEW
 this.repo = repo;
 this.videoProducer = videoProducer;
 this.trainerBatchMapRepository = trainerBatchMapRepository;
@@ -52,6 +59,8 @@ this.studentBatchMapRepository = studentBatchMapRepository;
 this.transcriptGenerationService = transcriptGenerationService;
 this.transcriptRepo = transcriptRepo;
 this.segmentRepo = segmentRepo;
+this.s3Service = s3Service; // ✅ NEW
+this.videoTierResolver = videoTierResolver; // ✅ NEW
 }
 
     // ✅ NEW — centralized org-isolation check, reused everywhere a single
@@ -60,6 +69,36 @@ this.segmentRepo = segmentRepo;
     private void validateOrgAccess(Video video, String organizationId) {
         if (organizationId != null && !organizationId.equals(video.getOrganizationId())) {
             throw new AccessDeniedException("Cross-organization access is not allowed");
+        }
+    }
+
+    // ✅ NEW — plan-tier quota enforcement, shared by uploadVideo and
+    // editVideo (file-replace path). Order matters: size check is cheapest
+    // and rejects obviously-oversized files before we touch the DB at all;
+    // storage-cap check and count check both hit the repo.
+    //
+    // KNOWN SIMPLIFICATION (see editVideo): when called from a file-replace,
+    // the old file's size is NOT subtracted from currentUsage first, so a
+    // like-for-like replacement within the cap can be over-restricted. Fine
+    // for now — flag if you want the subtract-old-then-check-new version.
+    private void enforceUploadLimits(long newFileSize, String organizationId, String email) {
+        String tier = videoTierResolver.resolveTier(organizationId, email);
+
+        long maxSize = VideoTierLimits.maxVideoSizeFor(tier);
+        if (newFileSize > maxSize) {
+            throw new VideoSizeLimitExceededException(newFileSize, maxSize, tier);
+        }
+
+        long currentUsage = repo.sumStorageUsage(organizationId, email);
+        long capacity = VideoTierLimits.storageCapFor(tier);
+        if (currentUsage + newFileSize > capacity) {
+            throw new VideoStorageLimitExceededException(currentUsage, newFileSize, capacity, tier);
+        }
+
+        long currentCount = repo.countVideos(organizationId, email);
+        int maxCount = VideoTierLimits.maxVideoCountFor(tier);
+        if (currentCount + 1 > maxCount) {
+            throw new VideoCountLimitExceededException((int) currentCount, maxCount, tier);
         }
     }
 
@@ -85,7 +124,10 @@ this.segmentRepo = segmentRepo;
                 .getAuthentication()
                 .getName();
 
-
+        // ✅ NEW — plan-tier quota check, FIRST thing after email is resolved.
+        // Runs before the batch-ownership check and before any S3 call, so a
+        // caller over their limit never touches storage or Kafka.
+        enforceUploadLimits(file.getSize(), organizationId, email);
 
         // ✅ Only check batch ownership if batchId is provided
         if (batchId != null) {
@@ -104,15 +146,13 @@ this.segmentRepo = segmentRepo;
             }
         }
 
-        Path directory = Paths.get(uploadDir);
-        if (!Files.exists(directory)) {
-            Files.createDirectories(directory);
-        }
+        // ✅ CHANGED — video goes straight to S3, no local disk involved at all
+        String storedFileName = "videos/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        s3Service.uploadFile(storedFileName, file);
 
-        String storedFileName =
-                System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path filePath = directory.resolve(storedFileName);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        // ✅ NEW — temporary secure link so ffmpeg can read the file directly
+        // from S3 (valid for 2 hours — plenty of time even for large videos)
+        String presignedUrl = s3Service.generatePresignedUrl(storedFileName, Duration.ofHours(2));
 
         Video video = new Video();
         video.setTitle(title);
@@ -133,8 +173,9 @@ this.segmentRepo = segmentRepo;
         video.setStatus(status != null ? status : "draft");
         Video saved = repo.save(video);
         try {
+            // ✅ CHANGED — pass the presigned S3 URL instead of a local file path
             transcriptGenerationService.generateAsync(
-                    saved.getId(), filePath.toString(), TranscriptSourceType.LIBRARY_VIDEO);
+                    saved.getId(), presignedUrl, TranscriptSourceType.LIBRARY_VIDEO);
         } catch (Exception ignored) {
             // transcript kickoff failures must never affect the upload response
         }
@@ -170,6 +211,13 @@ this.segmentRepo = segmentRepo;
                 .getContext()
                 .getAuthentication()
                 .getName();
+
+        // ⚠️ NOTE — enforceUploadLimits is intentionally NOT called here.
+        // URL-based videos have size=0 and consume no S3 storage, so the
+        // size/storage checks would be no-ops anyway. They also skip the
+        // video-count cap for now (a URL video still occupies a "slot" in
+        // the trainer's library — flag if you want count enforcement added
+        // here too via a size=0 call to enforceUploadLimits).
 
         // ✅ Only check batch ownership if batchId is provided
         if (batchId != null) {
@@ -211,14 +259,14 @@ this.segmentRepo = segmentRepo;
     public byte[] getVideoFile(String fileName, String organizationId) throws Exception {
         // ✅ NEW — previously this method had no db lookup at all, so there
         // was nothing to enforce an org check against. Now resolve the
-        // Video row first and validate before touching disk.
+        // Video row first and validate before touching S3.
         Video video = repo.findByStoredFileName(fileName)
                 .orElseThrow(() -> new RuntimeException("Video not found"));
 
         validateOrgAccess(video, organizationId);
 
-        Path path = Paths.get(uploadDir).resolve(fileName);
-        return Files.readAllBytes(path);
+        // ✅ CHANGED — read bytes from S3 instead of local disk
+        return s3Service.downloadFile(fileName);
     }
 
     public Video getVideoMeta(Long id, String organizationId) {
@@ -257,12 +305,14 @@ this.segmentRepo = segmentRepo;
 
         validateOrgAccess(video, organizationId);   // ✅ NEW
 
-        Path videoPath = Paths.get(uploadDir).resolve(video.getStoredFileName());
-
-        try {
-            Files.deleteIfExists(videoPath);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to delete video file", e);
+        // ✅ CHANGED — delete from S3 instead of local disk. s3Service.deleteFile
+        // is safe to call even if storedFileName is blank/missing (URL-based videos).
+        if (video.getStoredFileName() != null && !video.getStoredFileName().isBlank()) {
+            try {
+                s3Service.deleteFile(video.getStoredFileName());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to delete video file from S3", e);
+            }
         }
 
         repo.delete(video);
@@ -301,7 +351,19 @@ this.segmentRepo = segmentRepo;
                 .toList();
 
         // ✅ NEW — null-safe org filter baked into the query itself
-        return repo.findByBatchIdInAndStatusAndOrganizationId(batchIds, "published", organizationId);
+        // (repo query already orders by uploaded_at DESC, so most-recent-first
+        // is preserved by the cap below)
+        List<Video> all = repo.findByBatchIdInAndStatusAndOrganizationId(batchIds, "published", organizationId);
+
+        // ✅ NEW — plan-tier cap on how many videos a student can see.
+        // This truncates rather than throwing: a student isn't performing an
+        // "action" by viewing their list, so a silent cap is correct UX here.
+        String tier = videoTierResolver.resolveTier(organizationId, email);
+        int visibleCap = VideoTierLimits.studentVisibleCountFor(tier);
+        if (visibleCap == -1) {
+            return all; // unlimited (premium)
+        }
+        return all.stream().limit(visibleCap).toList();
     }
 
     public List<Video> getVideosForTrainer(String organizationId) {
@@ -316,6 +378,19 @@ this.segmentRepo = segmentRepo;
         // ✅ NEW — org-aware lookup (email alone isn't safe across orgs
         // unless global email uniqueness is guaranteed by Auth Service)
         return repo.findByUploadedByAndOrganizationId(email, organizationId);
+    }
+
+    // ✅ NEW — lets the frontend preview quota before attempting an upload.
+    public UploadQuotaResponse getUploadQuota(String organizationId, String email) {
+        String tier = videoTierResolver.resolveTier(organizationId, email);
+
+        long storageUsed = repo.sumStorageUsage(organizationId, email);
+        long storageCap = VideoTierLimits.storageCapFor(tier);
+        long videoCount = repo.countVideos(organizationId, email);
+        int maxVideoCount = VideoTierLimits.maxVideoCountFor(tier);
+        long maxVideoSize = VideoTierLimits.maxVideoSizeFor(tier);
+
+        return new UploadQuotaResponse(tier, storageUsed, storageCap, videoCount, maxVideoCount, maxVideoSize);
     }
 
     public Video assignBatchToVideo(Long videoId, Long batchId, String organizationId) {
@@ -455,25 +530,32 @@ this.segmentRepo = segmentRepo;
 
         // ── Replace file only when a new one is provided ──
         if (file != null && !file.isEmpty()) {
-            // Delete old physical file (best-effort)
+
+            // ✅ NEW — plan-tier quota check, only runs when a new file is
+            // actually being uploaded (metadata-only edits skip this
+            // entirely, since no new storage/count is being consumed).
+            //
+            // KNOWN SIMPLIFICATION: the old file's size is NOT subtracted
+            // from currentUsage first, so this may slightly over-restrict a
+            // like-for-like file replacement that's within the cap. Flag if
+            // you want the subtract-old-then-check-new logic added.
+            enforceUploadLimits(file.getSize(), organizationId, email);
+
+            // ✅ CHANGED — delete old file from S3 (best-effort), not local disk
             if (video.getStoredFileName() != null && !video.getStoredFileName().isBlank()) {
-                Path oldPath = Paths.get(uploadDir).resolve(video.getStoredFileName());
                 try {
-                    Files.deleteIfExists(oldPath);
-                } catch (IOException e) {
-                    System.out.println("Could not delete old file: " + e.getMessage());
+                    s3Service.deleteFile(video.getStoredFileName());
+                } catch (Exception e) {
+                    System.out.println("Could not delete old file from S3: " + e.getMessage());
                 }
             }
 
-            Path directory = Paths.get(uploadDir);
-            if (!Files.exists(directory)) {
-                Files.createDirectories(directory);
-            }
+            // ✅ CHANGED — new file goes straight to S3, no local disk involved
+            String storedFileName = "videos/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            s3Service.uploadFile(storedFileName, file);
 
-            String storedFileName =
-                    System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filePath = directory.resolve(storedFileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            // ✅ NEW — temporary secure link so ffmpeg can read the new file
+            String presignedUrl = s3Service.generatePresignedUrl(storedFileName, Duration.ofHours(2));
 
             video.setOriginalFileName(file.getOriginalFilename());
             video.setStoredFileName(storedFileName);
@@ -491,8 +573,9 @@ this.segmentRepo = segmentRepo;
                     });
 
             try {
+                // ✅ CHANGED — pass the presigned S3 URL instead of a local file path
                 transcriptGenerationService.generateAsync(
-                        videoId, filePath.toString(), TranscriptSourceType.LIBRARY_VIDEO);
+                        videoId, presignedUrl, TranscriptSourceType.LIBRARY_VIDEO);
             } catch (Exception ignored) {
                 // transcript kickoff failures must never affect the edit response
             }
@@ -599,5 +682,49 @@ this.segmentRepo = segmentRepo;
 
         return repo.save(video);
     }
+    public String getPresignedPlayUrl(Long id, String organizationId) {
+        Video video = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Video not found"));
+        validateOrgAccess(video, organizationId);
+        if (video.getStoredFileName() == null || video.getStoredFileName().isBlank()) {
+            throw new RuntimeException("This video has no stored file (URL-based video)");
+        }
+        return s3Service.generatePresignedUrl(video.getStoredFileName(), Duration.ofMinutes(30));
+    }
+    
+ // ✅ NEW — companion to getVideosForStudent(): reports the TRUE total
+    // (before the tier cap truncates it) so the frontend can render an
+    // "Upgrade to unlock N more" tile instead of silently stopping.
+    // Deliberately re-derives `all` the same way rather than caching it,
+    // to stay correct if this is called independently of the list call.
+    public java.util.Map<String, Object> getStudentVideoCount(String organizationId) {
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName()
+                .trim()
+                .toLowerCase();
 
+        List<StudentBatchMap> mappings =
+                studentBatchMapRepository.findAllByStudentEmail(email);
+
+        List<Long> batchIds = mappings.stream()
+                .map(StudentBatchMap::getBatchId)
+                .toList();
+
+        int totalCount = batchIds.isEmpty()
+                ? 0
+                : repo.findByBatchIdInAndStatusAndOrganizationId(batchIds, "published", organizationId).size();
+
+        String tier = videoTierResolver.resolveTier(organizationId, email);
+        int visibleCap = VideoTierLimits.studentVisibleCountFor(tier);
+        int visibleCount = visibleCap == -1 ? totalCount : Math.min(totalCount, visibleCap);
+
+        return java.util.Map.of(
+                "totalCount", totalCount,
+                "visibleCount", visibleCount,
+                "tier", tier,
+                "unlimited", visibleCap == -1
+        );
+    }
 }

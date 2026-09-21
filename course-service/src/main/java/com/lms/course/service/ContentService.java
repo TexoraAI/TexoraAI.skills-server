@@ -1,9 +1,9 @@
-
-
-
 package com.lms.course.service;
 
+import com.lms.course.constants.CourseTierLimits;
+import com.lms.course.constants.CourseTierResolver;
 import com.lms.course.dto.ContentEvent;
+import com.lms.course.exception.ModuleCountLimitExceededException;
 import com.lms.course.kafka.ContentEventProducer;
 import com.lms.course.model.ContentItem;
 import com.lms.course.model.Course;
@@ -22,13 +22,16 @@ public class ContentService {
     private final ContentRepository    repo;
     private final ContentEventProducer producer;
     private final CourseRepository     courseRepo;
+    private final CourseTierResolver   courseTierResolver; // NEW
 
     public ContentService(ContentRepository repo,
                           ContentEventProducer producer,
-                          CourseRepository courseRepo) {
+                          CourseRepository courseRepo,
+                          CourseTierResolver courseTierResolver) { // NEW param
         this.repo       = repo;
         this.producer   = producer;
         this.courseRepo = courseRepo;
+        this.courseTierResolver = courseTierResolver; // NEW
     }
 
     // ============================
@@ -40,6 +43,20 @@ public class ContentService {
         if (item.getCourseId() == null)
             throw new RuntimeException("courseId is required");
 
+        // NEW — hoisted course lookup, shared with the Kafka event payload below
+        // (avoids querying the course twice)
+        Course course = courseRepo.findById(item.getCourseId())
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        // NEW — plan-based module count check, FIRST check before other validation
+        String tier = courseTierResolver.resolveTier(course.getOrganizationId(), email);
+        long currentModuleCount = repo.countByCourseId(item.getCourseId());
+        int maxModules = CourseTierLimits.maxModulesPerCourseFor(tier);
+        if (currentModuleCount >= maxModules) {
+            throw new ModuleCountLimitExceededException(
+                    item.getCourseId(), (int) currentModuleCount, maxModules, tier);
+        }
+
         if (item.getTitle() == null || item.getTitle().isBlank())
             throw new RuntimeException("title is required");
 
@@ -47,9 +64,7 @@ public class ContentService {
         ContentItem saved = repo.save(item);
 
         try {
-            Course course = courseRepo.findById(saved.getCourseId())
-                    .orElseThrow(() -> new RuntimeException("Course not found"));
-
+            // course already resolved above — no second lookup needed
             producer.sendEvent(new ContentEvent(
                 "CONTENT_CREATED",
                 Map.of(
@@ -198,5 +213,25 @@ public class ContentService {
 
     public List<ContentItem> getByCourseForStudents(Long courseId) {
         return repo.findByCourseId(courseId);
+    }
+    
+    // ============================
+    // GET MODULE USAGE (for quota pill)
+    // ============================
+    public java.util.Map<String, Object> getModuleUsage(Long courseId, String email, String organizationId) {
+        Course course = courseRepo.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+
+        String tier = courseTierResolver.resolveTier(
+                organizationId != null ? organizationId : course.getOrganizationId(), email);
+        long used = repo.countByCourseId(courseId);
+        int limit = CourseTierLimits.maxModulesPerCourseFor(tier);
+
+        return java.util.Map.of(
+                "tier", tier,
+                "used", used,
+                "limit", limit,
+                "remaining", Math.max(0, limit - used)
+        );
     }
 }

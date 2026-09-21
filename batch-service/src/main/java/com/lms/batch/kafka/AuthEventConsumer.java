@@ -51,17 +51,47 @@ public class AuthEventConsumer {
             // orgId is always present here.
             // batch-service has no action needed — org context flows through
             // Department → Branch → Batch hierarchy, not directly here.
-            case "ORG_CREATED" -> {
-                String orgId = getString(event, "organizationId");
-                String name  = getString(event, "displayName");
-                String email = getString(event, "email");
-                System.out.println("📥 AUTH EVENT: ORG_CREATED"
-                        + " | orgId=" + orgId
-                        + " | name="  + name
-                        + " | email=" + email);
-                // No action needed in batch-service for org creation.
-                // orgId enters batch-service when admin creates Department with orgId.
+//            case "ORG_CREATED" -> {
+//                String orgId = getString(event, "organizationId");
+//                String name  = getString(event, "displayName");
+//                String email = getString(event, "email");
+//                System.out.println("📥 AUTH EVENT: ORG_CREATED"
+//                        + " | orgId=" + orgId
+//                        + " | name="  + name
+//                        + " | email=" + email);
+//                // No action needed in batch-service for org creation.
+//                // orgId enters batch-service when admin creates Department with orgId.
+//            }
+        case "ORG_CREATED" -> {
+            String orgId = getString(event, "organizationId");
+            String name  = getString(event, "displayName");
+            String email = getString(event, "email");
+            System.out.println("📥 AUTH EVENT: ORG_CREATED"
+                    + " | orgId=" + orgId
+                    + " | name="  + name
+                    + " | email=" + email);
+
+            if (orgId == null) {
+                System.out.println("⚠️ ORG_CREATED received with no orgId — skipping");
+                return;
             }
+
+            Integer maxDept   = getInt(event, "maxDepartments");
+            Integer maxBranch = getInt(event, "maxBranchesPerDept");
+            Integer maxBatch  = getInt(event, "maxBatchesPerBranch");
+
+            OrgLimits limits = orgLimitsRepository
+                .findById(orgId)
+                .orElse(new OrgLimits());
+
+            limits.setOrganizationId(orgId);
+            limits.setMaxDepartments(maxDept);
+            limits.setMaxBranchesPerDept(maxBranch);
+            limits.setMaxBatchesPerBranch(maxBatch);
+
+            orgLimitsRepository.save(limits);
+            System.out.println("✅ ORG LIMITS SAVED -> " + orgId);
+        }
             case "ORG_LIMITS_UPDATED" -> {
                 String orgId = getString(event, "organizationId");
                 Integer maxDept    = getInt(event, "maxDepartments");

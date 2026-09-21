@@ -1,83 +1,10 @@
-//
-//package com.lms.user.model;
-//
-//import jakarta.persistence.*;
-//import java.time.Instant;
-//
-//@Entity
-//@Table(name = "users", uniqueConstraints = {
-//        @UniqueConstraint(columnNames = {"email"})
-//})
-//public class User {
-//
-//    @Id
-//    @GeneratedValue(strategy = GenerationType.IDENTITY)
-//    private Long id;
-//
-//    @Column(name = "tenant_id")
-//    private String tenantId;
-//
-//    @Column(nullable = false)
-//    private String email;
-//
-//    @Column(name = "password_hash")
-//    private String passwordHash;
-//
-//    @Column(name = "display_name")
-//    private String displayName;
-//
-//    private String roles; // e.g. ROLE_STUDENT, ROLE_TRAINER
-//
-//    @Column(name = "photo_url", columnDefinition = "TEXT")
-//    private String photoUrl;
-//
-//    /**
-//     * ← NEW: links this user to an Organization (UUID stored as String).
-//     * Populated by:
-//     *   - AuthEventConsumer when USER_CREATED event includes organizationId
-//     *   - CreateUserRequest when an org admin manually creates a user
-//     */
-//    @Column(name = "organization_id")
-//    private String organizationId;
-//
-//    @Column(name = "created_at")
-//    private Instant createdAt = Instant.now();
-//
-//    public User() {}
-//
-//    // ── Getters & Setters ──────────────────────────────────────────────────
-//    public Long getId()                    { return id; }
-//    public void setId(Long id)             { this.id = id; }
-//
-//    public String getTenantId()            { return tenantId; }
-//    public void setTenantId(String tid)    { this.tenantId = tid; }
-//
-//    public String getEmail()               { return email; }
-//    public void setEmail(String email)     { this.email = email; }
-//
-//    public String getPasswordHash()        { return passwordHash; }
-//    public void setPasswordHash(String ph) { this.passwordHash = ph; }
-//
-//    public String getDisplayName()         { return displayName; }
-//    public void setDisplayName(String dn)  { this.displayName = dn; }
-//
-//    public String getRoles()               { return roles; }
-//    public void setRoles(String roles)     { this.roles = roles; }
-//
-//    public String getPhotoUrl()            { return photoUrl; }
-//    public void setPhotoUrl(String url)    { this.photoUrl = url; }
-//
-//    public String getOrganizationId()              { return organizationId; }       // ← NEW
-//    public void setOrganizationId(String orgId)    { this.organizationId = orgId; } // ← NEW
-//
-//    public Instant getCreatedAt()              { return createdAt; }
-//    public void setCreatedAt(Instant createdAt){ this.createdAt = createdAt; }
-//}
+
 package com.lms.user.model;
 
 import jakarta.persistence.*;
-import java.time.Instant;
 
+import java.time.Instant;
+import java.time.LocalDate;
 // WHY: Central user identity for all roles (Student, Trainer, Admin) in the LMS
 @Entity
 @Table(name = "users",
@@ -94,7 +21,7 @@ import java.time.Instant;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+
     private Long id;
 
     // WHY: Multi-tenant LMS — tenantId scopes data to a specific LMS instance
@@ -123,10 +50,28 @@ public class User {
     // WHY: Links user to an Organization for multi-tenant org-scoped queries
     @Column(name = "organization_id")
     private String organizationId;
+    
+   
 
     // WHY: Audit trail for user creation — used in analytics and admin reports
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
+    
+    @Column(name = "plan", length = 20)
+    private String plan;
+    
+    // WHY: Mirrors Organization.plan — only meaningful when organizationId != null
+    @Column(name = "org_plan", length = 20)
+    private String orgPlan;
+
+    // WHY: Individually purchased resume-specific plan override
+    @Column(name = "resume_plan_override", length = 20)
+    private String resumePlanOverride;
+    
+    // WHY: Expiry for the resume-plan override above — cleared/downgraded by
+    // ResumePlanExpiryService's daily job once past this date
+    @Column(name = "resume_plan_override_expiry_date")
+    private LocalDate resumePlanOverrideExpiryDate;
 
     public User() {}
 
@@ -148,4 +93,18 @@ public class User {
     public void setOrganizationId(String o){ this.organizationId = o; }
     public Instant getCreatedAt()          { return createdAt; }
     public void setCreatedAt(Instant c)    { this.createdAt = c; }
+    
+    public String getPlan()                { return plan; }
+    public void setPlan(String plan)       { this.plan = plan; }
+    
+    
+    public String getOrgPlan()             { return orgPlan; }
+    public void setOrgPlan(String orgPlan) { this.orgPlan = orgPlan; }
+
+    public String getResumePlanOverride()               { return resumePlanOverride; }
+    public void setResumePlanOverride(String override)  { this.resumePlanOverride = override; }
+    
+    public LocalDate getResumePlanOverrideExpiryDate()             { return resumePlanOverrideExpiryDate; }
+    public void setResumePlanOverrideExpiryDate(LocalDate expiry)  { this.resumePlanOverrideExpiryDate = expiry; }
+
 }

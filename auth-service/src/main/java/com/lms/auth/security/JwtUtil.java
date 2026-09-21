@@ -22,18 +22,7 @@ public class JwtUtil {
     private final SecretKey key =
             Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
-    // ✅ UPDATED: NOW INCLUDES userId
-//    public String generateToken(User user) {
-//
-//        return Jwts.builder()
-//                .setSubject(user.getEmail())
-//                .claim("role", user.getRole().name())
-//                .claim("userId", user.getId())     // 🔥 THIS LINE FIXES EVERYTHING
-//                .setIssuedAt(new Date())
-//                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
-//                .signWith(key, SignatureAlgorithm.HS256)
-//                .compact();
-//    }
+    
     public String generateToken(User user) {
         var builder = Jwts.builder()
                 .setSubject(user.getEmail())
@@ -63,5 +52,15 @@ public class JwtUtil {
             "Use generateToken(User user) instead"
         );
     }
+    
+ // ✅ ADD — lets controllers pull claims (userId, role, organizationId)
+ // straight off the token without a separate filter/context class.
+ public Claims parseClaims(String token) {
+     return Jwts.parserBuilder()
+             .setSigningKey(key)
+             .build()
+             .parseClaimsJws(token)
+             .getBody(); // throws JwtException/ExpiredJwtException if invalid — caller must catch
+ }
     
 }

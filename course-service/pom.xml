@@ -22,6 +22,7 @@
     <properties>
     <java.version>17</java.version>
     <spring-cloud.version>2023.0.1</spring-cloud.version>  <!-- ADD THIS -->
+    <aws-sdk.version>2.25.60</aws-sdk.version> <!-- NEW: AWS SDK v2 version, matches file-service -->
 </properties>
 
 <dependencyManagement>
@@ -30,6 +31,15 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-dependencies</artifactId>
             <version>${spring-cloud.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+
+        <!-- NEW: AWS SDK BOM, so all software.amazon.awssdk artifacts share one version -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bom</artifactId>
+            <version>${aws-sdk.version}</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -46,6 +56,9 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+
+
+      
         <!-- ========================= -->
         <!-- SPRING SECURITY -->
         <!-- ========================= -->
@@ -57,6 +70,8 @@
     <groupId>com.fasterxml.jackson.datatype</groupId>
     <artifactId>jackson-datatype-jsr310</artifactId>
          </dependency>
+         
+         
 
         <!-- ========================= -->
         <!-- JPA -->
@@ -186,6 +201,15 @@
     <artifactId>poi-ooxml</artifactId>
     <version>5.2.5</version>
 </dependency>
+
+        <!-- ========================= -->
+        <!-- AWS S3 (NEW — for mentor/featured-course/banner image uploads) -->
+        <!-- ========================= -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
         <!-- ========================= -->
         <!-- TEST -->
         <!-- ========================= -->

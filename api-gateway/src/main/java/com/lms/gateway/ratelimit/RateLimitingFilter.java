@@ -1,3 +1,5 @@
+
+
 package com.lms.gateway.ratelimit;
 
 import io.jsonwebtoken.Claims;
@@ -183,7 +185,7 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
     private record RateLimitResult(boolean allowed, long remaining, long resetEpoch) {}
 
     // ─────────────────────────────────────────────────────────────
-    //  Route group resolution — unchanged from original
+    //  Route group resolution
     // ─────────────────────────────────────────────────────────────
     private RateLimitGroup resolveGroup(String path, String method) {
 
@@ -240,6 +242,13 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
          || path.startsWith("/api/skill-map"))                                 return RateLimitGroup.PROGRESS_API;
 
         if (path.startsWith("/api/enrollments"))                               return RateLimitGroup.ENROLLMENT_API;
+
+        // ── Watch Now — must be checked BEFORE the generic /api/video prefix
+        // below, since /api/v1/watch-now would otherwise never be reached
+        // (it doesn't start with "/api/video" or "/api/course-videos" so it
+        // wasn't actually shadowed before, but keeping this ordered here
+        // for clarity and to group it with the other VIDEO_API-adjacent checks).
+        if (path.startsWith("/api/v1/watch-now"))                              return RateLimitGroup.WATCH_NOW_API;
 
         if (path.startsWith("/api/video")
          || path.startsWith("/api/course-videos"))                             return RateLimitGroup.VIDEO_API;

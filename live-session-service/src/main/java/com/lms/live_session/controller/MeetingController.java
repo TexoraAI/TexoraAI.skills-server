@@ -1,3 +1,4 @@
+
 package com.lms.live_session.controller;
 
 import com.lms.live_session.dto.MeetingJoinRequestDTO;
@@ -10,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -28,29 +31,67 @@ public class MeetingController {
     // CREATE
     // ═══════════════════════════════════════════════════════
 
+//    @PostMapping("/instant")
+//    public ResponseEntity<?> createInstantMeeting(@RequestBody(required = false) MeetingRequestDTO dto,
+//                                                   Authentication auth,
+//                                                   HttpServletRequest request) {
+//        try {
+//            MeetingRequestDTO body = dto != null ? dto : new MeetingRequestDTO();
+//            String creatorId = auth.getName();
+//            String creatorRole = extractRole(auth);
+//            String token = extractToken(request);
+//
+//            MeetingResponseDTO created = service.createInstantMeeting(body, creatorId, creatorRole, token);
+//            return ResponseEntity.ok(created);
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to start instant meeting: " + e.getMessage()));
+//        }
+//    }
+//
+//    @PostMapping("/scheduled")
+//    public ResponseEntity<?> createScheduledMeeting(@RequestBody MeetingRequestDTO dto, Authentication auth, HttpServletRequest request) {
+//        try {
+//            String creatorId = auth.getName();
+//            String creatorRole = extractRole(auth);
+//            String token = extractToken(request);
+//
+//            MeetingResponseDTO created = service.createScheduledMeeting(dto, creatorId, creatorRole, token);
+//            return ResponseEntity.ok(created);
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(new ErrorResponse("Failed to schedule meeting: " + e.getMessage()));
+//        }
+//    }
+    
     @PostMapping("/instant")
     public ResponseEntity<?> createInstantMeeting(@RequestBody(required = false) MeetingRequestDTO dto,
-                                                   Authentication auth) {
+                                                   Authentication auth,
+                                                   HttpServletRequest request) {
         try {
             MeetingRequestDTO body = dto != null ? dto : new MeetingRequestDTO();
             String creatorId = auth.getName();
             String creatorRole = extractRole(auth);
+            String token = extractToken(request);
 
-            MeetingResponseDTO created = service.createInstantMeeting(body, creatorId, creatorRole);
+            MeetingResponseDTO created = service.createInstantMeeting(body, creatorId, creatorRole, token);
             return ResponseEntity.ok(created);
+        } catch (com.lms.live_session.exception.MeetingLimitExceededException e) {
+            throw e; // let GlobalExceptionHandler produce 429 + MEETING_LIMIT_EXCEEDED
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse("Failed to start instant meeting: " + e.getMessage()));
         }
     }
 
     @PostMapping("/scheduled")
-    public ResponseEntity<?> createScheduledMeeting(@RequestBody MeetingRequestDTO dto, Authentication auth) {
+    public ResponseEntity<?> createScheduledMeeting(@RequestBody MeetingRequestDTO dto, Authentication auth, HttpServletRequest request) {
         try {
             String creatorId = auth.getName();
             String creatorRole = extractRole(auth);
+            String token = extractToken(request);
 
-            MeetingResponseDTO created = service.createScheduledMeeting(dto, creatorId, creatorRole);
+            MeetingResponseDTO created = service.createScheduledMeeting(dto, creatorId, creatorRole, token);
             return ResponseEntity.ok(created);
+        } catch (com.lms.live_session.exception.MeetingLimitExceededException e) {
+            throw e; // let GlobalExceptionHandler produce 429 + MEETING_LIMIT_EXCEEDED
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse("Failed to schedule meeting: " + e.getMessage()));
         }
@@ -92,6 +133,17 @@ public class MeetingController {
     @GetMapping("/my")
     public ResponseEntity<List<MeetingResponseDTO>> getMyMeetings(Authentication auth) {
         return ResponseEntity.ok(service.getMyMeetings(auth.getName()));
+    }
+
+    @GetMapping("/usage")
+    public ResponseEntity<?> getMeetingUsage(Authentication auth, HttpServletRequest request) {
+        try {
+            String creatorId = auth.getName();
+            String token = extractToken(request);
+            return ResponseEntity.ok(service.getMeetingUsage(creatorId, token));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -256,6 +308,17 @@ public class MeetingController {
                 .orElse(null);
     }
 
+    // NEW — extracts the raw bearer token from the Authorization header so
+    // the service layer can resolve organizationId server-side from the JWT
+    // claim, instead of trusting a client-supplied value in the request body.
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
+    }
+
     static class ErrorResponse {
         public String error;
         public ErrorResponse(String error) { this.error = error; }
@@ -272,11 +335,12 @@ public class MeetingController {
         }
     }
     @PostMapping("/permanent")
-    public ResponseEntity<?> createPermanentMeeting(@RequestBody MeetingRequestDTO dto, Authentication auth) {
+    public ResponseEntity<?> createPermanentMeeting(@RequestBody MeetingRequestDTO dto, Authentication auth, HttpServletRequest request) {
         try {
             String creatorId = auth.getName();
             String creatorRole = extractRole(auth);
-            MeetingResponseDTO created = service.createPermanentMeeting(dto, creatorId, creatorRole);
+            String token = extractToken(request);
+            MeetingResponseDTO created = service.createPermanentMeeting(dto, creatorId, creatorRole, token);
             return ResponseEntity.ok(created);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse("Failed to create Task Orbit meeting: " + e.getMessage()));
@@ -291,4 +355,40 @@ public class MeetingController {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
     }
+    
+    
+ // ═══════════════════════════════════════════════════════
+ // TOKEN REFRESH — HOST (keeps a long-running connection alive
+ // past its current token's expiry, without disconnecting)
+ // ═══════════════════════════════════════════════════════
+
+ @GetMapping("/{id}/token/refresh")
+ public ResponseEntity<?> refreshHostToken(@PathVariable Long id,
+                                            @RequestParam(required = false) String displayName,
+                                            Authentication auth) {
+     try {
+         String identity = auth.getName();
+         String sessionId = java.util.UUID.randomUUID().toString();
+         return ResponseEntity.ok(service.generateJoinToken(id, identity, displayName, sessionId));
+     } catch (Exception e) {
+         return ResponseEntity.badRequest().body(new ErrorResponse("Failed to refresh token: " + e.getMessage()));
+     }
+ }
+
+ // ═══════════════════════════════════════════════════════
+ // TOKEN REFRESH — GUEST
+ // ═══════════════════════════════════════════════════════
+
+ @GetMapping("/{id}/token/guest/{requestId}/refresh")
+ public ResponseEntity<?> refreshGuestToken(@PathVariable Long id,
+                                             @PathVariable Long requestId,
+                                             @RequestParam String guestIdentity,
+                                             @RequestParam(required = false) String displayName) {
+     try {
+         String sessionId = java.util.UUID.randomUUID().toString();
+         return ResponseEntity.ok(service.generateGuestToken(id, requestId, guestIdentity, displayName, sessionId));
+     } catch (Exception e) {
+         return ResponseEntity.badRequest().body(new ErrorResponse("Failed to refresh guest token: " + e.getMessage()));
+     }
+ }
 }

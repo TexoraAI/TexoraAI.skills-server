@@ -30,6 +30,8 @@ public class AiChatRequest {
 
     /** Whether to persist this exchange to conversation history */
     private Boolean saveToHistory;
+    
+    private Boolean skipUsageCheck;
 
     public AiChatRequest() {}
 
@@ -60,4 +62,7 @@ public class AiChatRequest {
 
     public Boolean getSaveToHistory() { return saveToHistory; }
     public void setSaveToHistory(Boolean saveToHistory) { this.saveToHistory = saveToHistory; }
+    
+    public Boolean getSkipUsageCheck() { return skipUsageCheck; }
+    public void setSkipUsageCheck(Boolean skipUsageCheck) { this.skipUsageCheck = skipUsageCheck; }
 }

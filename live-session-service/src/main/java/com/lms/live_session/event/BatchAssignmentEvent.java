@@ -6,6 +6,7 @@ public class BatchAssignmentEvent {
     private String email;
     private Long batchId;
     private String role;
+    private Long organizationId; // ✅ NEW — nullable, non-org users/events will have null
 
     public BatchAssignmentEvent() {}
 
@@ -14,6 +15,15 @@ public class BatchAssignmentEvent {
         this.email = email;
         this.batchId = batchId;
         this.role = role;
+    }
+
+    // ✅ NEW overload — used once producer payload is confirmed to include organizationId
+    public BatchAssignmentEvent(String type, String email, Long batchId, String role, Long organizationId) {
+        this.type = type;
+        this.email = email;
+        this.batchId = batchId;
+        this.role = role;
+        this.organizationId = organizationId;
     }
 
     public String getType() { return type; }
@@ -27,4 +37,8 @@ public class BatchAssignmentEvent {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    // ✅ NEW
+    public Long getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Long organizationId) { this.organizationId = organizationId; }
 }

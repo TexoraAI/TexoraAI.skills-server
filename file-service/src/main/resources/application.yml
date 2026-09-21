@@ -30,7 +30,6 @@ spring:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      # ✅ JsonSerializer — same as batch producer pattern
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       group-id: file-service-group
@@ -40,7 +39,6 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
-        # ✅ FIXED — HashMap not Map (Map is interface, needs concrete class)
         spring.json.value.default.type: java.util.Map
     listener:
       missing-topics-fatal: false
@@ -50,19 +48,37 @@ topics:
   batch-lifecycle: batch-lifecycle
   file-uploaded: file-uploaded
   content: content-events
-  # NEW: featured session-file feature — must match course-service's values exactly
   featured-content: featured-content-events
   featured-program-lifecycle: featured-program-lifecycle
   featured-file-status: featured-file-status
 
 file:
+  # Legacy local-disk path — no longer used for new uploads once S3 is wired in.
+  # Keep only if you still need it for a one-time migration script; safe to remove after.
   storage-dir: files
 
-# NEW: gateway base URL, used to build public-facing featured-file download links.
-# Matches API Gateway's server.port (9000) — this was already the value hardcoded
-# in FeaturedSessionFileService before this change; now it's externalized.
+  # S3 key prefix for FileResource uploads, per bucket layout:
+  # ilmora-media-storage/files/file-service-files/
+  s3-prefix: files/file-service-files/
+
+  # how long presigned view/download URLs stay valid
+  presign-expiry-minutes: ${FILE_PRESIGN_EXPIRY_MINUTES:15}
+
+# NEW — S3 config for CourseFile uploads (course-content), per bucket layout:
+# ilmora-media-storage/files/course-service-files/
+course-file:
+  s3-prefix: files/course-service-files/
+  presign-expiry-minutes: ${COURSE_FILE_PRESIGN_EXPIRY_MINUTES:15}
+
 gateway:
   base-url: ${GATEWAY_BASE_URL:http://localhost:9000}
+
+aws:
+  access-key: ${AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY}
+  region: ${AWS_REGION:ap-south-1}
+  s3:
+    bucket: ${AWS_S3_BUCKET_MEDIA:ilmora-media-storage}
 
 logging:
   level:

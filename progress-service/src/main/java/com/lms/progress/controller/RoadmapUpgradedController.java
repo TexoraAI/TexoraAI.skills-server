@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map; // NEW
 
 /**
  * Single controller class for the RoadmapUpgraded feature, per spec. Every
@@ -39,11 +40,7 @@ public class RoadmapUpgradedController {
         this.service = service;
     }
 
-//    @PostMapping("/generate")
-//    public RoadmapUpgradedResponseDto generate(@RequestHeader("Authorization") String authHeader,
-//                                                @RequestBody RoadmapUpgradedGenerateRequestDto request) {
-//        return service.generateRoadmap(extractToken(authHeader), request);
-//    }
+
     @PostMapping("/generate")
     public ResponseEntity<RoadmapUpgradedResponseDto> generate(@RequestHeader("Authorization") String authHeader,
                                                 @RequestBody RoadmapUpgradedGenerateRequestDto request) {
@@ -54,6 +51,14 @@ public class RoadmapUpgradedController {
     @GetMapping("/my")
     public List<RoadmapUpgradedResponseDto> getMyRoadmaps(@RequestHeader("Authorization") String authHeader) {
         return service.getMyRoadmaps(extractToken(authHeader));
+    }
+
+    // NEW — read-only usage preview, not feature-gated. Same
+    // extractToken(authHeader) pattern as every other endpoint here; zero
+    // business logic in the controller, delegates straight to the service.
+    @GetMapping("/usage")
+    public ResponseEntity<Map<String, Object>> getUsageStatus(@RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(service.getUsageStatus(extractToken(authHeader)));
     }
 
     @GetMapping("/{id}")

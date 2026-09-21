@@ -1,125 +1,11 @@
-//
-//package com.lms.assessment.controller;
-//
-//import com.lms.assessment.dto.CodeExecutionRequest;
-//import com.lms.assessment.dto.CodeExecutionResponse;
-//import com.lms.assessment.service.CodeExecutionService;
-//import com.lms.assessment.service.CodeFileService;
-//import com.lms.assessment.service.CodeSubmissionService;
-//import jakarta.validation.Valid;
-//import org.springframework.http.ResponseEntity;
-//import org.springframework.security.access.prepost.PreAuthorize;
-//import org.springframework.security.core.Authentication;
-//import org.springframework.security.core.context.SecurityContextHolder;
-//import org.springframework.web.bind.annotation.*;
-//
-//import java.util.List;
-//import java.util.Map;
-//
-//@RestController
-//@RequestMapping("/api/v1/code")
-//public class CodeController {
-//
-//    private final CodeSubmissionService codeSubmissionService;
-//    private final CodeExecutionService  codeExecutionService;
-//    private final CodeFileService codeFileService;
-//
-//    public CodeController(CodeSubmissionService codeSubmissionService,
-//                          CodeExecutionService codeExecutionService,
-//                          CodeFileService codeFileService) {
-//        this.codeSubmissionService = codeSubmissionService;
-//        this.codeExecutionService  = codeExecutionService;
-//        this.codeFileService       = codeFileService;
-//    }
-//
-//    // ── Helper: extract student email from JWT ────────────────
-//    private String getCurrentStudentId() {
-//        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-//        if (auth == null || auth.getPrincipal() == null) {
-//            throw new RuntimeException("Not authenticated");
-//        }
-//        return auth.getPrincipal().toString();
-//    }
-//
-//    // ── Run Code ──────────────────────────────────────────────
-//    @PostMapping("/run")
-//    @PreAuthorize("hasAnyRole('STUDENT','TRAINER','ADMIN')")
-//    public ResponseEntity<CodeExecutionResponse> runCode(
-//            @Valid @RequestBody CodeExecutionRequest request) {
-//
-//        // MySQL gets studentId so it uses persistent DB
-//        // all other languages get normal sampleInput
-//        String input = "MYSQL".equalsIgnoreCase(request.getLanguage())
-//            ? getCurrentStudentId()
-//            : request.getSampleInput();
-//
-//        CodeExecutionService.ExecutionResult result = codeExecutionService.execute(
-//            request.getLanguage(),
-//            request.getCode(),
-//            input
-//        );
-//
-//        CodeExecutionResponse response = CodeExecutionResponse.builder()
-//            .language(request.getLanguage().toUpperCase())
-//            .output(result.getOutput())
-//            .status(result.getStatus())
-//            .executionTimeMs(result.getElapsedMs())
-//            .batchId(request.getBatchId())
-//            .build();
-//
-//        return ResponseEntity.ok(response);
-//    }
-//
-//    // ── MySQL: get student's current DB state ─────────────────
-//    @GetMapping("/mysql/state")
-//    @PreAuthorize("hasAnyRole('STUDENT','TRAINER','ADMIN')")
-//    public ResponseEntity<Map<String, Object>> getMySQLState() {
-//        String studentId = getCurrentStudentId();
-//        CodeExecutionService.ExecutionResult result =
-//            codeExecutionService.getMySQLDatabaseState(studentId);
-//        return ResponseEntity.ok(Map.of(
-//            "output",          result.getOutput() != null ? result.getOutput() : "",
-//            "status",          result.getStatus().name(),
-//            "executionTimeMs", result.getElapsedMs()
-//        ));
-//    }
-//
-//    // ── MySQL: reset (drop + recreate) student's DB ───────────
-//    @DeleteMapping("/mysql/reset")
-//    @PreAuthorize("hasAnyRole('STUDENT','TRAINER','ADMIN')")
-//    public ResponseEntity<Map<String, Object>> resetMySQL() {
-//        String studentId = getCurrentStudentId();
-//        CodeExecutionService.ExecutionResult result =
-//            codeExecutionService.resetMySQLDatabase(studentId);
-//        return ResponseEntity.ok(Map.of(
-//            "output",          result.getOutput() != null ? result.getOutput() : "",
-//            "status",          result.getStatus().name(),
-//            "executionTimeMs", result.getElapsedMs()
-//        ));
-//    }
-//
-//    // ── Submissions ───────────────────────────────────────────
-//    @GetMapping("/submissions/student")
-//    @PreAuthorize("hasAnyRole('STUDENT','TRAINER','ADMIN')")
-//    public ResponseEntity<List<CodeExecutionResponse>> getMySubmissions(
-//            @RequestParam String batchId) {
-//        return ResponseEntity.ok(codeSubmissionService.getMySubmissions(batchId));
-//    }
-//
-//    @GetMapping("/submissions/batch/{batchId}")
-//    @PreAuthorize("hasAnyRole('TRAINER','ADMIN')")
-//    public ResponseEntity<List<CodeExecutionResponse>> getBatchSubmissions(
-//            @PathVariable String batchId) {
-//        return ResponseEntity.ok(codeSubmissionService.getBatchSubmissions(batchId));
-//    }  
-//}
 
 package com.lms.assessment.controller;
-
+import com.lms.assessment.constants.AssessmentUsageLimits;
 import com.lms.assessment.constants.AssessmentFeatureKeys;
 import com.lms.assessment.dto.CodeExecutionRequest;
 import com.lms.assessment.dto.CodeExecutionResponse;
 import com.lms.assessment.service.AssessmentFeatureFlagsService;
+import com.lms.assessment.service.AssessmentUsageService;
 import com.lms.assessment.service.CodeExecutionService;
 import com.lms.assessment.service.CodeFileService;
 import com.lms.assessment.service.CodeSubmissionService;
@@ -139,20 +25,24 @@ import java.util.Map;
 @RequestMapping("/api/v1/code")
 public class CodeController {
 
-    private final CodeSubmissionService codeSubmissionService;
-    private final CodeExecutionService  codeExecutionService;
-    private final CodeFileService codeFileService;
-    private final AssessmentFeatureFlagsService featureFlagsService;
+	// NEW
+	private final CodeSubmissionService codeSubmissionService;
+	private final CodeExecutionService  codeExecutionService;
+	private final CodeFileService codeFileService;
+	private final AssessmentFeatureFlagsService featureFlagsService;
+	private final AssessmentUsageService assessmentUsageService;
 
-    public CodeController(CodeSubmissionService codeSubmissionService,
-                          CodeExecutionService codeExecutionService,
-                          CodeFileService codeFileService,
-                          AssessmentFeatureFlagsService featureFlagsService) {
-        this.codeSubmissionService = codeSubmissionService;
-        this.codeExecutionService  = codeExecutionService;
-        this.codeFileService       = codeFileService;
-        this.featureFlagsService   = featureFlagsService;
-    }
+	public CodeController(CodeSubmissionService codeSubmissionService,
+	                      CodeExecutionService codeExecutionService,
+	                      CodeFileService codeFileService,
+	                      AssessmentFeatureFlagsService featureFlagsService,
+	                      AssessmentUsageService assessmentUsageService) {
+	    this.codeSubmissionService = codeSubmissionService;
+	    this.codeExecutionService  = codeExecutionService;
+	    this.codeFileService       = codeFileService;
+	    this.featureFlagsService   = featureFlagsService;
+	    this.assessmentUsageService = assessmentUsageService;
+	}
 
     // ── Helper: extract student email from JWT ────────────────
     private String getCurrentStudentId() {
@@ -172,9 +62,11 @@ public class CodeController {
 
         // Only gate when the caller is a STUDENT — trainers/admins testing their
         // own code against this endpoint must never be blocked by the student flag.
-        if (isStudentCaller()) {
-            featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
-        }
+    	if (isStudentCaller()) {
+    	    featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.SOLVE_CODING_PROBLEM);
+    	    assessmentUsageService.checkAndIncrement(
+    	        AssessmentUsageLimits.Action.PLAYGROUND_RUN, callerEmail(), orgId(httpRequest));
+    	}
 
         // MySQL gets studentId so it uses persistent DB
         // all other languages get normal sampleInput
@@ -284,5 +176,14 @@ public class CodeController {
             }
         }
         return false;
+        
+        
+        
+    }
+ // ADD this method anywhere among the other endpoints
+    @GetMapping("/usage/run")
+    public ResponseEntity<Map<String, Object>> getRunUsage(HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(assessmentUsageService.getUsageStatus(
+                AssessmentUsageLimits.Action.PLAYGROUND_RUN, callerEmail(), orgId(httpRequest)));
     }
 }

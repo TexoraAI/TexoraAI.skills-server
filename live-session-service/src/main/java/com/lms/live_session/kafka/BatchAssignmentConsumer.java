@@ -28,29 +28,25 @@ public class BatchAssignmentConsumer {
     @Transactional
     @KafkaListener(topics = "batch-assignment", groupId = "live-session-group")
     public void consume(BatchAssignmentEvent event) {
-
         System.out.println("📥 LIVE EVENT -> " + event.getType());
-
         switch (event.getType()) {
-
             case "TRAINER_ASSIGNED" ->
                     trainerRepo.save(new TrainerBatchMap(
                             event.getEmail(),
-                            event.getBatchId()
+                            event.getBatchId(),
+                            event.getOrganizationId() // ✅ NEW — null for non-org users, no behavior change for them
                     ));
-
             case "STUDENT_ASSIGNED" ->
                     studentRepo.save(new StudentBatchMap(
                             event.getEmail(),
-                            event.getBatchId()
+                            event.getBatchId(),
+                            event.getOrganizationId() // ✅ NEW
                     ));
-
             case "STUDENT_REMOVED" ->
                     studentRepo.deleteByStudentEmailAndBatchId(
                             event.getEmail(),
                             event.getBatchId()
                     );
-
             case "TRAINER_REMOVED" -> {
                 trainerRepo.deleteByTrainerEmailAndBatchId(
                         event.getEmail(),
@@ -59,6 +55,5 @@ public class BatchAssignmentConsumer {
                 studentRepo.deleteByBatchId(event.getBatchId());
             }
         }
-
     }
 }

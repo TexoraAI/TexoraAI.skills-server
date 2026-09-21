@@ -1,78 +1,25 @@
-//
-//package com.lms.assessment.controller;
-//
-//import java.util.Map;
-//import com.lms.assessment.dto.AttemptHistoryResponse;
-//import com.lms.assessment.dto.QuizResultResponse;
-//import com.lms.assessment.dto.SubmitAttemptRequest;
-//import com.lms.assessment.model.Attempt;
-//import com.lms.assessment.service.AttemptService;
-//import jakarta.servlet.http.HttpServletRequest;
-//import org.springframework.web.bind.annotation.*;
-//import java.util.HashMap;
-//import java.util.List;
-//
-//@RestController
-//@RequestMapping("/api/attempts")
-//public class AttemptController {
-//
-//    private final AttemptService attemptService;
-//
-//    public AttemptController(AttemptService attemptService) {
-//        this.attemptService = attemptService;
-//    }
-//
-//    @PostMapping("/submit")
-//    public QuizResultResponse submit(@RequestBody SubmitAttemptRequest request, HttpServletRequest httpRequest) {
-//        Map<Long, Boolean> correctnessMap = new HashMap<>();
-//        // ✅ service already builds full response
-//        return attemptService.submitAttempt(request, correctnessMap, orgId(httpRequest));
-//    }
-//
-//    // GET ATTEMPT
-//    @GetMapping("/{id}")
-//    public Attempt get(@PathVariable Long id, HttpServletRequest httpRequest) {
-//        return attemptService.getAttempt(id, orgId(httpRequest));
-//    }
-//
-//    // HAS USER ATTEMPTED
-//    @GetMapping("/has-attempted/{quizId}")
-//    public boolean hasAttempted(@PathVariable Long quizId, HttpServletRequest httpRequest) {
-//        return attemptService.hasUserAttempted(quizId, orgId(httpRequest));
-//    }
-//
-//    // TRAINER: GET ALL ATTEMPTS FOR A QUIZ
-//    @GetMapping("/quiz/{quizId}")
-//    public java.util.List<Attempt> getAttemptsForQuiz(@PathVariable Long quizId, HttpServletRequest httpRequest) {
-//        return attemptService.getAttemptsForQuiz(quizId, orgId(httpRequest));
-//    }
-//
-//    // STUDENT: MY ATTEMPT HISTORY
-//    @GetMapping("/my")
-//    public List<AttemptHistoryResponse> myAttempts(HttpServletRequest httpRequest) {
-//        return attemptService.getMyAttempts(orgId(httpRequest));
-//    }
-//
-//    private String orgId(HttpServletRequest request) {
-//        return (String) request.getAttribute("organizationId");
-//    }
-//}
+
+
 
 
 package com.lms.assessment.controller;
 
 import java.util.Map;
 import com.lms.assessment.constants.AssessmentFeatureKeys;
+import com.lms.assessment.constants.AssessmentUsageLimits;
 import com.lms.assessment.dto.AttemptHistoryResponse;
 import com.lms.assessment.dto.QuizResultResponse;
 import com.lms.assessment.dto.SubmitAttemptRequest;
 import com.lms.assessment.model.Attempt;
 import com.lms.assessment.service.AssessmentFeatureFlagsService;
+import com.lms.assessment.service.AssessmentUsageService;
 import com.lms.assessment.service.AttemptService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.HashMap;
 import java.util.List;
 
@@ -82,16 +29,21 @@ public class AttemptController {
 
     private final AttemptService attemptService;
     private final AssessmentFeatureFlagsService featureFlagsService;
+    private final AssessmentUsageService assessmentUsageService;
 
     public AttemptController(AttemptService attemptService,
-                             AssessmentFeatureFlagsService featureFlagsService) {
+                             AssessmentFeatureFlagsService featureFlagsService,
+                             AssessmentUsageService assessmentUsageService) {
         this.attemptService = attemptService;
         this.featureFlagsService = featureFlagsService;
+        this.assessmentUsageService = assessmentUsageService;
     }
 
     @PostMapping("/submit")
     public QuizResultResponse submit(@RequestBody SubmitAttemptRequest request, HttpServletRequest httpRequest) {
         featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.ATTEMPT_QUIZ);
+        assessmentUsageService.checkAndIncrement(
+            AssessmentUsageLimits.Action.QUIZ_ATTEMPT, callerEmail(), orgId(httpRequest));
         Map<Long, Boolean> correctnessMap = new HashMap<>();
         // ✅ service already builds full response
         return attemptService.submitAttempt(request, correctnessMap, orgId(httpRequest));
@@ -122,6 +74,13 @@ public class AttemptController {
     public List<AttemptHistoryResponse> myAttempts(HttpServletRequest httpRequest) {
         featureFlagsService.enforce(orgId(httpRequest), callerEmail(), AssessmentFeatureKeys.ATTEMPT_QUIZ);
         return attemptService.getMyAttempts(orgId(httpRequest));
+    }
+
+    // STUDENT: USAGE PREVIEW — read-only, not feature-gated
+    @GetMapping("/usage/attempt")
+    public ResponseEntity<Map<String, Object>> getAttemptUsage(HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(assessmentUsageService.getUsageStatus(
+            AssessmentUsageLimits.Action.QUIZ_ATTEMPT, callerEmail(), orgId(httpRequest)));
     }
 
     private String orgId(HttpServletRequest request) {

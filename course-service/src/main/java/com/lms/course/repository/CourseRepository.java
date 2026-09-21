@@ -1,13 +1,10 @@
 package com.lms.course.repository;
-
 import com.lms.course.model.Course;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-
 import java.util.List;
 import org.springframework.data.repository.query.Param;
 public interface CourseRepository extends JpaRepository<Course, Long> {
-
     List<Course> findByOwnerEmail(String ownerEmail);
     
     List<Course> findByBatchId(Long batchId);
@@ -21,11 +18,9 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     
  // find all courses for an org
     List<Course> findByOrganizationId(String organizationId);
-
     // all distinct categories across all courses
     @Query("SELECT DISTINCT c.category FROM Course c WHERE c.category IS NOT NULL ORDER BY c.category")
     List<String> findAllDistinctCategories();
-
     // distinct categories for one org
     @Query("SELECT DISTINCT c.category FROM Course c WHERE c.organizationId = :orgId AND c.category IS NOT NULL ORDER BY c.category")
     List<String> findDistinctCategoriesByOrganizationId(@Param("orgId") String orgId);
@@ -38,11 +33,14 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
  // Trainer sees courses assigned to them by admin
     List<Course> findByAssignedTrainerEmailAndOrganizationId(
             String assignedTrainerEmail, String organizationId);
-
     // Admin clicks trainer email → all courses in org belonging to that trainer
     List<Course> findByOrganizationIdAndAssignedTrainerEmail(
             String organizationId, String assignedTrainerEmail);
   
+ // trainer-scoped course count against their tier (self-created courses)
+    long countByOwnerEmail(String ownerEmail);
 
+ // admin-assigned course count for a trainer within an org, used in adminCreate()
+    long countByOrganizationIdAndAssignedTrainerEmail(String organizationId, String assignedTrainerEmail);
    
 }

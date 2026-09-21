@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
+import org.springframework.scheduling.annotation.Scheduled;
 /**
  * Executes an AiWorkflow's nodesJson graph.
  *
@@ -52,14 +52,13 @@ import java.util.regex.Pattern;
  *                       remaining nodes in this run" (nodesJson is a flat
  *                       list with no real branch structure — documented
  *                       limitation, not a bug).
- *                       c2 (delay): synchronous Thread.sleep capped at
- *                       MAX_SYNCHRONOUS_DELAY_SECONDS. Longer requests are
- *                       SKIPPED rather than blocking the HTTP thread
- *                       indefinitely or being silently PAUSED forever (no
- *                       scheduler exists yet to resume a paused run).
- *                       c3 (stop): halts all remaining nodes immediately;
- *                       run still completes as COMPLETED (intentional stop
- *                       is not a failure).
+ *                      *                       c2 (delay): short delays (<= SHORT_SYNC_DELAY_SECONDS)
+ *                       run inline via Thread.sleep. Longer delays PAUSE the
+ *                       run — nextNodeIndex/pendingLastAiOutput/resumeAt are
+ *                       persisted on AiWorkflowRun, and resumePausedRuns()
+ *                       (a @Scheduled poller, same pattern as
+ *                       SessionSchedulerService) resumes execution from
+ *                       exactly where it left off once resumeAt elapses.
  *   - action nodes   → ac1 (save to notes): finds/creates an
  *                       AiTranscriptSession for the run's sessionId and
  *                       appends a segment with the most recent preceding
@@ -118,7 +117,10 @@ public class AiWorkflowExecutionService {
     public static final String TRIGGER_ATTENDANCE_BELOW_THRESHOLD = "Attendance below threshold";
 
     // c2 delay cap — see class javadoc for the tradeoff explanation.
-    private static final long MAX_SYNCHRONOUS_DELAY_SECONDS = 60;
+    // c2 — delays this short or shorter still run synchronously inline;
+    // not worth a pause/resume round-trip for a few seconds. Anything
+    // longer pauses the run (see resumePausedRuns()).
+    private static final long SHORT_SYNC_DELAY_SECONDS = 5;
 
     // c1 best-effort condition evaluator: single comparison only, against a
     // known session field. No AND/OR, no attendance (not available here).
@@ -218,6 +220,37 @@ public class AiWorkflowExecutionService {
         }
     }
 
+    /**
+     * c2 — Picks up any workflow run left PAUSED by a long delay node once
+     * its resumeAt has passed, and continues execution from nextNodeIndex.
+     * Runs every 30s, matching SessionSchedulerService's polling
+     * granularity. Never throws — one run's failure to resume must not
+     * block the others.
+     */
+    @Scheduled(fixedRate = 30000)
+    public void resumePausedRuns() {
+        LocalDateTime now = LocalDateTime.now();
+        List<AiWorkflowRun> due;
+        try {
+            due = workflowRunRepository.findByStatusAndResumeAtBefore("PAUSED", now);
+        } catch (Exception e) {
+            System.err.println("[AiWorkflowExecutionService] Resume-poll query failed: " + e.getMessage());
+            return;
+        }
+        for (AiWorkflowRun run : due) {
+            try {
+                resumeRun(run);
+                System.out.println("▶️ Resumed workflow run #" + run.getId());
+            } catch (Exception e) {
+                System.err.println("[AiWorkflowExecutionService] Failed to resume run "
+                        + run.getId() + ": " + e.getMessage());
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // Shared run execution — creates the AiWorkflowRun, iterates nodes,
+
     // ----------------------------------------------------------------
     // Shared run execution — creates the AiWorkflowRun, iterates nodes,
     // honors control-flow signals (STOP / SKIP_REMAINING) from control
@@ -232,33 +265,110 @@ public class AiWorkflowExecutionService {
         run.setStatus("RUNNING");
         run = workflowRunRepository.save(run);
 
+        List<Map<String, Object>> nodes;
+        try {
+            nodes = parseNodes(workflow.getNodesJson());
+        } catch (Exception e) {
+            return failRun(run, objectMapper.createArrayNode(), "Workflow execution failed: " + e.getMessage());
+        }
+
         ArrayNode resultsArray = objectMapper.createArrayNode();
+        if (nodes.isEmpty()) {
+            ObjectNode note = objectMapper.createObjectNode();
+            note.put("info", "Workflow has no nodes to execute.");
+            resultsArray.add(note);
+        }
+
+        return runNodesFrom(workflow, run, nodes, resultsArray, 0, null, trainerEmail, sessionId);
+    }
+
+    /**
+     * Resume entry point — called by resumePausedRuns() once resumeAt has
+     * elapsed. Reconstructs exactly where the run left off from the
+     * persisted nextNodeIndex / pendingLastAiOutput / partial resultJson.
+     */
+    private void resumeRun(AiWorkflowRun run) {
+        AiWorkflow workflow = workflowRepository.findById(run.getWorkflowId()).orElse(null);
+        if (workflow == null) {
+            run.setStatus("FAILED");
+            run.setCompletedAt(LocalDateTime.now());
+            appendErrorAndSave(run, "Cannot resume: workflow " + run.getWorkflowId() + " no longer exists.");
+            return;
+        }
+
+        List<Map<String, Object>> nodes;
+        ArrayNode resultsArray;
+        try {
+            nodes = parseNodes(workflow.getNodesJson());
+            resultsArray = parseExistingResults(run.getResultJson());
+        } catch (Exception e) {
+            run.setStatus("FAILED");
+            run.setCompletedAt(LocalDateTime.now());
+            appendErrorAndSave(run, "Cannot resume: failed to reload run state: " + e.getMessage());
+            return;
+        }
+
+        int startIndex = run.getNextNodeIndex() != null ? run.getNextNodeIndex() : nodes.size();
+        String lastAiOutput = run.getPendingLastAiOutput();
+
+        run.setStatus("RUNNING");
+        run.setNextNodeIndex(null);
+        run.setPendingLastAiOutput(null);
+        run.setResumeAt(null);
+        run = workflowRunRepository.save(run);
+
+        runNodesFrom(workflow, run, nodes, resultsArray, startIndex, lastAiOutput, run.getTriggeredBy(), run.getSessionId());
+    }
+
+    /**
+     * Shared execution loop used by both a fresh run and a resumed run.
+     * Iterates nodes[startIndex..], honoring STOP / SKIP_REMAINING / PAUSE
+     * control signals. On PAUSE, persists enough state to resume later and
+     * returns immediately (run stays PAUSED, not COMPLETED/FAILED).
+     */
+    private AiWorkflowRun runNodesFrom(AiWorkflow workflow, AiWorkflowRun run, List<Map<String, Object>> nodes,
+                                        ArrayNode resultsArray, int startIndex, String lastAiOutput,
+                                        String trainerEmail, Long sessionId) {
         boolean anyNodeFailed = false;
+        boolean haltRemaining = false;
+        String haltReason = null;
 
         try {
-            List<Map<String, Object>> nodes = parseNodes(workflow.getNodesJson());
+            for (int i = startIndex; i < nodes.size(); i++) {
+                Map<String, Object> node = nodes.get(i);
 
-            if (nodes.isEmpty()) {
-                ObjectNode note = objectMapper.createObjectNode();
-                note.put("info", "Workflow has no nodes to execute.");
-                resultsArray.add(note);
-            }
-
-            String lastAiOutput = null;
-            boolean haltRemaining = false;
-            String haltReason = null;
-
-            for (Map<String, Object> node : nodes) {
                 if (haltRemaining) {
                     resultsArray.add(buildSkippedResult(node, haltReason));
                     continue;
                 }
 
                 ObjectNode nodeResult = executeNode(node, sessionId, trainerEmail, lastAiOutput, workflow.getId(), run.getId());
-                resultsArray.add(nodeResult);
-
                 String nodeType = str(node.get("type"));
                 String nodeStatus = nodeResult.has("status") ? nodeResult.get("status").asText() : null;
+
+                // c2: delay node asked to pause rather than complete inline.
+                if (nodeResult.has("controlSignal") && "PAUSE".equals(nodeResult.get("controlSignal").asText())) {
+                    resultsArray.add(nodeResult);
+                    long resumeSeconds = nodeResult.has("resumeAfterSeconds")
+                            ? nodeResult.get("resumeAfterSeconds").asLong() : 0L;
+
+                    run.setStatus("PAUSED");
+                    run.setNextNodeIndex(i + 1);
+                    run.setPendingLastAiOutput(lastAiOutput);
+                    run.setResumeAt(LocalDateTime.now().plusSeconds(resumeSeconds));
+                    try {
+                        run.setResultJson(objectMapper.writeValueAsString(resultsArray));
+                    } catch (Exception ignored) {
+                        // leave prior resultJson in place
+                    }
+                    run = workflowRunRepository.save(run);
+
+                    // Don't touch workflow.lastRunStatus yet — the run
+                    // isn't finished; the resumer updates it on completion.
+                    return run;
+                }
+
+                resultsArray.add(nodeResult);
 
                 if ("FAILED".equals(nodeStatus)) {
                     anyNodeFailed = true;
@@ -286,17 +396,7 @@ public class AiWorkflowExecutionService {
             run = workflowRunRepository.save(run);
 
         } catch (Exception e) {
-            run.setStatus("FAILED");
-            ObjectNode errorNode = objectMapper.createObjectNode();
-            errorNode.put("error", "Workflow execution failed: " + e.getMessage());
-            try {
-                resultsArray.add(errorNode);
-                run.setResultJson(objectMapper.writeValueAsString(resultsArray));
-            } catch (Exception ignored) {
-                run.setResultJson("[{\"error\":\"Workflow execution failed\"}]");
-            }
-            run.setCompletedAt(LocalDateTime.now());
-            run = workflowRunRepository.save(run);
+            run = failRun(run, resultsArray, "Workflow execution failed: " + e.getMessage());
         }
 
         workflow.setLastRunStatus(run.getStatus());
@@ -306,6 +406,44 @@ public class AiWorkflowExecutionService {
         return run;
     }
 
+    private AiWorkflowRun failRun(AiWorkflowRun run, ArrayNode resultsArray, String message) {
+        run.setStatus("FAILED");
+        ObjectNode errorNode = objectMapper.createObjectNode();
+        errorNode.put("error", message);
+        try {
+            resultsArray.add(errorNode);
+            run.setResultJson(objectMapper.writeValueAsString(resultsArray));
+        } catch (Exception ignored) {
+            run.setResultJson("[{\"error\":\"Workflow execution failed\"}]");
+        }
+        run.setCompletedAt(LocalDateTime.now());
+        return workflowRunRepository.save(run);
+    }
+
+    private void appendErrorAndSave(AiWorkflowRun run, String message) {
+        ArrayNode resultsArray = parseExistingResults(run.getResultJson());
+        ObjectNode errorNode = objectMapper.createObjectNode();
+        errorNode.put("error", message);
+        resultsArray.add(errorNode);
+        try {
+            run.setResultJson(objectMapper.writeValueAsString(resultsArray));
+        } catch (Exception ignored) {
+            run.setResultJson("[{\"error\":\"" + message.replace("\"", "'") + "\"}]");
+        }
+        workflowRunRepository.save(run);
+    }
+
+    private ArrayNode parseExistingResults(String resultJson) {
+        if (resultJson == null || resultJson.isBlank()) {
+            return objectMapper.createArrayNode();
+        }
+        try {
+            JsonNode existing = objectMapper.readTree(resultJson);
+            return existing.isArray() ? (ArrayNode) existing : objectMapper.createArrayNode();
+        } catch (Exception e) {
+            return objectMapper.createArrayNode();
+        }
+    }
     // ----------------------------------------------------------------
     // Node execution
     // ----------------------------------------------------------------
@@ -354,7 +492,13 @@ public class AiWorkflowExecutionService {
                     chatRequest.setSaveToHistory(false);
                     chatRequest.setConversationId(null);
 
-                    AiChatResponse aiResponse = aiCompanionService.processRequest(chatRequest, trainerEmail);
+                 // rawToken is null here — automatic/internal runs have no HTTP context.
+                 // Safe because runWorkflowAutomatically already validated ownership via
+                 // workflow.getTrainerEmail() before this point is reached; the org-check
+                 // portion of processRequest is simply skipped for these calls, and the
+                 // ownership check inside processRequest still passes since trainerEmail
+                 // is the workflow's own owner.
+                 AiChatResponse aiResponse = aiCompanionService.processRequest(chatRequest, trainerEmail, null);
 
                     if (aiResponse.isSuccess()) {
                         result.put("status", "SUCCESS");
@@ -506,24 +650,25 @@ public class AiWorkflowExecutionService {
 
         long requestedSeconds = delayMinutes * 60L;
 
-        if (requestedSeconds > MAX_SYNCHRONOUS_DELAY_SECONDS) {
-            result.put("status", "SKIPPED");
-            result.put("output", "Requested delay of " + delayMinutes + " minute(s) exceeds the "
-                    + MAX_SYNCHRONOUS_DELAY_SECONDS + "-second synchronous cap. Execution is synchronous "
-                    + "within POST /{id}/run, so longer delays need a scheduler (not implemented yet) — "
-                    + "skipping the wait and continuing rather than blocking the request or pausing forever.");
+        if (requestedSeconds <= SHORT_SYNC_DELAY_SECONDS) {
+            try {
+                Thread.sleep(requestedSeconds * 1000L);
+                result.put("status", "SUCCESS");
+                result.put("output", "Delayed " + delayMinutes + " minute(s) synchronously before continuing.");
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                result.put("status", "FAILED");
+                result.put("output", "Delay was interrupted before completing.");
+            }
             return;
         }
 
-        try {
-            Thread.sleep(requestedSeconds * 1000L);
-            result.put("status", "SUCCESS");
-            result.put("output", "Delayed " + delayMinutes + " minute(s) synchronously before continuing.");
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            result.put("status", "FAILED");
-            result.put("output", "Delay was interrupted before completing.");
-        }
+        // Longer delay — pause the run instead of blocking. resumePausedRuns()
+        // will pick this back up once resumeAt has passed.
+        result.put("status", "SUCCESS");
+        result.put("output", "Pausing for " + delayMinutes + " minute(s). Run will resume automatically once the delay elapses.");
+        result.put("controlSignal", "PAUSE");
+        result.put("resumeAfterSeconds", requestedSeconds);
     }
 
     private Integer toInteger(Object val) {

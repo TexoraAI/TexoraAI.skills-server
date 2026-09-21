@@ -102,6 +102,37 @@ public class CourseController {
     }
 
     // ── STUDENT: Get enrolled courses ─────────────────────────────────────────
+    
+
+
+//       // ── STUDENT: Get enrolled courses ─────────────────────────────────────────
+//    @GetMapping("/student")
+//    public ResponseEntity<List<Course>> getStudentCourses(HttpServletRequest request) {
+//        String token          = extractToken(request);
+//        String email          = jwtUtil.extractEmail(token);
+//        String organizationId = jwtUtil.extractOrganizationId(token);
+//
+//        // FEATURE GATE: student must have get_student_courses enabled
+//        featureFlagsService.enforce(organizationId, email,
+//                CourseFeatureKeys.GET_STUDENT_COURSES);
+//
+//        return ResponseEntity.ok(courseService.getStudentCourses(email));
+//    }
+//
+//    // ── STUDENT: TRUE total (before tier cap) — lets frontend show
+//    // "N more locked" instead of silently truncating with no signal ──
+//    @GetMapping("/student/count")
+//    public ResponseEntity<java.util.Map<String, Object>> getStudentCourseCount(HttpServletRequest request) {
+//        String token          = extractToken(request);
+//        String email          = jwtUtil.extractEmail(token);
+//        String organizationId = jwtUtil.extractOrganizationId(token);
+//
+//        featureFlagsService.enforce(organizationId, email,
+//                CourseFeatureKeys.GET_STUDENT_COURSES);
+//
+//        return ResponseEntity.ok(courseService.getStudentCourseCount(email));
+//    }
+    // ── STUDENT: Get enrolled courses ─────────────────────────────────────────
     @GetMapping("/student")
     public ResponseEntity<List<Course>> getStudentCourses(HttpServletRequest request) {
         String token          = extractToken(request);
@@ -112,7 +143,25 @@ public class CourseController {
         featureFlagsService.enforce(organizationId, email,
                 CourseFeatureKeys.GET_STUDENT_COURSES);
 
-        return ResponseEntity.ok(courseService.getStudentCourses(email));
+        // FIXED — organizationId now passed through so org-enrolled
+        // students get tier-capped by their ORG's plan, not a nonexistent
+        // personal plan (independent students unaffected — null still
+        // routes to the email/UserPlanCache fallback inside resolveTier()).
+        return ResponseEntity.ok(courseService.getStudentCourses(email, organizationId));
+    }
+
+    // ── STUDENT: TRUE total (before tier cap) — lets frontend show
+    // "N more locked" instead of silently truncating with no signal ──
+    @GetMapping("/student/count")
+    public ResponseEntity<java.util.Map<String, Object>> getStudentCourseCount(HttpServletRequest request) {
+        String token          = extractToken(request);
+        String email          = jwtUtil.extractEmail(token);
+        String organizationId = jwtUtil.extractOrganizationId(token);
+
+        featureFlagsService.enforce(organizationId, email,
+                CourseFeatureKeys.GET_STUDENT_COURSES);
+
+        return ResponseEntity.ok(courseService.getStudentCourseCount(email, organizationId));
     }
 
     // ── ADMIN: Get all courses ────────────────────────────────────────────────
@@ -244,5 +293,30 @@ public class CourseController {
         String token = extractToken(request);
         String orgId = jwtUtil.extractOrganizationId(token);
         return ResponseEntity.ok(courseService.getCoursesByOrganization(orgId));
+    }
+    
+ // ── TRAINER: Get course-creation usage (for quota pill) ──────────────────
+    @GetMapping("/usage/create")
+    public ResponseEntity<java.util.Map<String, Object>> getCourseUsage(HttpServletRequest request) {
+        String token          = extractToken(request);
+        String email          = jwtUtil.extractEmail(token);
+        String organizationId = jwtUtil.extractOrganizationId(token);
+
+        featureFlagsService.enforce(organizationId, email,
+                CourseFeatureKeys.CREATE_COURSE);
+
+        return ResponseEntity.ok(courseService.getCourseUsage(email, organizationId));
+    }
+ // ── STUDENT: plan summary (course cap + module cap) for upgrade messaging ──
+    @GetMapping("/student/plan-summary")
+    public ResponseEntity<java.util.Map<String, Object>> getStudentPlanSummary(HttpServletRequest request) {
+        String token          = extractToken(request);
+        String email          = jwtUtil.extractEmail(token);
+        String organizationId = jwtUtil.extractOrganizationId(token);
+
+        featureFlagsService.enforce(organizationId, email,
+                CourseFeatureKeys.GET_STUDENT_COURSES);
+
+        return ResponseEntity.ok(courseService.getStudentPlanSummary(email, organizationId));
     }
 }

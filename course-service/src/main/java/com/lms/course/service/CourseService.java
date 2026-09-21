@@ -1,11 +1,12 @@
-
-
 package com.lms.course.service;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.lms.course.constants.CourseTierLimits;
+import com.lms.course.constants.CourseTierResolver;
 import com.lms.course.dto.CourseEvent;
+import com.lms.course.exception.CourseCountLimitExceededException;
 import com.lms.course.kafka.CourseEventProducer;
 import com.lms.course.model.Course;
 import com.lms.course.repository.CourseRepository;
@@ -29,17 +30,20 @@ public class CourseService {
     private final CourseEventProducer producer;
     private final TrainerBatchMapRepository trainerBatchRepo;
     private final StudentBatchMapRepository studentBatchRepo;
+    private final CourseTierResolver courseTierResolver; // NEW
 
     public CourseService(
             CourseRepository repo,
             CourseEventProducer producer,
             TrainerBatchMapRepository trainerBatchRepo,
-            StudentBatchMapRepository studentBatchRepo) {
+            StudentBatchMapRepository studentBatchRepo,
+            CourseTierResolver courseTierResolver) { // NEW param
 
         this.repo             = repo;
         this.producer         = producer;
         this.trainerBatchRepo = trainerBatchRepo;
         this.studentBatchRepo = studentBatchRepo;
+        this.courseTierResolver = courseTierResolver; // NEW
     }
 
     // ============================
@@ -50,6 +54,14 @@ public class CourseService {
     // For non-org trainers     : falls back to existing trainerEmail + batchId check (no change in behavior).
     @CacheEvict(value = "coursesByEmail", key = "#email")
     public Course create(Course course, String email, String organizationId) {
+
+        // NEW — plan-based course count check, FIRST check before batch-assignment validation
+        String tier = courseTierResolver.resolveTier(organizationId, email);
+        long currentCount = repo.countByOwnerEmail(email);
+        int maxCourses = CourseTierLimits.maxCoursesFor(tier);
+        if (currentCount >= maxCourses) {
+            throw new CourseCountLimitExceededException((int) currentCount, maxCourses, tier);
+        }
 
         course.setOwnerEmail(email);
 
@@ -183,10 +195,19 @@ public class CourseService {
         return repo.findByBatchIdIn(batchIds);
     }
 
+//    // ============================
+//    // GET STUDENT COURSES
+//    // ============================
+
     // ============================
     // GET STUDENT COURSES
     // ============================
-    public List<Course> getStudentCourses(String studentEmail) {
+    // FIXED — now accepts organizationId (passed from the controller's JWT
+    // extraction, same pattern as create()) so org-enrolled students resolve
+    // their tier via their ORG's plan, not a nonexistent personal plan.
+    // Independent students still resolve correctly since resolveTier()
+    // falls back to the email/UserPlanCache lookup when organizationId is null.
+    public List<Course> getStudentCourses(String studentEmail, String organizationId) {
 
         List<Long> batchIds = studentBatchRepo
                 .findByStudentEmail(studentEmail)
@@ -198,30 +219,46 @@ public class CourseService {
             return List.of();
         }
 
-        return repo.findByBatchIdIn(batchIds);
+        List<Course> all = repo.findByBatchIdIn(batchIds);
+
+        // Plan-tier cap on how many enrolled courses a student can see.
+        // Truncates rather than throwing, same reasoning as
+        // video-service/file-service: viewing a list isn't a gated
+        // "action", so a silent cap plus a companion count endpoint
+        // (getStudentCourseCount) is the correct UX here.
+        String tier = courseTierResolver.resolveTier(organizationId, studentEmail);
+        int visibleCap = CourseTierLimits.studentVisibleCountFor(tier);
+        if (visibleCap == -1) {
+            return all;
+        }
+        return all.stream().limit(visibleCap).toList();
     }
 
-//    // ============================
-//    // ADMIN - LIST ALL COURSES
-//    // ============================
-//    @Cacheable(value = "allCourses")
-//    public List<Course> getAllCoursesForAdmin() {
-//        return repo.findAllByOrderByCreatedAtDesc();
-//    }
-//
-//    // ============================
-//    // ADMIN - GET COURSES BY CATEGORY
-//    // ============================
-//    @Cacheable(value = "coursesByCategory", key = "#category")
-//    public List<Course> getByCategory(String category) {
-//
-//        if (category == null || category.isBlank()) {
-//            throw new RuntimeException("Category is required");
-//        }
-//
-//        return repo.findByCategoryIgnoreCase(category);
-//    }
-    
+    // Companion to getStudentCourses(): reports the TRUE total (before the
+    // tier cap) so the frontend can render an "Upgrade to unlock N more"
+    // tile instead of silently stopping. Same organizationId fix as above.
+    public java.util.Map<String, Object> getStudentCourseCount(String studentEmail, String organizationId) {
+
+        List<Long> batchIds = studentBatchRepo
+                .findByStudentEmail(studentEmail)
+                .stream()
+                .map(map -> map.getBatchId())
+                .toList();
+
+        int totalCount = batchIds.isEmpty() ? 0 : repo.findByBatchIdIn(batchIds).size();
+
+        String tier = courseTierResolver.resolveTier(organizationId, studentEmail);
+        int visibleCap = CourseTierLimits.studentVisibleCountFor(tier);
+        int visibleCount = visibleCap == -1 ? totalCount : Math.min(totalCount, visibleCap);
+
+        return java.util.Map.of(
+                "totalCount", totalCount,
+                "visibleCount", visibleCount,
+                "tier", tier,
+                "unlimited", visibleCap == -1
+        );
+    }
+
  // GET COURSES BY ORGANIZATION
  // ============================
  public List<Course> getCoursesByOrganization(String organizationId) {
@@ -257,6 +294,17 @@ public Course adminCreate(Course course, String adminEmail, String organizationI
      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
              "assignedTrainerEmail is required");
  }
+
+ // NEW — plan-based course count check, scoped to the trainer being assigned,
+ // tier resolved via org (adminCreate always has an organizationId in this flow)
+ String tier = courseTierResolver.resolveTier(organizationId, course.getAssignedTrainerEmail());
+ long currentCount = repo.countByOrganizationIdAndAssignedTrainerEmail(
+         organizationId, course.getAssignedTrainerEmail());
+ int maxCourses = CourseTierLimits.maxCoursesFor(tier);
+ if (currentCount >= maxCourses) {
+     throw new CourseCountLimitExceededException((int) currentCount, maxCourses, tier);
+ }
+
  course.setOwnerEmail(adminEmail);
  course.setOrganizationId(organizationId);
  return repo.save(course);
@@ -274,24 +322,7 @@ public List<Course> getCoursesByAssignedTrainer(
 //============================
 //TRAINER: own courses + admin-assigned courses merged
 //============================
-//public List<Course> getTrainerAllCourses(
-//     String trainerEmail, String organizationId) {
-//
-// List<Course> own = repo.findByOwnerEmail(trainerEmail)
-//         .stream()
-//         .filter(c -> organizationId.equals(c.getOrganizationId()))
-//         .collect(Collectors.toList());
-//
-// List<Course> assigned = repo.findByAssignedTrainerEmailAndOrganizationId(
-//         trainerEmail, organizationId);
-//
-// // merge + deduplicate by id
-// Map<Long, Course> merged = new LinkedHashMap<>();
-// own.forEach(c -> merged.put(c.getId(), c));
-// assigned.forEach(c -> merged.putIfAbsent(c.getId(), c));
-//
-// return new ArrayList<>(merged.values());
-//}
+
 public List<Course> getTrainerAllCourses(String trainerEmail, String organizationId) {
 
     // Independent trainer (no organization)
@@ -304,19 +335,49 @@ public List<Course> getTrainerAllCourses(String trainerEmail, String organizatio
             .stream()
             .filter(c -> organizationId.equals(c.getOrganizationId()))
             .collect(Collectors.toList());
-
     // Organization trainer - assigned courses
     List<Course> assigned = repo.findByAssignedTrainerEmailAndOrganizationId(
             trainerEmail,
             organizationId
     );
-
     // Merge without duplicates
     Map<Long, Course> merged = new LinkedHashMap<>();
-
     own.forEach(c -> merged.put(c.getId(), c));
     assigned.forEach(c -> merged.putIfAbsent(c.getId(), c));
-
     return new ArrayList<>(merged.values());
 }
+
+//============================
+//GET TRAINER COURSE USAGE (for quota pill on Create Course page)
+//============================
+public java.util.Map<String, Object> getCourseUsage(String email, String organizationId) {
+
+ String tier = courseTierResolver.resolveTier(organizationId, email);
+ long used = repo.countByOwnerEmail(email);
+ int limit = CourseTierLimits.maxCoursesFor(tier);
+
+ return java.util.Map.of(
+         "tier", tier,
+         "used", used,
+         "limit", limit,
+         "remaining", Math.max(0, limit - used),
+         "period", "lifetime" // matches your course-limit semantics — no reset window currently
+ );
+}
+//============================
+//STUDENT: plan summary — course visibility cap + module cap per course
+//============================
+public java.util.Map<String, Object> getStudentPlanSummary(String studentEmail, String organizationId) {
+ String tier = courseTierResolver.resolveTier(organizationId, studentEmail);
+ int courseVisibleCap = CourseTierLimits.studentVisibleCountFor(tier);
+ int moduleCapPerCourse = CourseTierLimits.maxModulesPerCourseFor(tier);
+
+ return java.util.Map.of(
+         "tier", tier,
+         "coursesVisible", courseVisibleCap == -1 ? "unlimited" : courseVisibleCap,
+         "modulesPerCourse", moduleCapPerCourse
+ );
+}
+
+             
 }

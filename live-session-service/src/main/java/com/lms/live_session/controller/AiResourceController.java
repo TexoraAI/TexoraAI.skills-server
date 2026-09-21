@@ -1,9 +1,14 @@
 package com.lms.live_session.controller;
 
+import com.lms.live_session.dto.RecordingResponse;
 import com.lms.live_session.entity.AiUploadedResource;
+import com.lms.live_session.entity.WhiteboardSnapshot;
 import com.lms.live_session.repository.AiUploadedResourceRepository;
+import com.lms.live_session.repository.WhiteboardSnapshotRepository;
 import com.lms.live_session.service.AiTextExtractionService;
+import com.lms.live_session.service.RecordingService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,18 +22,23 @@ import com.lms.live_session.entity.ChatMessage;
 import com.lms.live_session.repository.ChatMessageRepository;
 import com.lms.live_session.entity.LiveSession;
 import com.lms.live_session.service.LiveSessionService;
+
 import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
- 
+import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/api/v1/ai-companion/resources")
 public class AiResourceController {
-	private final AiUploadedResourceRepository uploadedResourceRepository;
+    private final AiUploadedResourceRepository uploadedResourceRepository;
     private final AiTextExtractionService textExtractionService;
     private final ChatMessageRepository chatMessageRepository;
     private final LiveSessionService liveSessionService;
+    private final WhiteboardSnapshotRepository whiteboardSnapshotRepository;
+    private final RecordingService recordingService;
 
     @Value("${aws.s3.bucket}")
     private String bucket;
@@ -42,14 +52,18 @@ public class AiResourceController {
     public AiResourceController(AiUploadedResourceRepository uploadedResourceRepository,
                                  AiTextExtractionService textExtractionService,
                                  ChatMessageRepository chatMessageRepository,
-                                 LiveSessionService liveSessionService) {
+                                 LiveSessionService liveSessionService,
+                                 WhiteboardSnapshotRepository whiteboardSnapshotRepository,
+                                 RecordingService recordingService) {
         this.uploadedResourceRepository = uploadedResourceRepository;
         this.textExtractionService = textExtractionService;
         this.chatMessageRepository = chatMessageRepository;
         this.liveSessionService = liveSessionService;
+        this.whiteboardSnapshotRepository = whiteboardSnapshotRepository;
+        this.recordingService = recordingService;
     }
+
     // GET /api/v1/ai-companion/resources/meetings
- // GET /api/v1/ai-companion/resources/meetings
     @GetMapping("/meetings")
     public ResponseEntity<?> getMeetings(Principal principal) {
         List<LiveSession> sessions = liveSessionService.getMySessionsAsTrainer(principal.getName());
@@ -63,30 +77,69 @@ public class AiResourceController {
                 uploadedResourceRepository.findByUploadedByOrderByCreatedAtDesc(principal.getName());
         return ResponseEntity.ok(docs);
     }
- 
- // GET /api/v1/ai-companion/resources/chat
+
+    // GET /api/v1/ai-companion/resources/chat
     @GetMapping("/chat")
-    public ResponseEntity<?> getChatHistory(@RequestParam(required=false) Long sessionId, Principal principal) {
+    public ResponseEntity<?> getChatHistory(@RequestParam(required = false) Long sessionId, Principal principal) {
         if (sessionId == null) {
             return ResponseEntity.ok(List.of());
         }
         return ResponseEntity.ok(chatMessageRepository.findBySessionIdOrderByTimestampAsc(sessionId));
     }
+
     // GET /api/v1/ai-companion/resources/whiteboard
     @GetMapping("/whiteboard")
-    public ResponseEntity<?> getWhiteboard(@RequestParam(required=false) Long sessionId, Principal principal) {
-        // TODO: return whiteboard snapshot data
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<?> getWhiteboard(@RequestParam(required = false) Long sessionId, Principal principal) {
+        if (sessionId == null) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        if (!callerOwnsSession(sessionId, principal)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(java.util.Map.of("error", "You do not have access to this session's whiteboard"));
+        }
+
+        // Same repository AiContextBuilderService.buildWhiteboardContext() already uses.
+        Optional<WhiteboardSnapshot> snapshot = whiteboardSnapshotRepository.findBySessionId(sessionId);
+
+        return ResponseEntity.ok(snapshot.map(List::of).orElseGet(List::of));
     }
- 
+
     // GET /api/v1/ai-companion/resources/recordings
     @GetMapping("/recordings")
-    public ResponseEntity<?> getRecordings(@RequestParam(required=false) Long sessionId, Principal principal) {
-        // TODO: return session recordings
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<?> getRecordings(@RequestParam(required = false) Long sessionId, Principal principal) {
+        if (sessionId == null) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        if (!callerOwnsSession(sessionId, principal)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(java.util.Map.of("error", "You do not have access to this session's recordings"));
+        }
+
+        // Entity-level lookup by session (same call AiContextBuilderService.buildRecordingsContext()
+        // uses), mapped to the response DTO for the client.
+        List<RecordingResponse> recordings = recordingService.getEntitiesBySession(sessionId)
+                .stream()
+                .map(RecordingResponse::from)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(recordings);
     }
- 
- // POST /api/v1/ai-companion/resources/upload
+
+    /**
+     * Confirms the given session belongs to the calling trainer.
+     * Reuses the same source of truth as GET /meetings (getMySessionsAsTrainer)
+     * rather than introducing a new "isTrainerForSession"-style method, since
+     * that method doesn't currently exist on LiveSessionService.
+     */
+    private boolean callerOwnsSession(Long sessionId, Principal principal) {
+        return liveSessionService.getMySessionsAsTrainer(principal.getName())
+                .stream()
+                .anyMatch(s -> sessionId.equals(s.getId()));
+    }
+
+    // POST /api/v1/ai-companion/resources/upload
     @PostMapping("/upload")
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file,
                                      @RequestParam(required = false) Long sessionId,

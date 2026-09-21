@@ -63,7 +63,7 @@ public class CalendarSyncController {
             }
             String email = jwtUtil.extractEmail(token);
             String role  = jwtUtil.extractRole(token);
-            Long orgId   = jwtUtil.extractOrganizationId(token);
+            String orgId   = jwtUtil.extractOrganizationId(token);
             String url = googleCalendarService.generateAuthorizationUrl(email, role, orgId, returnTo);
             return ResponseEntity.ok(Map.of("authUrl", url));
         } catch (Exception e) {

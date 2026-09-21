@@ -40,6 +40,10 @@ public class OpenAIService {
     private String openaiModel;
 
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
+
+    @Value("${openai.image.model:dall-e-3}")
+    private String openaiImageModel;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -387,5 +391,74 @@ public class OpenAIService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse banner copy JSON from OpenAI: " + e.getMessage(), e);
         }
+    }
+    // ===================== NEW: Banner Studio AI image generation =====================
+
+    /**
+     * Generates a background image (no embedded text) for an AI-drafted banner.
+     * Returns raw PNG bytes decoded from OpenAI's base64 response. Callers
+     * should treat this as best-effort — if it fails, the text-only
+     * gradient banner (from generateBannerCopy) is still perfectly usable.
+     */
+    public byte[] generateBannerImage(BannerStudioAiGenerateRequestDTO request) {
+        if (openaiApiKey == null || openaiApiKey.isBlank()) {
+            throw new RuntimeException("OpenAI API key is not configured");
+        }
+
+        String imagePrompt = buildBannerImagePrompt(request);
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + openaiApiKey);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("model", openaiImageModel);
+            body.put("prompt", imagePrompt);
+            body.put("size", "1536x1024");
+            body.put("n", 1);
+            // No response_format here — gpt-image-1 always returns b64_json and
+            // rejects this param with a 400. dall-e-3 works fine without it too
+            // (returns a "url" field instead, handled below).
+
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    OPENAI_IMAGE_URL, HttpMethod.POST, requestEntity, String.class);
+
+            if (response.getBody() == null) {
+                throw new RuntimeException("OpenAI image API returned empty response");
+            }
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode dataNode = root.path("data").get(0);
+
+            if (dataNode.has("b64_json") && !dataNode.path("b64_json").isMissingNode()) {
+                String b64 = dataNode.path("b64_json").asText();
+                return java.util.Base64.getDecoder().decode(b64);
+            }
+
+            String imageUrl = dataNode.path("url").asText(null);
+            if (imageUrl == null || imageUrl.isBlank()) {
+                throw new RuntimeException("OpenAI image response had neither b64_json nor url");
+            }
+            ResponseEntity<byte[]> imgResponse = restTemplate.getForEntity(imageUrl, byte[].class);
+            if (imgResponse.getBody() == null) {
+                throw new RuntimeException("Failed to download generated image from OpenAI URL");
+            }
+            return imgResponse.getBody();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate banner image using OpenAI: " + e.getMessage(), e);
+        }
+    }
+
+    private String buildBannerImagePrompt(BannerStudioAiGenerateRequestDTO request) {
+        return "A professional promotional banner background image for an online learning platform. " +
+                "Theme: " + safe(request.getTheme()) + ". Style: " + safe(request.getStyle()) + ". " +
+                "Mood/subject: " + safe(request.getPrompt()) + ". " +
+                "Wide horizontal banner composition, absolutely no text or letters in the image, " +
+                "leave open negative space on one side for a headline to be overlaid later. " +
+                "High quality, modern, suitable for a website hero banner.";
     }
 }

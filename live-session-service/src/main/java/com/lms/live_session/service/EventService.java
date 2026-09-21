@@ -1,3 +1,5 @@
+
+
 package com.lms.live_session.service;
 
 import com.lms.live_session.dto.EventAttendeeDTO;
@@ -16,6 +18,7 @@ import com.lms.live_session.exception.MeetingException;
 import com.lms.live_session.repository.EventAttendeeRepository;
 import com.lms.live_session.repository.EventRepository;
 import com.lms.live_session.repository.MeetingRepository;
+import com.lms.live_session.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,29 +42,34 @@ public class EventService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
-
     private final EventRepository eventRepository;
     private final EventAttendeeRepository attendeeRepository;
     private final MeetingService meetingService;
     private final MeetingRepository meetingRepository;
     private final ReminderService reminderService;
     private final com.lms.live_session.kafka.NotificationProducer notificationProducer;
+    private final JwtUtil jwtUtil;
+    private final LiveSessionUsageService usageService;
     @Autowired
     public EventService(EventRepository eventRepository,
                          EventAttendeeRepository attendeeRepository,
                          MeetingService meetingService,
                          MeetingRepository meetingRepository,
                          ReminderService reminderService,
-                         com.lms.live_session.kafka.NotificationProducer notificationProducer) {
+                         com.lms.live_session.kafka.NotificationProducer notificationProducer,
+                         JwtUtil jwtUtil,
+                         LiveSessionUsageService usageService) {
         this.eventRepository = eventRepository;
         this.attendeeRepository = attendeeRepository;
         this.meetingService = meetingService;
         this.meetingRepository = meetingRepository;
         this.reminderService = reminderService;
         this.notificationProducer = notificationProducer;
+        this.jwtUtil = jwtUtil;
+        this.usageService = usageService;
     }
-
-    public EventResponseDTO createEvent(EventRequestDTO dto, String creatorId, String creatorRole) {
+    public EventResponseDTO createEvent(EventRequestDTO dto, String creatorId, String creatorRole, String token) {
+        usageService.checkAndIncrementMeetingCreation(resolveOrganizationId(token), creatorId);
         validateRequired(dto);
 
         Event event = new Event();
@@ -69,7 +77,12 @@ public class EventService {
         event.setCreatorId(creatorId);
         event.setCreatorRole(creatorRole);
         event.setCreatorName(dto.getCreatorName());
-        event.setOrganizationId(dto.getOrganizationId());
+        // NEW — organizationId resolved server-side from the caller's JWT,
+        // never trusted from the client-supplied DTO. Stamped only here, at
+        // creation, as an explicit step — applyDtoToEvent no longer touches
+        // organizationId at all, so this value can never be changed later
+        // via updateEvent.
+        event.setOrganizationId(resolveOrganizationId(token));
 
         event = eventRepository.save(event);
 
@@ -194,6 +207,20 @@ public class EventService {
                 .orElseThrow(() -> new MeetingException("Event not found: " + eventId));
     }
 
+    // NEW — resolves the caller's organizationId server-side from their JWT,
+    // same pattern used in MeetingService: extract the "organizationId"
+    // claim (nullable String), null-check, then parse to Long. Never trusts
+    // a client-supplied value. Returns null for non-org callers (Super
+    // Admin-created, Google Sign-In, self-registered) — exactly as intended,
+    // since "no restriction" is the correct behavior for them.
+    private Long resolveOrganizationId(String token) {
+        if (token == null) {
+            return null;
+        }
+        String orgIdStr = jwtUtil.extractOrganizationId(token);
+        return orgIdStr != null ? Long.parseLong(orgIdStr) : null;
+    }
+
     private void validateRequired(EventRequestDTO dto) {
         if (!StringUtils.hasText(dto.getTitle())) throw new MeetingException("title is required");
         if (!StringUtils.hasText(dto.getDate())) throw new MeetingException("date is required");
@@ -225,7 +252,12 @@ public class EventService {
         if (dto.getRecordMeeting() != null) event.setRecordMeeting(dto.getRecordMeeting());
         if (dto.getAllowScreenShare() != null) event.setAllowScreenShare(dto.getAllowScreenShare());
         if (dto.getCreatorName() != null) event.setCreatorName(dto.getCreatorName());
-        if (dto.getOrganizationId() != null) event.setOrganizationId(dto.getOrganizationId());
+        // organizationId intentionally NOT read from dto here — an event's
+        // organizationId is immutable after creation. It is resolved from
+        // the caller's JWT and stamped once, as an explicit step inside
+        // createEvent only. updateEvent calls this same method but must
+        // never be able to change organizationId, so it is simply never
+        // touched in this shared method.
     }
 
     private void saveAttendees(Long eventId, List<String> emails, String type) {

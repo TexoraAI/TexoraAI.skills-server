@@ -2,6 +2,7 @@
 package com.lms.video.controller;
 
 import com.lms.video.constants.VideoFeatureKeys;
+import com.lms.video.dto.UploadQuotaResponse;
 import com.lms.video.model.Video;
 import com.lms.video.security.JwtUtil;
 import com.lms.video.service.VideoFeatureFlagsService;
@@ -121,27 +122,40 @@ public class VideoController {
         );
     }
 
-    // ── PLAY VIDEO ────────────────────────────────────────────────────────────
-    @GetMapping("/play/{fileName}")
-    public ResponseEntity<byte[]> playVideo(
-            @RequestHeader("Authorization") String authHeader,
-            @PathVariable String fileName
-    ) throws Exception {
+    // ── UPLOAD QUOTA PREVIEW ─────────────────────────────────────────────────
+    // ✅ NEW — lets the frontend check remaining quota before attempting an
+    // upload, so it can warn/disable the UI instead of letting the upload
+    // fail server-side. Not feature-gated: it's a read-only preview, same
+    // spirit as GET /{id} above.
+    @GetMapping("/upload-quota")
+    public UploadQuotaResponse getUploadQuota(
+            @RequestHeader("Authorization") String authHeader
+    ) {
         String organizationId = orgIdFrom(authHeader);
         String email          = emailFrom(authHeader);
 
-        // FEATURE GATE
-        featureFlagsService.enforce(organizationId, email, VideoFeatureKeys.PLAY_VIDEO);
-
-        byte[] videoBytes = service.getVideoFile(fileName, organizationId);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename=\"" + fileName + "\"")
-                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .contentType(MediaType.valueOf("video/mp4"))
-                .body(videoBytes);
+        return service.getUploadQuota(organizationId, email);
     }
+
+    // ── PLAY VIDEO ────────────────────────────────────────────────────────────
+ // ── PLAY VIDEO ────────────────────────────────────────────────────────────
+ // Returns a presigned S3 URL (JSON), not bytes. Frontend does a two-step
+ // fetch: authed call here for the URL, then an unauthed GET straight to S3
+ // for the actual video bytes — S3 supports range requests natively, so
+ // seeking/scrubbing works correctly too.
+ @GetMapping("/play/{id}")
+ public ResponseEntity<java.util.Map<String, String>> playVideo(
+         @RequestHeader("Authorization") String authHeader,
+         @PathVariable Long id
+ ) {
+     String organizationId = orgIdFrom(authHeader);
+     String email          = emailFrom(authHeader);
+
+     featureFlagsService.enforce(organizationId, email, VideoFeatureKeys.PLAY_VIDEO);
+
+     String url = service.getPresignedPlayUrl(id, organizationId);
+     return ResponseEntity.ok(java.util.Map.of("url", url));
+ }
 
     // ── GET VIDEO META (not gated — super admin / public use) ─────────────────
     @GetMapping("/{id}")
@@ -181,6 +195,23 @@ public class VideoController {
 
         return service.getVideosForStudent(organizationId);
     }
+    
+    
+ // ── STUDENT: TRUE TOTAL (before tier cap) — lets frontend show
+    // "N more locked" instead of silently truncating with no signal ──
+    @GetMapping("/student/count")
+    public java.util.Map<String, Object> getStudentVideoCount(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        String organizationId = orgIdFrom(authHeader);
+        String email          = emailFrom(authHeader);
+
+        featureFlagsService.enforce(organizationId, email, VideoFeatureKeys.GET_STUDENT_VIDEOS);
+
+        return service.getStudentVideoCount(organizationId);
+    }
+    
+    
 
     // ── TRAINER: GET OWN VIDEOS ───────────────────────────────────────────────
     @GetMapping("/trainer")

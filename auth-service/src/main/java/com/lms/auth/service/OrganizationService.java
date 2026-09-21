@@ -9,7 +9,10 @@
 // 4. All write methods annotated with @CacheEvict targeting the relevant keys.
 
 package com.lms.auth.service;
+import java.time.LocalDate;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.lms.auth.constants.DefaultOrgLimits;
 import com.lms.auth.dto.AdminOrgUpdateRequest;
 import com.lms.auth.dto.CreateOrganizationRequest;
 import com.lms.auth.dto.OrganizationResponse;
@@ -63,14 +66,20 @@ public class OrganizationService {
         org.setStatus(req.getStatus());
         org.setManagerName(req.getManagerName());
         org.setManagerEmail(req.getManagerEmail());
-        org.setMaxStudents(req.getMaxStudents());
-        org.setMaxTrainers(req.getMaxTrainers());
-        org.setPlanExpiryDate(req.getPlanExpiryDate());
-        org.setMaxDepartments(req.getMaxDepartments());
-        org.setMaxBranchesPerDept(req.getMaxBranchesPerDept());
-        org.setMaxBatchesPerBranch(req.getMaxBatchesPerBranch());
+//        org.setMaxStudents(req.getMaxStudents());
+//        org.setMaxTrainers(req.getMaxTrainers());
+//        org.setPlanExpiryDate(req.getPlanExpiryDate());
+//        org.setMaxDepartments(req.getMaxDepartments());
+//        org.setMaxBranchesPerDept(req.getMaxBranchesPerDept());
+//        org.setMaxBatchesPerBranch(req.getMaxBatchesPerBranch());
+//        Organization saved = organizationRepository.save(org);
+        org.setPlanExpiryDate(parsePlanExpiryDate(req.getPlanExpiryDate()));
+        org.setMaxStudents(DefaultOrgLimits.MAX_STUDENTS);
+        org.setMaxTrainers(DefaultOrgLimits.MAX_TRAINERS);
+        org.setMaxDepartments(DefaultOrgLimits.MAX_DEPARTMENTS);
+        org.setMaxBranchesPerDept(DefaultOrgLimits.MAX_BRANCHES_PER_DEPT);
+        org.setMaxBatchesPerBranch(DefaultOrgLimits.MAX_BATCHES_PER_BRANCH);
         Organization saved = organizationRepository.save(org);
-
         authEventProducer.sendEvent(new AuthEvent(
             "ORG_CREATED", null, saved.getEmail(), null,
             saved.getName(), saved.getId().toString(),
@@ -98,12 +107,20 @@ public class OrganizationService {
         org.setStatus(req.getStatus());
         org.setManagerName(req.getManagerName());
         org.setManagerEmail(req.getManagerEmail());
-        org.setMaxStudents(req.getMaxStudents());
-        org.setMaxTrainers(req.getMaxTrainers());
-        org.setPlanExpiryDate(req.getPlanExpiryDate());
-        org.setMaxDepartments(req.getMaxDepartments());
-        org.setMaxBranchesPerDept(req.getMaxBranchesPerDept());
-        org.setMaxBatchesPerBranch(req.getMaxBatchesPerBranch());
+//        org.setMaxStudents(req.getMaxStudents());
+//        org.setMaxTrainers(req.getMaxTrainers());
+//        org.setPlanExpiryDate(req.getPlanExpiryDate());
+//        org.setMaxDepartments(req.getMaxDepartments());
+//        org.setMaxBranchesPerDept(req.getMaxBranchesPerDept());
+//        org.setMaxBatchesPerBranch(req.getMaxBatchesPerBranch());
+//
+//        Organization saved = organizationRepository.save(org);
+        org.setPlanExpiryDate(parsePlanExpiryDate(req.getPlanExpiryDate()));
+        // Seat limits (maxStudents/maxTrainers/maxDepartments/maxBranchesPerDept/
+        // Seat limits (maxStudents/maxTrainers/maxDepartments/maxBranchesPerDept/
+        // maxBatchesPerBranch) are intentionally NOT touched here anymore.
+        // They are set once at creation time from DefaultOrgLimits and can only
+        // change later via the seat-upgrade/payment flow.
 
         Organization saved = organizationRepository.save(org);
 
@@ -241,6 +258,21 @@ public class OrganizationService {
                 .orElseThrow(() -> new RuntimeException("Organization not found: " + orgId));
     }
 
+    // NEW — CreateOrganizationRequest.planExpiryDate stays a String (raw JSON
+    // input from the admin form / import script), but Organization.planExpiryDate
+    // is now LocalDate. This centralizes the parse + null/blank safety in one place.
+    private LocalDate parsePlanExpiryDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(raw);
+        } catch (java.time.format.DateTimeParseException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid planExpiryDate format — expected yyyy-MM-dd");
+        }
+    }
+
     private OrganizationResponse mapToResponse(Organization org) {
         OrganizationResponse res = new OrganizationResponse();
         res.setId(org.getId());
@@ -254,7 +286,7 @@ public class OrganizationService {
         res.setManagerEmail(org.getManagerEmail());
         res.setMaxStudents(org.getMaxStudents());
         res.setMaxTrainers(org.getMaxTrainers());
-        res.setPlanExpiryDate(org.getPlanExpiryDate());
+        res.setPlanExpiryDate(org.getPlanExpiryDate() != null ? org.getPlanExpiryDate().toString() : null);
         res.setCreatedAt(org.getCreatedAt());
         res.setUpdatedAt(org.getUpdatedAt());
         res.setOrganizationName(org.getOrganizationName());

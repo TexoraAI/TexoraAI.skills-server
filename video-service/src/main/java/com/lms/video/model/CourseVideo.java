@@ -23,6 +23,9 @@ public class CourseVideo {
 
     private String uploadedBy;
 
+    @Column
+    private long size; // NEW — bytes, set from file.getSize() at upload time
+
     private Instant createdAt = Instant.now();
 
     public CourseVideo() {}
@@ -48,6 +51,9 @@ public class CourseVideo {
 
     public String getUploadedBy() { return uploadedBy; }
     public void setUploadedBy(String uploadedBy) { this.uploadedBy = uploadedBy; }
+
+    public long getSize() { return size; } // NEW
+    public void setSize(long size) { this.size = size; } // NEW
 
     public Instant getCreatedAt() { return createdAt; }
 }

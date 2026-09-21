@@ -13,11 +13,21 @@ public class TrainerBatchMap {
     private String trainerEmail;
     private Long batchId;
 
+    @Column(name = "organization_id") // ✅ NEW — nullable by default, backward-compatible
+    private Long organizationId;
+
     public TrainerBatchMap() {}
 
     public TrainerBatchMap(String trainerEmail, Long batchId) {
         this.trainerEmail = trainerEmail;
         this.batchId = batchId;
+    }
+
+    // ✅ NEW overload
+    public TrainerBatchMap(String trainerEmail, Long batchId, Long organizationId) {
+        this.trainerEmail = trainerEmail;
+        this.batchId = batchId;
+        this.organizationId = organizationId;
     }
 
     public Long getId() {
@@ -38,5 +48,14 @@ public class TrainerBatchMap {
 
     public void setBatchId(Long batchId) {
         this.batchId = batchId;
+    }
+
+    // ✅ NEW
+    public Long getOrganizationId() {
+        return organizationId;
+    }
+
+    public void setOrganizationId(Long organizationId) {
+        this.organizationId = organizationId;
     }
 }

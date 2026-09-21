@@ -738,13 +738,16 @@ public class GatewaySecurityConfig {
                 return exchange.getResponse().setComplete();
             }
 
-            // ── Payment ──────────────────────────────────────────────────────
-            if (path.startsWith("/api/payment") || path.startsWith("/api/refund")) {
+         // ── Payment / Wallet ────────────────────────────────────────────
+            if (path.startsWith("/api/payments") || path.startsWith("/api/wallet")
+                    || path.startsWith("/api/refund")) {
                 if ("STUDENT".equalsIgnoreCase(role) && path.startsWith("/api/refund")) {
                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }
-                if (!"ADMIN".equalsIgnoreCase(role) && !"TENANT_ADMIN".equalsIgnoreCase(role) && !"STUDENT".equalsIgnoreCase(role)) {
+                if (!"STUDENT".equalsIgnoreCase(role)
+                        && !"TRAINER".equalsIgnoreCase(role)
+                        && !"TENANT_ADMIN".equalsIgnoreCase(role)) {
                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }
@@ -819,6 +822,28 @@ public class GatewaySecurityConfig {
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 return exchange.getResponse().setComplete();
             }
+            
+            
+         // ── Plan Upgrade Preview (auth-service) ──────────────────────────
+         // /api/organizations/{orgId}/upgrade/preview is already covered by
+         // the "/api/organizations" block above (ADMIN/TENANT_ADMIN only).
+         // These two are per-USER previews — any authenticated learner/trainer
+         // can preview THEIR OWN upgrade price. Ownership (the {userId} in the
+         // path actually belongs to the caller) is NOT checked here — the
+         // gateway has no userId claim to compare against, only role. That
+         // check must happen in PlanUpgradeService itself, the same way
+         // PaymentController checks caller.getUserId() == request.getUserId().
+         if (path.matches("/api/users/\\d+/upgrade/preview")
+                 || path.matches("/api/users/\\d+/resume-plan/upgrade/preview")) {
+             if ("STUDENT".equalsIgnoreCase(role)
+                     || "TRAINER".equalsIgnoreCase(role)
+                     || "ADMIN".equalsIgnoreCase(role)
+                     || "TENANT_ADMIN".equalsIgnoreCase(role)) {
+                 return chain.filter(exchange);
+             }
+             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+             return exchange.getResponse().setComplete();
+         }
 
          // ════════════════════════════════════════════════════════════════
         //  PERSONAL PRODUCTIVITY MODULES
@@ -853,6 +878,14 @@ public class GatewaySecurityConfig {
                     return exchange.getResponse().setComplete();
                 }
                 return chain.filter(exchange);
+            }
+            if (path.startsWith("/api/audit")) {
+                if (!path.equals("/api/audit/health") && !path.equals("/api/audit/log")) {
+                    if (!"TENANT_ADMIN".equalsIgnoreCase(role) && !"SUPER_ADMIN".equalsIgnoreCase(role)) {
+                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                        return exchange.getResponse().setComplete();
+                    }
+                }
             }
 
             return chain.filter(exchange);

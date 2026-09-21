@@ -76,6 +76,11 @@ public class ChatFeatureKeys {
             ADD_URL_SOURCE, ADD_FILE_SOURCE, DELETE_SOURCE, NOTEBOOK_AI_CHAT
     );
 
+    
+    public static final String NOTEBOOK_STUDIO_GENERATE = "NOTEBOOK_STUDIO_GENERATE";
+    public static final String NOTEBOOK_STUDIO_LIST = "NOTEBOOK_STUDIO_LIST";
+    public static final String NOTEBOOK_STUDIO_DELETE = "NOTEBOOK_STUDIO_DELETE";
+    public static final String NOTEBOOK_SHARE = "NOTEBOOK_SHARE";
     // Full set — used to build default (all-enabled) flags.
     // NOTE: Super Admin endpoints intentionally have NO keys here — they are
     // never enforced, so they don't need to appear in the default flag set.

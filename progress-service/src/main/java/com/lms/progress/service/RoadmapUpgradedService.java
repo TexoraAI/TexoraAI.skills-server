@@ -94,6 +94,14 @@ import java.util.stream.Collectors;
  * just a suggestion" upgrade the video/article generators already got, and
  * the PDF render is wrapped in its own try/catch so a rendering failure
  * degrades to a resource with no pdfContent rather than failing generation.
+ *
+ * NOTE: startRoadmapGeneration() and generateRoadmap() now call
+ * RoadmapUsageService.checkAndIncrement() as their first line, before any
+ * fromLibrary branching. This applies identically to STUDENT/TRAINER/admin
+ * roles - one shared limit-per-tier, not role-specific. Both the
+ * library-clone fast path and the slow AI-generation path consume one unit
+ * of quota, since both create a new owned syllabus row. If checkAndIncrement
+ * throws RoadmapUsageLimitExceededException, it propagates uncaught.
  */
 @Service
 public class RoadmapUpgradedService {
@@ -114,6 +122,7 @@ public class RoadmapUpgradedService {
     private final RoadmapUpgradedYoutubeClient youtubeClient;
     private final RoadmapUpgradedVideoCacheRepository videoCacheRepository;
     private final ObjectMapper objectMapper;
+    private final RoadmapUsageService roadmapUsageService; // NEW
 
     private static final Executor PARALLEL_EXECUTOR = Executors.newFixedThreadPool(8);
     private static final boolean SKIP_PDF = false;
@@ -124,7 +133,8 @@ public class RoadmapUpgradedService {
             RoadmapUpgradedOpenAiClient openAiClient,
             RoadmapUpgradedYoutubeClient youtubeClient,
             RoadmapUpgradedVideoCacheRepository videoCacheRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            RoadmapUsageService roadmapUsageService) { // NEW param
 this.repository = repository;
 this.mentorRepository = mentorRepository;
 this.jwtUtil = jwtUtil;
@@ -132,6 +142,7 @@ this.openAiClient = openAiClient;
 this.youtubeClient = youtubeClient;
 this.videoCacheRepository = videoCacheRepository;
 this.objectMapper = objectMapper;
+this.roadmapUsageService = roadmapUsageService; // NEW
 }
 
     // =========================================================================
@@ -143,6 +154,13 @@ this.objectMapper = objectMapper;
         Long userId = jwtUtil.extractUserId(token);
         String role = jwtUtil.extractRole(token);
         String organizationId = jwtUtil.extractOrganizationIdOrNull(token);
+        String email = jwtUtil.extractEmail(token); // NEW
+
+        // NEW — defensive addition: this method appears superseded by
+        // startRoadmapGeneration() (its controller endpoint is commented
+        // out), but the quota check is added here too in case it is still
+        // reachable from anywhere else in the codebase.
+        roadmapUsageService.checkAndIncrement(userId, email, organizationId);
 
         boolean fromLibrary = Boolean.TRUE.equals(request.getFromLibrary());
         List<String> contentSources = (request.getContentSources() == null || request.getContentSources().isEmpty())
@@ -815,6 +833,21 @@ this.objectMapper = objectMapper;
     }
 
     // =========================================================================
+    // Usage
+    // =========================================================================
+
+    // NEW — thin passthrough backing GET /api/roadmap-upgraded/usage. No
+    // feature gating (read-only preview), same extractToken(authHeader)
+    // pattern as every other controller method; token decoding happens here
+    // in the service, matching how every other method in this class does it.
+    public Map<String, Object> getUsageStatus(String token) {
+        Long userId = jwtUtil.extractUserId(token);
+        String email = jwtUtil.extractEmail(token);
+        String organizationId = jwtUtil.extractOrganizationIdOrNull(token);
+        return roadmapUsageService.getUsageStatus(userId, email, organizationId);
+    }
+
+    // =========================================================================
     // Progress tracking
     // =========================================================================
 
@@ -1138,37 +1171,7 @@ this.objectMapper = objectMapper;
         clone.setCompletionPercent(0.0);
         clone.setCreatedAt(LocalDateTime.now());
 
-//        List<RoadmapUpgradedModule> clonedModules = new ArrayList<>();
-//        for (RoadmapUpgradedModule sourceModule : source.getModules()) {
-//            RoadmapUpgradedModule clonedModule = new RoadmapUpgradedModule();
-//            clonedModule.setSyllabus(clone);
-//            clonedModule.setOrderIndex(sourceModule.getOrderIndex());
-//            clonedModule.setTitle(sourceModule.getTitle());
-//            clonedModule.setPrerequisiteModuleId(sourceModule.getPrerequisiteModuleId());
-//            clonedModule.setLocked(sourceModule.getOrderIndex() != null && sourceModule.getOrderIndex() != 0);
-//            clonedModule.setProgressPercent(0.0);
-//
-//            List<RoadmapUpgradedResource> clonedResources = new ArrayList<>();
-//            for (RoadmapUpgradedResource sourceResource : sourceModule.getResources()) {
-//                RoadmapUpgradedResource clonedResource = new RoadmapUpgradedResource();
-//                clonedResource.setModule(clonedModule);
-//                clonedResource.setType(sourceResource.getType());
-//                clonedResource.setTitle(sourceResource.getTitle());
-//                clonedResource.setSourceUrl(sourceResource.getSourceUrl());
-//                clonedResource.setFilePath(sourceResource.getFilePath());
-//                clonedResource.setDurationOrLength(sourceResource.getDurationOrLength());
-//                clonedResource.setQuizContentJson(sourceResource.getQuizContentJson());
-//                clonedResource.setContentBody(sourceResource.getContentBody());
-//                clonedResource.setPdfContent(sourceResource.getPdfContent());
-//                clonedResource.setCompleted(false);
-//                clonedResource.setQuizScore(null);
-//                clonedResource.setCompletedAt(null);
-//                clonedResources.add(clonedResource);
-//            }
-//            clonedModule.setResources(clonedResources);
-//            clonedModules.add(clonedModule);
-//        }
-//        clone.setModules(clonedModules);
+
         List<RoadmapUpgradedModule> clonedModules = new ArrayList<>();
         for (RoadmapUpgradedModule sourceModule : source.getModules()) {
             RoadmapUpgradedModule clonedModule = new RoadmapUpgradedModule();
@@ -1631,6 +1634,15 @@ this.objectMapper = objectMapper;
         Long userId = jwtUtil.extractUserId(token);
         String role = jwtUtil.extractRole(token);
         String organizationId = jwtUtil.extractOrganizationIdOrNull(token);
+        String email = jwtUtil.extractEmail(token); // NEW
+
+        // NEW — first line before any fromLibrary branching, applies
+        // identically to STUDENT/TRAINER/admin roles (one shared
+        // limit-per-tier). Counts both the library-clone fast path and the
+        // slow AI-generation path below, since both create a new owned
+        // syllabus row. Propagates RoadmapUsageLimitExceededException
+        // uncaught if the caller is over quota.
+        roadmapUsageService.checkAndIncrement(userId, email, organizationId);
 
         boolean fromLibrary = Boolean.TRUE.equals(request.getFromLibrary());
 

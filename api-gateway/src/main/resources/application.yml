@@ -27,7 +27,7 @@ spring:
       httpclient:
         max-in-memory-size: 104857600
         connect-timeout: 120000
-        response-timeout: 120s
+        response-timeout: 360s
 
 # ================= SERVICE URLS (Render + Localhost Support) =================
 services:
@@ -49,6 +49,7 @@ services:
   batch: ${BATCH_SERVICE_URL:http://localhost:8095}
   chat: ${CHAT_SERVICE_URL:http://localhost:8096}
   live-session: ${LIVE_SESSION_SERVICE_URL:http://localhost:8097}
+  audit: ${AUDIT_SERVICE_URL:http://localhost:8098}
 
 rate-limit:
   fail-open: true

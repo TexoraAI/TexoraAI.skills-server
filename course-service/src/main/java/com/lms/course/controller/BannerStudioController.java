@@ -1,3 +1,5 @@
+
+
 package com.lms.course.controller;
 
 import com.lms.course.dto.BannerStudioAiGenerateRequestDTO;
@@ -7,10 +9,14 @@ import com.lms.course.dto.BannerStudioResponseDTO;
 import com.lms.course.dto.BannerStudioStatusUpdateDTO;
 import com.lms.course.service.BannerStudioService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST endpoints for the Banner Studio feature, matching the contract
@@ -24,6 +30,18 @@ public class BannerStudioController {
 
     public BannerStudioController(BannerStudioService bannerStudioService) {
         this.bannerStudioService = bannerStudioService;
+    }
+
+    // POST /api/banners/upload-image  (SUPER_ADMIN, multipart "file")
+    // Frontend calls this once per device slot (desktop/tablet/mobile),
+    // gets an S3 key back, then sends that key as desktopImageUrl /
+    // tabletImageUrl / mobileImageUrl in create()/update().
+    @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadImage(
+            @RequestParam("file") MultipartFile file
+    ) throws IOException {
+        String key = bannerStudioService.uploadBannerImage(file);
+        return ResponseEntity.ok(Map.of("key", key));
     }
 
     // GET /api/banners?status=all&search=

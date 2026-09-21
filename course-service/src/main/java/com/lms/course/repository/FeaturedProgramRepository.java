@@ -47,12 +47,17 @@ public interface FeaturedProgramRepository extends JpaRepository<FeaturedProgram
     List<FeaturedProgram> findAllByStatusAndPublishStatusOrderByDisplayOrderAsc(String status, String publishStatus);
     List<FeaturedProgram> findAllByCategoryIgnoreCaseAndStatusAndPublishStatus(String category, String status, String publishStatus);
 
-    // ── NEW: lightweight query for homepage — no collections touched, zero N+1, single query ──
+    // ── lightweight query for homepage — no collections touched, zero N+1, single query.
+    // Extended to include the badge flags + discount fields so the homepage can render
+    // real "Featured"/"Trending"/"Bestseller" badges and strike-through pricing instead
+    // of guessing isBestseller from rating on the client. ──
     @Query("SELECT new com.lms.course.dto.FeaturedProgramSummaryDTO(" +
            "f.id, f.title, f.category, f.instructorName, f.instructorRole, f.level, " +
            "f.durationWeeks, f.lessons, f.liveSessions, f.projects, f.studentsEnrolled, " +
            "f.rating, f.price, f.shortDescription, f.thumbnailUrl, f.bannerUrl, " +
-           "f.instructorPhotoUrl, f.instructorLinkedIn, f.videoUrl, f.enrollmentUrl) " +
+           "f.instructorPhotoUrl, f.instructorLinkedIn, f.videoUrl, f.enrollmentUrl, " +
+           "f.isFeatured, f.isTrending, f.isBestseller, f.isPopular, f.isRecommended, f.isComingSoon, " +
+           "f.originalPrice, f.discountPercent) " +
            "FROM FeaturedProgram f " +
            "WHERE f.status = :status AND f.publishStatus = :publishStatus " +
            "ORDER BY f.displayOrder ASC")

@@ -1,12 +1,16 @@
+
+
 package com.lms.live_session.service;
 
 import com.lms.live_session.dto.ScheduleRequestDTO;
+
 import com.lms.live_session.dto.ScheduleResponseDTO;
 import com.lms.live_session.entity.Schedule;
 import com.lms.live_session.entity.ScheduleReminder;
 import com.lms.live_session.entity.ScheduleType;
 import com.lms.live_session.exception.MeetingException;
 import com.lms.live_session.repository.ScheduleRepository;
+import com.lms.live_session.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,34 +40,28 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final ReminderService reminderService;
     private final MeetingService meetingService;
+    private final JwtUtil jwtUtil;
+    private final LiveSessionUsageService usageService;
 
     @Autowired
     public ScheduleService(ScheduleRepository scheduleRepository, ReminderService reminderService,
-                            MeetingService meetingService) {
+                            MeetingService meetingService, JwtUtil jwtUtil,
+                            LiveSessionUsageService usageService) {
         this.scheduleRepository = scheduleRepository;
         this.reminderService = reminderService;
         this.meetingService = meetingService;
+        this.jwtUtil = jwtUtil;
+        this.usageService = usageService;
     }
-//    public ScheduleResponseDTO createSchedule(ScheduleRequestDTO dto, String creatorId) {
-//        validateRequired(dto);
-//
-//        Schedule schedule = new Schedule();
-//        applyDtoToSchedule(dto, schedule);
-////        schedule.setCreatorId(creatorId);
-////        schedule.setCreatorName(dto.getCreatorName());
-////        schedule.setOrganizationId(dto.getOrganizationId());
-//        schedule.setCreatorId(creatorId);
-//        schedule.setCreatorName(
-//            StringUtils.hasText(dto.getCreatorName()) ? dto.getCreatorName() : creatorId
-//        );
-//       
-//        schedule.setOrganizationId(dto.getOrganizationId());
-//        schedule = scheduleRepository.save(schedule);
-//        createReminderIfNeeded(schedule.getId(), schedule.getReminder(), creatorId);
-//        return mapToDTO(schedule);
-//    }
 
-    public ScheduleResponseDTO createSchedule(ScheduleRequestDTO dto, String creatorId, String creatorRole) {
+    public ScheduleResponseDTO createSchedule(ScheduleRequestDTO dto, String creatorId, String creatorRole, String token) {
+        Long organizationId = null;
+        String orgIdStr = jwtUtil.extractOrganizationId(token);
+        if (orgIdStr != null) {
+            organizationId = Long.parseLong(orgIdStr);
+        }
+        usageService.checkAndIncrementMeetingCreation(organizationId, creatorId);
+
         validateRequired(dto);
 
         Schedule schedule = new Schedule();
@@ -72,8 +70,7 @@ public class ScheduleService {
         schedule.setCreatorName(
             StringUtils.hasText(dto.getCreatorName()) ? dto.getCreatorName() : creatorId
         );
-
-        schedule.setOrganizationId(dto.getOrganizationId());
+        schedule.setOrganizationId(organizationId);
 
         // NEW — create a real joinable meeting for video-type schedules
         // NEW — create a real joinable meeting for video-type schedules
@@ -233,9 +230,6 @@ public class ScheduleService {
                 ? ScheduleReminder.fromValue(dto.getReminder()).getValue() : null);
         if (dto.getCreatorName() != null) {
             schedule.setCreatorName(dto.getCreatorName());
-        }
-        if (dto.getOrganizationId() != null) {
-            schedule.setOrganizationId(dto.getOrganizationId());
         }
     }
 

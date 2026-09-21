@@ -42,8 +42,9 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
-    public Long extractOrganizationId(String token) {
-        String value = getClaims(token).get("organizationId", String.class);
-        return (value == null || value.isBlank()) ? null : Long.valueOf(value);
+ // Extracts organizationId claim; returns null for non-org users
+    public String extractOrganizationId(String token) {
+        Object orgId = getClaims(token).get("organizationId");
+        return orgId != null ? orgId.toString() : null;
     }
 }

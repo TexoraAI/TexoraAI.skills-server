@@ -4,7 +4,7 @@ package com.lms.auth.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
+import java.time.LocalDate;
 @Entity
 @Table(
     name = "users",
@@ -85,6 +85,12 @@ public class User {
     public Boolean getPasswordSet() { return passwordSet; }
     public void setPasswordSet(Boolean passwordSet) { this.passwordSet = passwordSet; }
     
+    @Column(name = "plan", length = 20)
+    private String plan;
+    
+    @Column(name = "plan_expiry_date")
+    private LocalDate planExpiryDate;
+    
     public User() {}
 
     public User(String name, String email, String password, Role role) {
@@ -103,6 +109,7 @@ public class User {
         if (this.createdAt == null) this.createdAt = LocalDateTime.now();
         if (this.onboardingStatus == null) this.onboardingStatus = "PENDING";
         if (this.googleUser == null) this.googleUser = false;
+        if (this.plan == null) this.plan = "free";
     }
 
     // All existing getters/setters unchanged
@@ -136,4 +143,10 @@ public class User {
     public void setBlocked(boolean blocked) { this.blocked = blocked; }
     public boolean isProfileCompleted() { return profileCompleted; }
     public void setProfileCompleted(boolean profileCompleted) { this.profileCompleted = profileCompleted; }
+    
+    public String getPlan() { return plan; }
+    public void setPlan(String plan) { this.plan = plan; }
+    
+    public LocalDate getPlanExpiryDate() { return planExpiryDate; }
+    public void setPlanExpiryDate(LocalDate planExpiryDate) { this.planExpiryDate = planExpiryDate; }
 }

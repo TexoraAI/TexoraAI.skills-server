@@ -1,27 +1,22 @@
 
-
-
-
 package com.lms.file.controller;
 
 import com.lms.file.model.CourseFile;
 import com.lms.file.service.CourseFileService;
-import org.springframework.core.io.*;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.*;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/course-files")
 public class CourseFileController {
 
     private final CourseFileService service;
-
-    private static final String FILE_DIR =
-            System.getProperty("user.dir") + "/files/course-content/";
 
     public CourseFileController(CourseFileService service) {
         this.service = service;
@@ -40,8 +35,6 @@ public class CourseFileController {
     }
 
     // ================= EDIT =================
-    // Accepts multipart/form-data — replacement file is optional.
-    // Frontend sends: file (optional), courseId, moduleId, batchId
     @PutMapping("/{id}")
     public CourseFile update(
             @PathVariable Long id,
@@ -69,27 +62,27 @@ public class CourseFileController {
     }
 
     // ================= SECURED DOWNLOAD =================
-    @GetMapping("/download/{fileName:.+}")
-    public ResponseEntity<Resource> download(
-            @PathVariable String fileName,
+    // CHANGED: now id-based (matches what `url` in the DB points to), and
+    // redirects to a freshly-generated presigned S3 URL instead of streaming
+    // bytes off local disk. Auth is still enforced before the redirect.
+    // ================= SECURED DOWNLOAD =================
+    // Returns JSON with a presigned S3 URL instead of a redirect/bytes,
+    // for the same auth-header-on-redirect reason as FileController.
+    @GetMapping("/download/{id}")
+    public ResponseEntity<java.util.Map<String, String>> download(
+            @PathVariable Long id,
             Authentication auth
-    ) throws IOException {
-
+    ) {
         if (auth == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
-        File file = new File(FILE_DIR + fileName);
-        if (!file.exists()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        Resource resource = new FileSystemResource(file);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename=\"" + fileName + "\"")
-                .contentType(MediaType.APPLICATION_PDF)
-                .contentLength(file.length())
-                .body(resource);
+        CourseFile file = service.getById(id);
+        String url = service.getPresignedUrl(file.getFileName());
+        return ResponseEntity.ok(java.util.Map.of("url", url));
+    }
+    // ================= USAGE (file course-content storage quota) =================
+    @GetMapping("/upload-quota")
+    public java.util.Map<String, Object> getUploadQuota(Authentication auth) {
+        return service.getCourseFileUsage(auth.getName());
     }
 }

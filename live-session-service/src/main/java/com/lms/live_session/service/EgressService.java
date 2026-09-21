@@ -161,60 +161,7 @@ public class EgressService {
             return null;
         }
     }
-    // ✅ NEW — this is the method you should use going forward. It stops the
-    // egress AND returns LiveKit's own EgressInfo, which contains the real,
-    // authoritative filename(s) that were actually uploaded to S3. This is
-    // what fixes the filename-mismatch bug: we stop guessing the S3 key and
-    // instead read exactly what LiveKit says it wrote.
-//    public EgressInfo stopRecordingAndGetInfo(String egressId) {
-//        if (egressId == null) return null;
-//        try {
-//            EgressServiceClient client = buildEgressClient();
-//            retrofit2.Response<EgressInfo> response = client.stopEgress(egressId).execute();
-//
-//            if (response.isSuccessful() && response.body() != null) {
-//                System.out.println("✅ Egress stopped: " + egressId);
-//                return response.body();
-//            }
-//
-//            String errorBody = "";
-//            try {
-//                errorBody = response.errorBody() != null ? response.errorBody().string() : "";
-//            } catch (Exception readEx) {
-//                System.err.println("⚠️ Could not read stopEgress error body: " + readEx.getMessage());
-//            }
-//
-//            boolean alreadyGone = errorBody.contains("\"code\":\"not_found\"")
-//                || errorBody.contains("\"code\":\"failed_precondition\"")
-//                || errorBody.contains("EGRESS_FAILED")
-//                || errorBody.toLowerCase().contains("egress not found")
-//                || errorBody.toLowerCase().contains("cannot be stopped");
-//
-//            if (alreadyGone) {
-//                System.out.println("⚠️ stopEgress reported egress already gone/failed for " + egressId
-//                    + " — treating as stopped-but-unknown-result. LiveKit response: " + errorBody);
-//                // Returning null here on purpose — we genuinely don't know what
-//                // file (if any) exists, so the caller must NOT create a
-//                // recordings row with a guessed URL. Caller should mark this
-//                // as a failed/unknown recording, not silently succeed.
-//                return null;
-//            }
-//
-//            System.err.println("❌ Stop egress failed: " + errorBody);
-//            return null;
-//
-//        } catch (Exception e) {
-//            System.err.println("❌ Failed to stop egress: " + e.getMessage());
-//            e.printStackTrace();
-//            return null;
-//        }
-//    }
-//
-//    // Kept for backward compatibility if anything else calls this — but
-//    // prefer stopRecordingAndGetInfo() everywhere now.
-//    public boolean stopRecording(String egressId) {
-//        return stopRecordingAndGetInfo(egressId) != null;
-//    }
+   
     public EgressInfo stopRecordingAndGetInfo(String egressId) {
         if (egressId == null) return null;
         try {

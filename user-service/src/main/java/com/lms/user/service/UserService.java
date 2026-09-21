@@ -235,6 +235,9 @@ public class UserService {
         r.setCreatedAt(u.getCreatedAt());
         r.setPhotoUrl(u.getPhotoUrl());
         r.setOrganizationId(u.getOrganizationId());
+        r.setPlan(u.getPlan());
+        r.setResumePlanOverride(u.getResumePlanOverride());
+        r.setResumePlanOverrideExpiryDate(u.getResumePlanOverrideExpiryDate());
         return r;
     }
 

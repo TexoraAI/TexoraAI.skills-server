@@ -1,6 +1,6 @@
 
 package com.lms.batch.service;
-
+import com.lms.batch.exception.SeatLimitExceededException;
 import com.lms.batch.client.UserClient;
 import com.lms.batch.constants.BatchFeatureKeys;
 import com.lms.batch.dto.*;
@@ -73,14 +73,24 @@ public class BatchService {
 
         flagsService.enforce(orgId, null, BatchFeatureKeys.CREATE_BATCH);
 
+//        if (orgId != null) {
+//            OrgLimits limits = orgLimitsRepository.findById(orgId).orElse(null);
+//            if (limits != null && limits.getMaxBatchesPerBranch() != null) {
+//                long count = batchRepository.countByBranchId(request.getBranchId());
+//                if (count >= limits.getMaxBatchesPerBranch()) {
+//                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+//                        "Batch limit reached for this branch. Max: "
+//                        + limits.getMaxBatchesPerBranch());
+//                }
+//            }
+//        }
         if (orgId != null) {
             OrgLimits limits = orgLimitsRepository.findById(orgId).orElse(null);
             if (limits != null && limits.getMaxBatchesPerBranch() != null) {
                 long count = batchRepository.countByBranchId(request.getBranchId());
                 if (count >= limits.getMaxBatchesPerBranch()) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Batch limit reached for this branch. Max: "
-                        + limits.getMaxBatchesPerBranch());
+                    throw new SeatLimitExceededException(
+                        orgId, "BATCH", (int) count, limits.getMaxBatchesPerBranch());
                 }
             }
         }

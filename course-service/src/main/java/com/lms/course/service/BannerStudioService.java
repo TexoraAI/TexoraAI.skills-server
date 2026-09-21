@@ -8,17 +8,27 @@ import com.lms.course.dto.BannerStudioStatusUpdateDTO;
 import com.lms.course.exception.BannerNotFoundException;
 import com.lms.course.model.BannerStudio;
 import com.lms.course.repository.BannerStudioRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Concrete service class for Banner Studio — follows the same style as the
  * rest of com.lms.course.service (no service.impl / interface split).
  * Handles CRUD, duplicate, publish/schedule, and delegates AI copy
  * generation to OpenAIService.
+ *
+ * Image fields (desktop/tablet/mobile) now store S3 keys under
+ * images/banner-images/ instead of raw base64 — same pattern as
+ * MentorFeedbackService. Presigned URLs are generated only at
+ * response time via toResponseDto().
  */
 @Service
 public class BannerStudioService {
@@ -27,10 +37,42 @@ public class BannerStudioService {
 
     private final BannerStudioRepository bannerStudioRepository;
     private final OpenAIService openAIService;
+    private final S3Service s3Service;
 
-    public BannerStudioService(BannerStudioRepository bannerStudioRepository, OpenAIService openAIService) {
+    @Value("${image.banner.s3-prefix}")
+    private String bannerImagePrefix;
+
+    private String aiGeneratedImagePrefix() {
+        return bannerImagePrefix.endsWith("/")
+                ? bannerImagePrefix + "ai-generated/"
+                : bannerImagePrefix + "/ai-generated/";
+    }
+    
+    @Value("${image.banner.presign-expiry-minutes:15}")
+    private long presignExpiryMinutes;
+
+    public BannerStudioService(BannerStudioRepository bannerStudioRepository,
+                                OpenAIService openAIService,
+                                S3Service s3Service) {
         this.bannerStudioRepository = bannerStudioRepository;
         this.openAIService = openAIService;
+        this.s3Service = s3Service;
+    }
+
+    // ===================== Image upload =====================
+
+    /**
+     * Uploads a single banner creative (desktop/tablet/mobile) to S3 and
+     * returns the S3 key. Frontend calls this once per device slot, gets
+     * a key back, then sends that key as desktopImageUrl/tabletImageUrl/
+     * mobileImageUrl in the create/update payload.
+     */
+    public String uploadBannerImage(MultipartFile file) throws IOException {
+        String safeName = (file.getOriginalFilename() == null ? "image" : file.getOriginalFilename())
+                .replaceAll("[^a-zA-Z0-9._-]", "_");
+        String key = bannerImagePrefix + System.currentTimeMillis() + "_" + UUID.randomUUID() + "_" + safeName;
+        s3Service.uploadFile(key, file);
+        return key;
     }
 
     // ===================== Read =====================
@@ -66,13 +108,27 @@ public class BannerStudioService {
 
     public BannerStudioResponseDTO updateBanner(Long id, BannerStudioRequestDTO request) {
         BannerStudio banner = findByIdOrThrow(id);
+
+        // capture old keys before overwrite so we can clean up S3 afterwards
+        String oldDesktop = banner.getDesktopImageUrl();
+        String oldTablet = banner.getTabletImageUrl();
+        String oldMobile = banner.getMobileImageUrl();
+
         applyRequestToEntity(request, banner);
         BannerStudio saved = bannerStudioRepository.save(banner);
+
+        deleteIfReplaced(oldDesktop, saved.getDesktopImageUrl());
+        deleteIfReplaced(oldTablet, saved.getTabletImageUrl());
+        deleteIfReplaced(oldMobile, saved.getMobileImageUrl());
+
         return toResponseDto(saved);
     }
 
     public void deleteBanner(Long id) {
         BannerStudio banner = findByIdOrThrow(id);
+        deleteKeyIfPresent(banner.getDesktopImageUrl());
+        deleteKeyIfPresent(banner.getTabletImageUrl());
+        deleteKeyIfPresent(banner.getMobileImageUrl());
         bannerStudioRepository.delete(banner);
     }
 
@@ -90,6 +146,10 @@ public class BannerStudioService {
         copy.setCtaLink(original.getCtaLink());
         copy.setStatus(BannerStudio.BannerStatus.DRAFT);
         copy.setActive(false);
+        // NOTE: duplicate shares the same S3 keys as the original (not
+        // re-uploaded/copied in S3). Deleting either banner independently
+        // would break the other's image — if that matters, copy the S3
+        // object under a new key here instead of reusing it directly.
         copy.setDesktopImageUrl(original.getDesktopImageUrl());
         copy.setTabletImageUrl(original.getTabletImageUrl());
         copy.setMobileImageUrl(original.getMobileImageUrl());
@@ -167,10 +227,30 @@ public class BannerStudioService {
     // ===================== AI generation =====================
 
     public BannerStudioAiGenerateResponseDTO generateWithAi(BannerStudioAiGenerateRequestDTO request) {
-        return openAIService.generateBannerCopy(request);
+        BannerStudioAiGenerateResponseDTO copy = openAIService.generateBannerCopy(request);
+
+        try {
+            byte[] imageBytes = openAIService.generateBannerImage(request);
+            String key = aiGeneratedImagePrefix() + System.currentTimeMillis() + "_" + UUID.randomUUID() + "_ai.png";
+            s3Service.uploadBytes(key, imageBytes, "image/png");
+            copy.setDesktopImageKey(key);
+            copy.setDesktopImageUrl(s3Service.generatePresignedUrl(key, Duration.ofMinutes(presignExpiryMinutes)));
+        } catch (Exception e) {
+            System.err.println("AI image generation failed, falling back to text-only banner: " + e.getMessage());
+        }
+
+        return copy;
     }
 
-    /** Persists an AI-generated preview as a draft banner ("Add to Banners" button). */
+    /**
+     * Persists an AI-generated preview as a draft banner ("Add to Banners"
+     * button). Note: AI generation currently only produces text copy
+     * (eyebrow/title/sub/cta/gradient/emoji) — no image is generated or
+     * attached here, so desktop/tablet/mobile image fields stay null. If
+     * AI image generation is added later, upload the generated image via
+     * the same s3Service.uploadFile() path used by uploadBannerImage()
+     * and set the resulting key on this banner before saving.
+     */
     public BannerStudioResponseDTO saveAiGeneratedBanner(BannerStudioAiGenerateResponseDTO aiResult) {
         BannerStudio banner = new BannerStudio();
         banner.setName(aiResult.getTitle());
@@ -210,6 +290,28 @@ public class BannerStudioService {
         }
     }
 
+    /** Deletes the old S3 object only if it existed and the key actually changed. */
+    private void deleteIfReplaced(String oldKey, String newKey) {
+        if (oldKey != null && !oldKey.isBlank() && !oldKey.equals(newKey)) {
+            s3Service.deleteFile(oldKey);
+        }
+    }
+
+//    private void deleteKeyIfPresent(String key) {
+//        if (key != null && !key.isBlank()) {
+//            s3Service.deleteFile(key);
+//        }
+//    }
+    private void deleteKeyIfPresent(String key) {
+        if (key != null && !key.isBlank()) {
+            try {
+                s3Service.deleteFile(key);
+            } catch (Exception e) {
+                System.err.println("Failed to delete S3 object for key '" + key + "': " + e.getMessage());
+            }
+        }
+    }
+
     private void applyRequestToEntity(BannerStudioRequestDTO request, BannerStudio banner) {
         banner.setName(request.getName());
         banner.setEmoji(request.getEmoji());
@@ -232,9 +334,19 @@ public class BannerStudioService {
             banner.setEndDate(LocalDate.parse(request.getEndDate(), DATE_FMT));
         }
 
-        if (request.getDesktopImageUrl() != null) banner.setDesktopImageUrl(request.getDesktopImageUrl());
-        if (request.getTabletImageUrl() != null) banner.setTabletImageUrl(request.getTabletImageUrl());
-        if (request.getMobileImageUrl() != null) banner.setMobileImageUrl(request.getMobileImageUrl());
+        // These hold S3 KEYS (e.g. "images/banner-images/..."), not base64
+        // and not presigned URLs. null/absent = leave unchanged (existing
+        // key kept). Explicit "" (blank string) = user removed the image,
+        // clear it in the DB and let deleteIfReplaced() clean up S3.
+        if (request.getDesktopImageUrl() != null) {
+            banner.setDesktopImageUrl(request.getDesktopImageUrl().isBlank() ? null : request.getDesktopImageUrl());
+        }
+        if (request.getTabletImageUrl() != null) {
+            banner.setTabletImageUrl(request.getTabletImageUrl().isBlank() ? null : request.getTabletImageUrl());
+        }
+        if (request.getMobileImageUrl() != null) {
+            banner.setMobileImageUrl(request.getMobileImageUrl().isBlank() ? null : request.getMobileImageUrl());
+        }
 
         if (request.getTitleSize() != null) banner.setTitleSize(request.getTitleSize());
         if (request.getTitleWeight() != null) banner.setTitleWeight(request.getTitleWeight());
@@ -246,6 +358,11 @@ public class BannerStudioService {
         if (request.getAnimation() != null) banner.setAnimation(request.getAnimation());
     }
 
+    /**
+     * Converts S3 keys to live presigned URLs at response time, and also
+     * exposes the raw keys so the frontend can round-trip them on the next
+     * update without resubmitting an expiring presigned URL.
+     */
     private BannerStudioResponseDTO toResponseDto(BannerStudio banner) {
         BannerStudioResponseDTO dto = new BannerStudioResponseDTO();
         dto.setId(banner.getId());
@@ -262,9 +379,12 @@ public class BannerStudioService {
         dto.setStartDate(banner.getStartDate() != null ? banner.getStartDate().format(DATE_FMT) : null);
         dto.setStartTime(banner.getStartTime());
         dto.setEndDate(banner.getEndDate() != null ? banner.getEndDate().format(DATE_FMT) : null);
-        dto.setDesktopImageUrl(banner.getDesktopImageUrl());
-        dto.setTabletImageUrl(banner.getTabletImageUrl());
-        dto.setMobileImageUrl(banner.getMobileImageUrl());
+        dto.setDesktopImageUrl(toPresignedUrl(banner.getDesktopImageUrl()));
+        dto.setTabletImageUrl(toPresignedUrl(banner.getTabletImageUrl()));
+        dto.setMobileImageUrl(toPresignedUrl(banner.getMobileImageUrl()));
+        dto.setDesktopImageKey(banner.getDesktopImageUrl());
+        dto.setTabletImageKey(banner.getTabletImageUrl());
+        dto.setMobileImageKey(banner.getMobileImageUrl());
         dto.setTitleSize(banner.getTitleSize());
         dto.setTitleWeight(banner.getTitleWeight());
         dto.setTitleColor(banner.getTitleColor());
@@ -282,5 +402,10 @@ public class BannerStudioService {
         dto.setCreatedAt(banner.getCreatedAt() != null ? banner.getCreatedAt().toString() : null);
         dto.setUpdatedAt(banner.getUpdatedAt() != null ? banner.getUpdatedAt().toString() : null);
         return dto;
+    }
+
+    private String toPresignedUrl(String key) {
+        if (key == null || key.isBlank()) return null;
+        return s3Service.generatePresignedUrl(key, Duration.ofMinutes(presignExpiryMinutes));
     }
 }

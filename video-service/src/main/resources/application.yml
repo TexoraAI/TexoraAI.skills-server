@@ -77,6 +77,13 @@ app:
   ffmpeg:
     path: ${FFMPEG_PATH:ffmpeg}
 
+  # ✅ NEW — public-facing API Gateway URL, used to build video/thumbnail
+  # stream links (FeaturedSessionVideoService) so they resolve correctly
+  # outside of localhost. Locally this defaults to your local gateway;
+  # in production it MUST be set to your real public API domain via
+  # the APP_API_BASE_URL env var.
+  public-api-url: ${APP_API_BASE_URL:http://localhost:9000}
+
   # Featured-session-video transcript generation (video-service only --
   # chat-service has no equivalent of this block).
   #
@@ -105,3 +112,10 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.springframework.kafka: INFO
+
+aws:
+  access-key: ${AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY}
+  region: ${AWS_REGION:ap-south-1}
+  s3:
+     bucket: ${AWS_S3_BUCKET_MEDIA:ilmora-media-storage}

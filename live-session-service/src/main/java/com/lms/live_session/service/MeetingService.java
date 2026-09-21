@@ -1,3 +1,5 @@
+
+
 package com.lms.live_session.service;
 import com.lms.live_session.entity.Event;
 import com.lms.live_session.dto.MeetingJoinRequestDTO;
@@ -17,6 +19,7 @@ import com.lms.live_session.exception.MeetingException;
 import com.lms.live_session.repository.MeetingJoinRequestRepository;
 import com.lms.live_session.repository.MeetingRepository;
 import com.lms.live_session.util.JoinCodeGenerator;
+import com.lms.live_session.security.JwtUtil;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import com.lms.live_session.event.SessionNotificationEvent;
@@ -43,6 +46,8 @@ public class MeetingService {
     private final RecordingService recordingService;
     private final LiveSessionProducer liveSessionProducer;
     private final MeetingInviteProducer meetingInviteProducer;
+    private final JwtUtil jwtUtil;
+    private final LiveSessionUsageService usageService;
     @Value("${aws.s3.bucket}")
     private String bucket;
 
@@ -58,7 +63,9 @@ public class MeetingService {
             EgressService egressService,
             RecordingService recordingService,
             LiveSessionProducer liveSessionProducer,
-            MeetingInviteProducer meetingInviteProducer) {
+            MeetingInviteProducer meetingInviteProducer,
+            JwtUtil jwtUtil,
+            LiveSessionUsageService usageService) {
 this.repository = repository;
 this.tokenService = tokenService;
 this.joinRequestRepository = joinRequestRepository;
@@ -66,22 +73,23 @@ this.egressService = egressService;
 this.recordingService = recordingService;
 this.liveSessionProducer = liveSessionProducer;
 this.meetingInviteProducer = meetingInviteProducer;
+this.jwtUtil = jwtUtil;
+this.usageService = usageService;
 }
 
     // ─────────────────────────────────────────────────────────────
     // CREATE — INSTANT
     // ─────────────────────────────────────────────────────────────
 
-    public MeetingResponseDTO createInstantMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
+    public MeetingResponseDTO createInstantMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole, String token) {
+        usageService.checkAndIncrementMeetingCreation(resolveOrganizationId(token), creatorId);
         Meeting meeting = new Meeting();
-//        meeting.setTitle(blankToDefault(dto.getTitle(), "Instant meeting"));
-//        meeting.setTitle(blankToDefault(dto.getTitle(), "Ilmorameet"));
         meeting.setTitle(blankToDefault(dto.getTitle(),
                 "Ilmorameet · " + LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a"))));
         meeting.setCreatorId(creatorId);
         meeting.setCreatorRole(creatorRole);
         meeting.setCreatorName(dto.getCreatorName());
-        meeting.setOrganizationId(dto.getOrganizationId());
+        meeting.setOrganizationId(resolveOrganizationId(token));
         meeting.setMeetingType(MeetingType.INSTANT);
         meeting.setMeetingStatus(MeetingStatus.ACTIVE);
         meeting.setReusable(true);
@@ -96,7 +104,8 @@ this.meetingInviteProducer = meetingInviteProducer;
     }
 
     // ─────────────────────────────────────────────────────────────
-        public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
+        public MeetingResponseDTO createScheduledMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole, String token) {
+        usageService.checkAndIncrementMeetingCreation(resolveOrganizationId(token), creatorId);
         if (dto.getDate() == null || dto.getTime() == null || dto.getTimezone() == null) {
             throw new MeetingException("date, time and timezone are required to schedule a meeting");
         }
@@ -115,7 +124,7 @@ this.meetingInviteProducer = meetingInviteProducer;
         meeting.setCreatorId(creatorId);
         meeting.setCreatorRole(creatorRole);
         meeting.setCreatorName(dto.getCreatorName());
-        meeting.setOrganizationId(dto.getOrganizationId());
+        meeting.setOrganizationId(resolveOrganizationId(token));
         meeting.setMeetingType(MeetingType.SCHEDULED);
         meeting.setMeetingStatus(MeetingStatus.SCHEDULED);
         meeting.setTimezone(dto.getTimezone());
@@ -173,6 +182,16 @@ this.meetingInviteProducer = meetingInviteProducer;
                 .map(m -> toResponseDTO(m, creatorId))
                 .collect(Collectors.toList());
     }
+    
+
+    // NEW — usage-preview for GET /api/meetings/usage
+//    public Map<String, Object> getMeetingUsage(String creatorId, String token) {
+//        return usageService.getUsageStatus(resolveOrganizationId(token), creatorId, "MEETING_CREATE");
+//    }
+    public Map<String, Object> getMeetingUsage(String creatorId, String token) {
+        String organizationId = token != null ? jwtUtil.extractOrganizationId(token) : null;
+        return usageService.getUsageStatus(organizationId, creatorId, "MEETING_CREATE");
+    }
     // ─────────────────────────────────────────────────────────────
     // START / END
     // ─────────────────────────────────────────────────────────────
@@ -192,49 +211,6 @@ this.meetingInviteProducer = meetingInviteProducer;
         saved = claimAndStartEgress(saved);
         return toResponseDTO(saved, saved.getCreatorId());
     }
-
-//    public MeetingResponseDTO endMeeting(Long id) {
-//        Meeting meeting = findOrThrow(id);
-//     // NEW — permanent (Task Orbit) meetings never end via "End", only delete kills them
-//        if (meeting.isPermanent()) {
-//            return toResponseDTO(meeting, meeting.getCreatorId());
-//        }
-//        meeting.setMeetingStatus(MeetingStatus.ENDED);
-//        meeting.setEndedAt(LocalDateTime.now(ZoneId.of("UTC")));
-//        // NEW — stop egress if one is running, same recipe as LiveSessionService.endSession()
-//        if (meeting.getEgressId() != null) {
-//            String egressIdToStop = meeting.getEgressId();
-//            livekit.LivekitEgress.EgressInfo info = egressService.stopRecordingAndGetInfo(egressIdToStop);
-//
-//            if (info != null && info.getFileResultsCount() > 0) {
-//                String realFilename = info.getFileResults(0).getFilename();
-//                String s3Url = "https://" + bucket + ".s3." + awsRegion + ".amazonaws.com/" + realFilename;
-//                meeting.setRecordingS3Url(s3Url);
-//                System.out.println("[endMeeting] realFilename=[" + realFilename + "] s3Url=[" + s3Url + "]");
-//
-//                recordingService.createAutoRecordPlaceholder(
-//                    meeting.getId(), null, meeting.getCreatorId(),
-//                    meeting.getTitle(), s3Url
-//                );
-//            } else {
-//                System.err.println("[endMeeting] No usable EgressInfo for " + egressIdToStop
-//                    + " — NOT setting recordingS3Url.");
-//            }
-//            meeting.setEgressId(null);
-//        }
-//        Meeting saved = repository.save(meeting);
-//
-//        // A meeting that just ended can't still have guests waiting in the
-//        // lobby — clear anything left PENDING so a stale poll doesn't hang.
-//        joinRequestRepository.findByMeetingIdAndStatusOrderByRequestedAtAsc(id, JoinRequestStatus.PENDING)
-//                .forEach(r -> {
-//                    r.setStatus(JoinRequestStatus.DENIED);
-//                    r.setRespondedAt(LocalDateTime.now());
-//                    joinRequestRepository.save(r);
-//                });
-//
-//        return toResponseDTO(saved, saved.getCreatorId());
-//    }
 
     public MeetingResponseDTO endMeeting(Long id) {
         Meeting meeting = findOrThrow(id);
@@ -257,7 +233,8 @@ this.meetingInviteProducer = meetingInviteProducer;
 
                 recordingService.createAutoRecordPlaceholder(
                     meeting.getId(), null, meeting.getCreatorId(),
-                    meeting.getTitle(), s3Url
+                    meeting.getTitle(), s3Url,
+                    meeting.getOrganizationId() // ✅ FIX — 6th arg added to match RecordingService's updated signature
                 );
             } else {
                 System.err.println("[endMeeting] No usable EgressInfo for " + egressIdToStop
@@ -412,33 +389,6 @@ this.meetingInviteProducer = meetingInviteProducer;
         return pending.stream().map(this::toJoinRequestDTO).collect(Collectors.toList());
     }
 
-    // Guest calls this only after polling shows ADMITTED. guestIdentity is
-    // the same opaque id issued at requestToJoin() time — it's the guest's
-    // only credential, so it must match both the request row and be reused
-    // as the LiveKit participant identity.
-//    public Map<String, String> generateGuestToken(Long meetingId, Long requestId, String guestIdentity, String displayName) {
-//        Meeting meeting = findOrThrow(meetingId);
-//
-//        if (meeting.getMeetingStatus() != MeetingStatus.ACTIVE) {
-//            throw new MeetingException("Meeting is not active — cannot issue a join token");
-//        }
-//
-//        MeetingJoinRequest request = joinRequestRepository
-//                .findByIdAndMeetingIdAndGuestIdentity(requestId, meetingId, guestIdentity)
-//                .orElseThrow(() -> new MeetingException("Join request not found"));
-//
-//        if (request.getStatus() != JoinRequestStatus.ADMITTED) {
-//            throw new MeetingException("Not admitted yet — current status: " + request.getStatus());
-//        }
-//
-//        String name = displayName != null ? displayName : request.getGuestName();
-////        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false);
-//        String token = tokenService.generateMeetingToken(meeting.getRoomName(), guestIdentity, name, false, request.getGuestEmail());
-//        return Map.of(
-//                "room", meeting.getRoomName(),
-//                "token", token
-//        );
-//    }
     public Map<String, String> generateGuestToken(Long meetingId, Long requestId, String guestIdentity, String displayName, String sessionId) {
         Meeting meeting = findOrThrow(meetingId);
 
@@ -482,6 +432,35 @@ this.meetingInviteProducer = meetingInviteProducer;
         return repository.findById(id)
                 .orElseThrow(() -> new MeetingException("Meeting not found: " + id));
     }
+    // NEW — resolves the caller's organizationId server-side from their JWT,
+    // mirroring the Feature 1 pattern: extract the "organizationId" claim
+    // (nullable String), null-check, then parse to Long. Never trusts a
+    // client-supplied value. Returns null for non-org callers (Super
+    // Admin-created, Google Sign-In, self-registered) — exactly as
+    // intended, since "no restriction" is the correct behavior for them.
+//    private Long resolveOrganizationId(String token) {
+//        if (token == null) {
+//            return null;
+//        }
+//        String orgIdStr = jwtUtil.extractOrganizationId(token);
+//        return orgIdStr != null ? Long.parseLong(orgIdStr) : null;
+//    }
+ // CHANGED — organizationId claim from the JWT is a UUID string, not
+ // numeric, so it can never be losslessly parsed into this Long column.
+ // The old Long.parseLong(orgIdStr) threw NumberFormatException for every
+ // user whose token carried an org claim (any org-affiliated admin,
+ // trainer, or student), which the controller caught and returned as a
+ // bare 400 — blocking meeting creation entirely for those users.
+ // Returning null here unconditionally makes this method behave exactly
+ // like it already did for users with no org claim (who always got null
+ // and always worked) — so meeting creation now succeeds for everyone.
+ // The one side effect: meetings.organization_id will be null on the
+ // saved row for org-affiliated users too, same as it already is for
+ // individual users. Real fix (storing the org UUID) requires migrating
+ // meetings.organization_id from BIGINT to VARCHAR — not done here.
+ private Long resolveOrganizationId(String token) {
+     return null;
+ }
     private void verifyHost(Meeting meeting, String requesterId) {
         if (requesterId == null || !requesterId.equals(meeting.getCreatorId())) {
             throw new MeetingException("Only the host can perform this action");
@@ -567,15 +546,6 @@ this.meetingInviteProducer = meetingInviteProducer;
                 .map(this::toJoinRequestDTO)
                 .collect(Collectors.toList());
     }
-//    @Transactional
-//    public void deleteMeeting(Long id, String requesterId) {
-//        Meeting meeting = findOrThrow(id);
-//        verifyHost(meeting, requesterId);
-//
-//        // Clean up any join-request history first (no DB-level FK, but keep it tidy)
-//        joinRequestRepository.deleteByMeetingId(id);
-//        repository.delete(meeting);
-//    }
     @Transactional
     public void deleteMeeting(Long id, String requesterId) {
         Meeting meeting = findOrThrow(id);
@@ -620,6 +590,9 @@ this.meetingInviteProducer = meetingInviteProducer;
 
      return grouped;
  }
+ 
+ 
+   
  private Meeting claimAndStartEgress(Meeting meeting) {
 	    Long id = meeting.getId();
 	    String claimToken = "PENDING:" + java.util.UUID.randomUUID();
@@ -659,6 +632,10 @@ this.meetingInviteProducer = meetingInviteProducer;
  // ─────────────────────────────────────────────────────────────
 
  public TexoraMeetingResponseDTO createTexoraMeeting(TexoraMeetingRequestDTO dto) {
+     // NO usage check — service-account/external-integration meeting
+     // (creatorId = "texora-integration"), not tied to a real billed
+     // user or org. If Texora meetings should draw against some
+     // organization's quota, tell me which org and I'll add it.
      if (dto.getTopic() == null || dto.getTopic().isBlank()) {
          throw new MeetingException("Field 'topic' is required.");
      }
@@ -735,7 +712,9 @@ private void publishMeetingInvites(Meeting meeting, List<String> emails, String 
 //TASK ORBIT — named, permanent, always-joinable meetings
 //─────────────────────────────────────────────────────────────
 
-public MeetingResponseDTO createPermanentMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole) {
+public MeetingResponseDTO createPermanentMeeting(MeetingRequestDTO dto, String creatorId, String creatorRole, String token) {
+ // NO usage check — Task Orbit stays ungated per explicit instruction;
+ // revisit later.
  if (dto.getTitle() == null || dto.getTitle().isBlank()) {
      throw new MeetingException("A meeting name is required");
  }
@@ -745,7 +724,7 @@ public MeetingResponseDTO createPermanentMeeting(MeetingRequestDTO dto, String c
  meeting.setCreatorId(creatorId);
  meeting.setCreatorRole(creatorRole);
  meeting.setCreatorName(dto.getCreatorName());
- meeting.setOrganizationId(dto.getOrganizationId());
+ meeting.setOrganizationId(resolveOrganizationId(token));
  meeting.setMeetingType(MeetingType.INSTANT);
  meeting.setMeetingStatus(MeetingStatus.ACTIVE);
  meeting.setReusable(true);
@@ -770,6 +749,11 @@ public List<MeetingResponseDTO> getMyPermanentMeetings(String creatorId) {
 //
 
 public MeetingResponseDTO createMeetingForEvent(Event event) {
+    // Quota check now happens in EventService.createEvent, as the literal
+    // first line, before the Event row is even persisted — see the ticket.
+    // Intentionally NOT re-checked here, or double counting would occur.
+    // updateEvent's IN_PERSON→ONLINE switch also calls this method and is
+    // correctly left ungated, per spec (only createEvent is gated).
     if (event.getDate() == null || event.getStartTime() == null) {
         throw new MeetingException("Event date and startTime are required to create its meeting");
     }
@@ -820,6 +804,11 @@ public MeetingResponseDTO createMeetingForSchedule(String title, String date, St
         String endTime, String timezone, String creatorId,
         String creatorRole, String creatorName,
         Long organizationId) {
+// Quota check now happens in ScheduleService.createSchedule, as the
+// literal first line — before the try/catch that wraps this call — so a
+// quota-exceeded schedule creation now correctly fails with a 429
+// instead of being silently swallowed. Intentionally NOT re-checked
+// here to avoid double counting.
 if (date == null || startTime == null) {
 throw new MeetingException("Schedule date and startTime are required to create its meeting");
 }

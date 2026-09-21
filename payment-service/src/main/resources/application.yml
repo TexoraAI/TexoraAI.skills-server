@@ -9,14 +9,25 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/lms_payment}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:Shareef@1234}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: PaymentHikariPool
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:10}
+      minimum-idle: ${HIKARI_MIN_IDLE:2}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT:20000}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT:300000}
+      max-lifetime: ${HIKARI_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${HIKARI_LEAK_DETECTION:60000}
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: ${SHOW_SQL:true}
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
 
   cache:
     type: redis
@@ -25,22 +36,54 @@ spring:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
-      timeout: 60000
+      password: ${SPRING_REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:60000ms}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:10}
+          max-idle: ${REDIS_POOL_MAX_IDLE:5}
+          min-idle: ${REDIS_POOL_MIN_IDLE:2}
+          max-wait: ${REDIS_POOL_MAX_WAIT:1000ms}
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
     consumer:
-      group-id: payment-group
+      group-id: payment-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.HashMap
 
+# Kept as a flat "topics" block (matches the shape PaymentTopics constants mirror)
+# so other services / infra scripts can read the same topic names.
 topics:
   payment: payment-events
   analytics: analytics-events
+
+# Razorpay credentials are pulled from environment variables only — never hardcode
+# real key id / key secret / webhook secret here or commit them to source control.
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID}
+  key-secret: ${RAZORPAY_KEY_SECRET}
+  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
+  base-url: ${RAZORPAY_BASE_URL:https://api.razorpay.com/v1}
+
+payment:
+  reconcile:
+    fixed-delay-ms: ${PAYMENT_RECONCILE_DELAY_MS:30000}
+    stale-after-minutes: ${PAYMENT_RECONCILE_STALE_MINUTES:10}
+
+outbox:
+  relay:
+    fixed-delay-ms: ${OUTBOX_RELAY_DELAY_MS:10000}
 
 jwt:
   secret: ${JWT_SECRET:mysupersecretkeymysupersecretkey}

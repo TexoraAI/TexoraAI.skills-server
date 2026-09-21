@@ -40,6 +40,11 @@ public class SecurityConfig {
 
                     .requestMatchers("/api/v1/ai-companion/**").permitAll()
                     .requestMatchers("/api/v1/live-sessions/*/whiteboard/**").permitAll()
+                    // Session-less whiteboard endpoints require real auth (no
+                    // sessionId segment to check ownership against, so we
+                    // must rely on the JWT-authenticated caller directly).
+                    .requestMatchers("/api/v1/live-sessions/whiteboard/access-standalone").authenticated()
+                    .requestMatchers("/api/v1/live-sessions/whiteboard/check-standalone-save").authenticated()
 
                     // FIX 5: REMOVED the overly-broad wildcard below.
                     // The line below was removed:

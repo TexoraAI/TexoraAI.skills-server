@@ -1,36 +1,3 @@
-//
-//package com.lms.user.repo;
-//
-//import com.lms.user.model.User;
-//import org.springframework.data.jpa.repository.JpaRepository;
-//import org.springframework.data.jpa.repository.Query;
-//import org.springframework.data.repository.query.Param;
-//import org.springframework.stereotype.Repository;
-//
-//import java.util.List;
-//import java.util.Optional;
-//
-//@Repository
-//public interface UserRepository extends JpaRepository<User, Long> {
-//
-//    Optional<User> findByEmail(String email);
-//
-//    boolean existsByEmail(String email);
-//
-//    // Existing: find users by a specific role substring
-//    @Query("SELECT u FROM User u WHERE u.roles LIKE %:role%")
-//    List<User> findUsersByRole(@Param("role") String role);
-//
-//    // ← NEW: find all users belonging to a specific organization
-//    List<User> findByOrganizationId(String organizationId);
-//
-//    // ← NEW: find users by org AND role (e.g. get only STUDENT users in an org)
-//    @Query("SELECT u FROM User u WHERE u.organizationId = :orgId AND u.roles LIKE %:role%")
-//    List<User> findByOrganizationIdAndRolesContaining(
-//            @Param("orgId") String organizationId,
-//            @Param("role")  String role
-//    );
-//}
 
 package com.lms.user.repo;
 
@@ -85,4 +52,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("role") String role);
     
     Page<User> findByOrganizationIdIsNullAndRolesContaining(String role, Pageable pageable);
+    
+    List<User> findByResumePlanOverrideExpiryDateBeforeAndResumePlanOverrideIsNotNull(java.time.LocalDate date);
 }

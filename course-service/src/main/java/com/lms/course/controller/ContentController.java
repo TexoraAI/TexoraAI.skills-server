@@ -1,5 +1,7 @@
 package com.lms.course.controller;
 import org.springframework.http.ResponseEntity;
+import com.lms.course.security.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import com.lms.course.model.ContentItem;
 import com.lms.course.service.ContentService;
 import org.springframework.security.core.Authentication;
@@ -12,9 +14,11 @@ import java.util.List;
 public class ContentController {
 
     private final ContentService service;
+    private final JwtUtil jwtUtil; // NEW
 
-    public ContentController(ContentService service) {
+    public ContentController(ContentService service, JwtUtil jwtUtil) { // NEW param
         this.service = service;
+        this.jwtUtil = jwtUtil; // NEW
     }
 
     // 🔐 Only logged-in users can add content
@@ -78,5 +82,19 @@ public class ContentController {
 
         service.markContentComplete(contentId, auth.getName());
         return ResponseEntity.ok("Progress updated");
+    }
+    
+    // ── Module usage (for quota pill) ──────────────────────────────────────
+    @GetMapping("/usage/{courseId}")
+    public java.util.Map<String, Object> getModuleUsage(
+            @PathVariable Long courseId,
+            HttpServletRequest request,
+            Authentication auth
+    ) {
+        String header = request.getHeader("Authorization");
+        String token = (header != null && header.startsWith("Bearer ")) ? header.substring(7) : null;
+        String organizationId = token != null ? jwtUtil.extractOrganizationId(token) : null;
+
+        return service.getModuleUsage(courseId, auth.getName(), organizationId);
     }
 }

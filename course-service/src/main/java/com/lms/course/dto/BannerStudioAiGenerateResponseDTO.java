@@ -14,6 +14,9 @@ public class BannerStudioAiGenerateResponseDTO {
     private String cta;
     private String gradient;
     private String emoji;
+    
+    private String desktopImageKey;
+    private String desktopImageUrl;
 
     // echoed back so the frontend can show "Generated for {audience} · {style} style"
     private String audience;
@@ -69,6 +72,22 @@ public class BannerStudioAiGenerateResponseDTO {
         this.emoji = emoji;
     }
 
+    
+    public String getDesktopImageKey() {
+        return desktopImageKey;
+    }
+
+    public void setDesktopImageKey(String desktopImageKey) {
+        this.desktopImageKey = desktopImageKey;
+    }
+
+    public String getDesktopImageUrl() {
+        return desktopImageUrl;
+    }
+
+    public void setDesktopImageUrl(String desktopImageUrl) {
+        this.desktopImageUrl = desktopImageUrl;
+    }
     public String getAudience() {
         return audience;
     }

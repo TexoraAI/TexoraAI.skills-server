@@ -2,11 +2,14 @@ package com.lms.user.service;
 
 import com.lms.user.dto.*;
 
+
 import com.lms.user.exception.ResumeNotFoundException;
+import com.lms.user.exception.TemplateNotAllowedException;
+import com.lms.user.constants.ResumeTemplateAccess;
+import com.lms.user.constants.ResumeTierResolver;
 import com.lms.user.model.*;
 import com.lms.user.repo.ResumeRepository;
-
-
+import com.lms.user.repo.UserRepository;
 
 
 import org.springframework.stereotype.Service;
@@ -24,13 +27,27 @@ import org.springframework.data.domain.Sort;
 public class ResumeService {
 
     private final ResumeRepository resumeRepository;
+    private final UserRepository userRepository;
 
-    public ResumeService(ResumeRepository resumeRepository) {
+    public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository) {
         this.resumeRepository = resumeRepository;
+        this.userRepository = userRepository;
+    }
+
+    private void enforceTemplateAccess(Long userId, String templateName) {
+        if (templateName == null || templateName.isBlank()) return;
+        User user = userRepository.findById(userId).orElse(null);
+        String tier = (user != null)
+            ? ResumeTierResolver.resolveEffectiveTier(user) : "free";
+        if (!ResumeTemplateAccess.isTemplateAllowed(templateName, tier)) {
+            throw new TemplateNotAllowedException(
+                templateName, tier, ResumeTemplateAccess.allowedTemplatesFor(tier));
+        }
     }
 
     // ===================== CREATE =====================
     public ResumeResponseDTO createResume(Long userId, ResumeRequestDTO request) {
+    	 enforceTemplateAccess(userId, request.getTemplateName());
         Resume resume = mapRequestToEntity(new Resume(), request);
         resume.setUserId(userId);
         resume.setResumeScore(calculateScore(resume));
@@ -41,6 +58,7 @@ public class ResumeService {
 
     // ===================== UPDATE =====================
     public ResumeResponseDTO updateResume(Long userId, Long resumeId, ResumeRequestDTO request) {
+    	 enforceTemplateAccess(userId, request.getTemplateName());
         Resume resume = resumeRepository.findByIdAndUserId(resumeId, userId)
                 .orElseThrow(() -> new ResumeNotFoundException("Resume not found with id: " + resumeId));
 

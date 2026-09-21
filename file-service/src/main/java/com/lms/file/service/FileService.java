@@ -1,6 +1,13 @@
 
+
 package com.lms.file.service;
 
+import com.lms.file.constants.FileTierLimits;
+import com.lms.file.constants.FileTierResolver;
+import com.lms.file.dto.UploadQuotaResponse;
+import com.lms.file.exception.FileCountLimitExceededException;
+import com.lms.file.exception.FileSizeLimitExceededException;
+import com.lms.file.exception.FileStorageLimitExceededException;
 import com.lms.file.kafka.FileEventProducer;
 import com.lms.file.model.BatchTrainer;
 import com.lms.file.model.FileClassroomAccess;
@@ -13,47 +20,56 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.Optional;
-import java.nio.file.*;
+
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class FileService {
 
-    @Value("${file.storage-dir}")
-    private String storageDir;
+    // NEW — S3 key prefix for this service, e.g. "files/file-service-files/"
+    @Value("${file.s3-prefix}")
+    private String s3Prefix;
+
+    // NEW — how long presigned URLs stay valid
+    @Value("${file.presign-expiry-minutes:15}")
+    private long presignExpiryMinutes;
 
     private final FileRepository repo;
     private final FileClassroomAccessRepository accessRepo;
     private final FileEventProducer producer;
-    private final BatchTrainerRepository trainerRepo; // NEW — source of truth for a batch's organizationId
+    private final BatchTrainerRepository trainerRepo;
+    private final S3Service s3Service; // NEW — replaces local disk I/O
+    private final FileTierResolver fileTierResolver; // NEW — plan-tier resolution
 
     public FileService(FileRepository repo,
                        FileClassroomAccessRepository accessRepo,
                        FileEventProducer producer,
-                       BatchTrainerRepository trainerRepo) { // NEW param
+                       BatchTrainerRepository trainerRepo,
+                       S3Service s3Service,
+                       FileTierResolver fileTierResolver) { // NEW param
         this.repo = repo;
         this.accessRepo = accessRepo;
         this.producer = producer;
         this.trainerRepo = trainerRepo;
+        this.s3Service = s3Service;
+        this.fileTierResolver = fileTierResolver;
     }
 
     // ================================================================
-    // NEW — Multi-tenancy validation helper.
-    // Rule: if the current user's organizationId (from JWT) is null,
-    // this is a standalone user -> skip tenant validation entirely.
-    // Otherwise the batch's stored organizationId must match, else reject.
+    // Multi-tenancy validation helper — unchanged.
     // ================================================================
     private void validateOrganizationAccess(Long batchId) {
         String currentOrgId = SecurityUtils.getCurrentOrganizationId();
 
         if (currentOrgId == null) {
-            return; // standalone user — existing behavior, no tenant checks
+            return;
         }
         if (batchId == null) {
-            return; // nothing to validate against yet
+            return;
         }
 
         String batchOrgId = trainerRepo.findByBatchId(batchId)
@@ -65,6 +81,36 @@ public class FileService {
         }
     }
 
+    // ================================================================
+    // Plan-tier enforcement — mirrors video-service's final, fixed version.
+    // replacingSize is 0 for a brand-new upload, or the size of the file
+    // being overwritten in editFile() so that swap doesn't double-count
+    // against storage capacity or trip the file-count check.
+    // ================================================================
+    private void enforceUploadLimits(long newFileSize, String organizationId,
+                                      String email, long replacingSize) {
+        String tier = fileTierResolver.resolveTier(organizationId, email);
+
+        long maxSize = FileTierLimits.maxFileSizeFor(tier);
+        if (newFileSize > maxSize) {
+            throw new FileSizeLimitExceededException(newFileSize, maxSize, tier);
+        }
+
+        long currentUsage = repo.sumStorageUsage(organizationId, email) - replacingSize;
+        long capacity = FileTierLimits.storageCapFor(tier);
+        if (currentUsage + newFileSize > capacity) {
+            throw new FileStorageLimitExceededException(currentUsage, newFileSize, capacity, tier);
+        }
+
+        if (replacingSize == 0) {
+            long currentCount = repo.countFiles(organizationId, email);
+            int maxCount = FileTierLimits.maxFileCountFor(tier);
+            if (currentCount + 1 > maxCount) {
+                throw new FileCountLimitExceededException((int) currentCount, maxCount, tier);
+            }
+        }
+    }
+
     // ================= TRAINER UPLOAD =================
     public FileResource upload(MultipartFile file, Long batchId, String title,
                                String description, Long courseId, String category,
@@ -73,7 +119,9 @@ public class FileService {
         String trainerEmail = SecurityContextHolder
                 .getContext().getAuthentication().getName();
 
-        // ✅ Only check batch ownership if batchId is provided
+        String organizationId = SecurityUtils.getCurrentOrganizationId();
+        enforceUploadLimits(file.getSize(), organizationId, trainerEmail, 0L);
+
         if (batchId != null) {
             boolean allowed = accessRepo
                     .findByTrainerEmailAndBatchId(trainerEmail, batchId)
@@ -81,20 +129,16 @@ public class FileService {
             if (!allowed)
                 throw new RuntimeException("You are not assigned to this batch");
 
-            validateOrganizationAccess(batchId); // NEW
+            validateOrganizationAccess(batchId);
         }
 
-        Path dir = Paths.get(storageDir);
-        if (!Files.exists(dir))
-            Files.createDirectories(dir);
-
-        String storedName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path path = dir.resolve(storedName);
-        Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+        // ── S3 upload replaces local disk write ──
+        String storedKey = s3Prefix + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        s3Service.uploadFile(storedKey, file);
 
         FileResource fr = new FileResource();
         fr.setOriginalName(file.getOriginalFilename());
-        fr.setStoredName(storedName);
+        fr.setStoredName(storedKey);   // now holds the S3 key, not a local filename
         fr.setTitle(title);
         fr.setDescription(description);
         fr.setCategory(category);
@@ -102,13 +146,12 @@ public class FileService {
         fr.setContentType(file.getContentType());
         fr.setSize(file.getSize());
         fr.setUploadedAt(Instant.now());
-        fr.setBatchId(batchId);        // ✅ null is fine — no batch yet
+        fr.setBatchId(batchId);
         fr.setTrainerEmail(trainerEmail);
-        fr.setStatus(status != null ? status : "draft");  // ✅ set status
+        fr.setStatus(status != null ? status : "draft");
 
         FileResource saved = repo.save(fr);
 
-        // ✅ Only fire Kafka event if batch is assigned AND published
         if (batchId != null && "published".equals(status)) {
             try {
                 producer.sendFileUploadedEvent(saved.getId(), saved.getTitle(),
@@ -121,15 +164,15 @@ public class FileService {
 
     /**
      * Edit an existing file resource.
-     * - newFile is OPTIONAL: if null, the old stored file is kept on disk.
+     * - newFile is OPTIONAL: if null, the existing S3 object is kept.
      * - All metadata fields are always updated.
      */
     public FileResource editFile(
             Long fileId,
-            MultipartFile newFile,   // nullable — null = keep existing file
+            MultipartFile newFile,
             String title,
             String description,
-            Long batchId,            // nullable
+            Long batchId,
             Long courseId,
             String category,
             String status
@@ -139,15 +182,15 @@ public class FileService {
                 .getContext().getAuthentication().getName()
                 .trim().toLowerCase();
 
+        String organizationId = SecurityUtils.getCurrentOrganizationId();
+
         FileResource fr = repo.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("File not found with id: " + fileId));
 
-        // Only the uploader may edit
         if (!fr.getTrainerEmail().equalsIgnoreCase(trainerEmail)) {
             throw new RuntimeException("Not your file");
         }
 
-        // If a new batchId is supplied, verify the trainer is assigned to it
         if (batchId != null) {
             boolean allowed = accessRepo
                     .findByTrainerEmailAndBatchId(trainerEmail, batchId)
@@ -156,35 +199,31 @@ public class FileService {
                 throw new RuntimeException("You are not assigned to this batch");
             }
 
-            validateOrganizationAccess(batchId); // NEW
+            validateOrganizationAccess(batchId);
         }
 
-        // ── Replace physical file only when a new one is provided ──
+        // ── Replace S3 object only when a new one is provided ──
         if (newFile != null && !newFile.isEmpty()) {
-            // Delete old file from disk (best-effort)
+            long oldSize = fr.getSize();
+            enforceUploadLimits(newFile.getSize(), organizationId, trainerEmail, oldSize);
+
             if (fr.getStoredName() != null && !fr.getStoredName().isBlank()) {
-                Path oldPath = Paths.get(storageDir).resolve(fr.getStoredName());
                 try {
-                    Files.deleteIfExists(oldPath);
+                    s3Service.deleteFile(fr.getStoredName());
                 } catch (Exception e) {
-                    System.out.println("Could not delete old file: " + e.getMessage());
+                    System.out.println("Could not delete old S3 object: " + e.getMessage());
                 }
             }
 
-            Path dir = Paths.get(storageDir);
-            if (!Files.exists(dir)) Files.createDirectories(dir);
-
-            String storedName = System.currentTimeMillis() + "_" + newFile.getOriginalFilename();
-            Path path = dir.resolve(storedName);
-            Files.copy(newFile.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+            String storedKey = s3Prefix + System.currentTimeMillis() + "_" + newFile.getOriginalFilename();
+            s3Service.uploadFile(storedKey, newFile);
 
             fr.setOriginalName(newFile.getOriginalFilename());
-            fr.setStoredName(storedName);
+            fr.setStoredName(storedKey);
             fr.setSize(newFile.getSize());
             fr.setContentType(newFile.getContentType());
         }
 
-        // ── Update metadata ──
         fr.setTitle(title != null ? title : fr.getTitle());
         fr.setDescription(description != null ? description : "");
         fr.setBatchId(batchId);
@@ -194,7 +233,6 @@ public class FileService {
 
         FileResource saved = repo.save(fr);
 
-        // Fire Kafka if batch is assigned and published
         if (batchId != null && "published".equals(saved.getStatus())) {
             try {
                 producer.sendFileUploadedEvent(saved.getId(), saved.getTitle(),
@@ -204,7 +242,6 @@ public class FileService {
 
         return saved;
     }
-
 
     // ================= PUBLISH FILE =================
     public FileResource publishFile(Long fileId) {
@@ -220,7 +257,7 @@ public class FileService {
         if (fr.getBatchId() == null)
             throw new RuntimeException("Assign a batch before publishing");
 
-        validateOrganizationAccess(fr.getBatchId()); // NEW
+        validateOrganizationAccess(fr.getBatchId());
 
         fr.setStatus("published");
         FileResource saved = repo.save(fr);
@@ -250,7 +287,7 @@ public class FileService {
         if (!allowed)
             throw new RuntimeException("You are not assigned to this batch");
 
-        validateOrganizationAccess(batchId); // NEW
+        validateOrganizationAccess(batchId);
 
         fr.setBatchId(batchId);
         fr.setStatus("published");
@@ -277,17 +314,14 @@ public class FileService {
                 .getContext().getAuthentication().getName()
                 .trim().toLowerCase();
 
-        String currentOrgId = SecurityUtils.getCurrentOrganizationId(); // NEW
+        String currentOrgId = SecurityUtils.getCurrentOrganizationId();
 
-        // ✅ findByStudentEmail returns Optional — handle it correctly
         Optional<FileClassroomAccess> accessOpt = accessRepo.findByStudentEmail(studentEmail);
 
         if (accessOpt.isEmpty()) return Collections.emptyList();
 
         FileClassroomAccess access = accessOpt.get();
 
-        // NEW — org-scoped students only see files from batches in their own org.
-        // Standalone students (currentOrgId == null) are unaffected, as before.
         if (currentOrgId != null) {
             String accessOrgId = access.getOrganizationId();
             if (accessOrgId == null || !accessOrgId.equals(currentOrgId)) {
@@ -296,13 +330,35 @@ public class FileService {
         }
 
         Long batchId = access.getBatchId();
-        return repo.findByBatchIdInAndStatus(List.of(batchId), "published");
+        List<FileResource> all = repo.findByBatchIdInAndStatusOrderByUploadedAtDesc(List.of(batchId), "published");
+
+        String tier = fileTierResolver.resolveTier(currentOrgId, studentEmail);
+        int visibleCap = FileTierLimits.studentVisibleCountFor(tier);
+        if (visibleCap == -1) return all;
+        return all.stream().limit(visibleCap).toList();
     }
 
-    // ================= DOWNLOAD =================
+    // ================= NEW — plan-tier upload quota snapshot =================
+    public UploadQuotaResponse getUploadQuota(String organizationId, String email) {
+        String tier = fileTierResolver.resolveTier(organizationId, email);
+
+        long storageUsed = repo.sumStorageUsage(organizationId, email);
+        long storageCap = FileTierLimits.storageCapFor(tier);
+        long fileCount = repo.countFiles(organizationId, email);
+        int maxFileCount = FileTierLimits.maxFileCountFor(tier);
+        long maxFileSize = FileTierLimits.maxFileSizeFor(tier);
+
+        return new UploadQuotaResponse(tier, storageUsed, storageCap, fileCount, maxFileCount, maxFileSize);
+    }
+
+    // ================= DOWNLOAD (bytes, still supported) =================
     public byte[] download(String storedName) throws Exception {
-        Path path = Paths.get(storageDir).resolve(storedName);
-        return Files.readAllBytes(path);
+        return s3Service.downloadFile(storedName);
+    }
+
+    // ================= NEW — presigned URL for view/download redirects =================
+    public String getPresignedUrl(String storedName) {
+        return s3Service.generatePresignedUrl(storedName, Duration.ofMinutes(presignExpiryMinutes));
     }
 
     // ================= DELETE =================
@@ -316,8 +372,7 @@ public class FileService {
         if (!fr.getTrainerEmail().equals(trainerEmail))
             throw new RuntimeException("You can delete only your files");
 
-        Path path = Paths.get(storageDir).resolve(fr.getStoredName());
-        Files.deleteIfExists(path);
+        s3Service.deleteFile(fr.getStoredName());
         repo.delete(fr);
     }
 
@@ -328,35 +383,62 @@ public class FileService {
 
     public byte[] viewFile(Long id) throws Exception {
         FileResource file = getById(id);
-        Path path = Paths.get(storageDir).resolve(file.getStoredName());
-        if (!Files.exists(path))
-            throw new RuntimeException("File not found on disk");
-        return Files.readAllBytes(path);
+        return s3Service.downloadFile(file.getStoredName());
     }
 
-    public String getStorageDir() { return storageDir; }
+    // ================= ADMIN: ALL FILES (org-scoped) =================
+    public List<FileResource> getAllFilesForAdmin() {
+        String currentOrgId = SecurityUtils.getCurrentOrganizationId();
+
+        if (currentOrgId == null) {
+            return repo.findAll();
+        }
+
+        List<Long> batchIds = trainerRepo.findByOrganizationId(currentOrgId)
+                .stream()
+                .map(BatchTrainer::getBatchId)
+                .distinct()
+                .toList();
+
+        if (batchIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return repo.findByBatchIdIn(batchIds);
+    }
     
- // ADD this method anywhere in FileService (e.g. after getStudentFiles)
+    
+ // ✅ NEW — companion to getStudentFiles(): reports the TRUE total
+    // (before the tier cap) so the frontend can render an "Upgrade to
+    // unlock N more" tile instead of silently stopping.
+    public java.util.Map<String, Object> getStudentFileCount(String organizationId, String email) {
+        String studentEmail = (email != null) ? email.trim().toLowerCase() : null;
 
- // ================= ADMIN: ALL FILES (org-scoped) =================
- public List<FileResource> getAllFilesForAdmin() {
-     String currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        Optional<FileClassroomAccess> accessOpt = accessRepo.findByStudentEmail(studentEmail);
+        if (accessOpt.isEmpty()) {
+            return java.util.Map.of("totalCount", 0, "visibleCount", 0, "tier", "free", "unlimited", false);
+        }
 
-     if (currentOrgId == null) {
-         // Super Admin / standalone-scope admin — sees everything
-         return repo.findAll();
-     }
+        FileClassroomAccess access = accessOpt.get();
+        if (organizationId != null) {
+            String accessOrgId = access.getOrganizationId();
+            if (accessOrgId == null || !accessOrgId.equals(organizationId)) {
+                return java.util.Map.of("totalCount", 0, "visibleCount", 0, "tier", "free", "unlimited", false);
+            }
+        }
 
-     List<Long> batchIds = trainerRepo.findByOrganizationId(currentOrgId)
-             .stream()
-             .map(BatchTrainer::getBatchId)
-             .distinct()
-             .toList();
+        Long batchId = access.getBatchId();
+        int totalCount = repo.findByBatchIdInAndStatusOrderByUploadedAtDesc(List.of(batchId), "published").size();
 
-     if (batchIds.isEmpty()) {
-         return Collections.emptyList();
-     }
+        String tier = fileTierResolver.resolveTier(organizationId, studentEmail);
+        int visibleCap = FileTierLimits.studentVisibleCountFor(tier);
+        int visibleCount = visibleCap == -1 ? totalCount : Math.min(totalCount, visibleCap);
 
-     return repo.findByBatchIdIn(batchIds);
- }
+        return java.util.Map.of(
+                "totalCount", totalCount,
+                "visibleCount", visibleCount,
+                "tier", tier,
+                "unlimited", visibleCap == -1
+        );
+    }
 }

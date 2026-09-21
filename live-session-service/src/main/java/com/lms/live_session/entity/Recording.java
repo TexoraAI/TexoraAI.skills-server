@@ -42,6 +42,10 @@ public class Recording {
     @Column(name = "transcript_status")
     private String transcriptStatus; // NOT_STARTED | PROCESSING | DONE | FAILED
 
+    // ✅ NEW — multi-tenancy: nullable, null = non-org / legacy recording (no isolation applies)
+    @Column(name = "organization_id")
+    private Long organizationId;
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
@@ -113,4 +117,8 @@ public class Recording {
 
     public String getTranscriptStatus() { return transcriptStatus; }
     public void setTranscriptStatus(String transcriptStatus) { this.transcriptStatus = transcriptStatus; }
+
+    // ✅ NEW
+    public Long getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Long organizationId) { this.organizationId = organizationId; }
 }

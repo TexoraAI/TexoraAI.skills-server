@@ -1,6 +1,7 @@
 package com.lms.user.controller;
 
 import com.lms.user.dto.AIResumeRequestDTO;
+import com.lms.user.service.ResumeUsageService;
 import com.lms.user.dto.AIResumeResponseDTO;
 import com.lms.user.dto.LinkedInScrapeRequestDTO;
 import com.lms.user.dto.ResumeRequestDTO;
@@ -27,13 +28,16 @@ public class ResumeController {
     private final ResumeService resumeService;
     private final AIResumeService aiResumeService;
     private final LinkedInScraperService linkedInScraperService;
+    private final ResumeUsageService resumeUsageService;
 
     public ResumeController(ResumeService resumeService,
                             AIResumeService aiResumeService,
-                            LinkedInScraperService linkedInScraperService) {
+                            LinkedInScraperService linkedInScraperService,
+                            ResumeUsageService resumeUsageService) {
         this.resumeService = resumeService;
         this.aiResumeService = aiResumeService;
         this.linkedInScraperService = linkedInScraperService;
+        this.resumeUsageService = resumeUsageService;
     }
 
     // =========================================================================
@@ -116,6 +120,7 @@ public class ResumeController {
             @RequestBody AIResumeRequestDTO.GenerateRequest request) {
 
         log.info("AI generate resume — userId={}, jobTitle={}", userId, request.getJobTitle());
+        resumeUsageService.checkAndIncrement(userId);
         return ResponseEntity.ok(aiResumeService.generateResume(request));
     }
 
@@ -124,8 +129,8 @@ public class ResumeController {
     public ResponseEntity<ResumeRequestDTO> parsePdf(
             @PathVariable Long userId,
             @RequestBody AIResumeRequestDTO.ParsePdfRequest request) {
-
         log.info("PDF parse — userId={}, file={}", userId, request.getFileName());
+        resumeUsageService.checkAndIncrement(userId);
         return ResponseEntity.ok(aiResumeService.parsePdf(request));
     }
 
@@ -149,7 +154,13 @@ public class ResumeController {
         return ResponseEntity.ok(Map.of("text", result));
     }
     
-    
+    // AI usage status — how many AI generations used this month vs plan limit
+    @GetMapping("/{userId}/ai/usage")
+    public ResponseEntity<Map<String, Object>> getAiUsage(
+            @PathVariable Long userId) {
+
+        return ResponseEntity.ok(resumeUsageService.getUsageStatus(userId));
+    }
     
     // =========================================================================
     // LINKEDIN SCRAPER ENDPOINTS  (merged from LinkedInScraperController)
@@ -226,7 +237,7 @@ public class ResumeController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Please provide a valid LinkedIn profile URL."));
         }
-
+        resumeUsageService.checkAndIncrement(userId);
         try {
             ResumeRequestDTO resume = linkedInScraperService.buildResumeFromLinkedIn(request);
             log.info("Resume built successfully — userId={}", userId);

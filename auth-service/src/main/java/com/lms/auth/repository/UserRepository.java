@@ -24,7 +24,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleAndApprovedFalseAndOrganizationId(Role role, UUID organizationId);
     List<User> findByCreatedBy(Long createdBy);
     long countByOrganizationIdAndRole(UUID organizationId, Role role);
-
+    List<User> findByPlanExpiryDateBeforeAndPlanNot(java.time.LocalDate date, String plan);
     // OPTIMIZATION: Replaces findAll() + Java stream filter in getOnboardingResponses().
     // Filters to only STUDENT/TRAINER/TENANT_ADMIN/BUSINESS roles with no org assigned.
     // DB-level sort by created_at DESC. Pageable prevents unbounded result sets.

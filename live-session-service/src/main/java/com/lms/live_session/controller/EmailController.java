@@ -1,8 +1,11 @@
+
+
 package com.lms.live_session.controller;
 
 import com.lms.live_session.dto.EmailRequestDTO;
 import com.lms.live_session.dto.EmailResponseDTO;
 import com.lms.live_session.service.EmailService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -32,10 +35,12 @@ public class EmailController {
             @RequestParam(value = "ccEmails", required = false) List<String> ccEmails,
             @RequestParam(value = "bccEmails", required = false) List<String> bccEmails,
             @RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
-            Authentication auth) {
+            Authentication auth,
+            HttpServletRequest request) {
         try {
             EmailRequestDTO dto = new EmailRequestDTO(subject, body, toEmails, ccEmails, bccEmails);
-            return ResponseEntity.ok(emailService.draftEmail(dto, auth.getName(), auth.getName(), files));
+            String token = extractToken(request);
+            return ResponseEntity.ok(emailService.draftEmail(dto, auth.getName(), auth.getName(), files, token));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
@@ -49,10 +54,14 @@ public class EmailController {
             @RequestParam(value = "ccEmails", required = false) List<String> ccEmails,
             @RequestParam(value = "bccEmails", required = false) List<String> bccEmails,
             @RequestParam(value = "files", required = false) List<org.springframework.web.multipart.MultipartFile> files,
-            Authentication auth) {
+            Authentication auth,
+            HttpServletRequest request) {
         try {
             EmailRequestDTO dto = new EmailRequestDTO(subject, body, toEmails, ccEmails, bccEmails);
-            return ResponseEntity.ok(emailService.sendEmail(dto, auth.getName(), auth.getName(), files));
+            String token = extractToken(request);
+            return ResponseEntity.ok(emailService.sendEmail(dto, auth.getName(), auth.getName(), files, token));
+        } catch (com.lms.live_session.exception.EmailDispatchLimitExceededException e) {
+            throw e; // let GlobalExceptionHandler produce 429 + EMAIL_DISPATCH_LIMIT_EXCEEDED
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
@@ -105,6 +114,25 @@ public class EmailController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
+    }
+
+    @GetMapping("/usage")
+    public ResponseEntity<?> getEmailUsage(Authentication auth, HttpServletRequest request) {
+        try {
+            String creatorId = auth.getName();
+            String token = extractToken(request);
+            return ResponseEntity.ok(emailService.getEmailUsage(creatorId, token));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
     }
 
     static class ErrorResponse {

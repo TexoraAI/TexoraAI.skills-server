@@ -83,14 +83,33 @@ topics:
   batch-lifecycle: ${TOPIC_BATCH_LIFECYCLE:batch-lifecycle}
   course: ${TOPIC_COURSE:course-events}
   content: ${TOPIC_CONTENT:content-events}
-  # NEW: featured-content session-video topics (must match video-service's application.yml exactly)
   featured-content: ${TOPIC_FEATURED_CONTENT:featured-content-events}
   featured-program-lifecycle: ${TOPIC_FEATURED_PROGRAM_LIFECYCLE:featured-program-lifecycle}
   featured-video-status: ${TOPIC_FEATURED_VIDEO_STATUS:featured-video-status}
-  # NEW: featured-content session-file topic (upload-complete direction, file-service → course-service)
   featured-file-status: ${TOPIC_FEATURED_FILE_STATUS:featured-file-status}
 
 openai:
   api:
     key: ${OPENAI_API_KEY:}
   model: gpt-4o-mini
+  # NEW — image generation model for AI-generated banner artwork
+  # (Banner Studio → AI Studio → "Generate with AI"). gpt-image-1 is
+  # OpenAI's current image model; it always returns base64 and does
+  # NOT accept a response_format param (handled in OpenAIService.java).
+  image:
+    model: ${OPENAI_IMAGE_MODEL:gpt-image-1}
+
+aws:
+  access-key: ${AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY}
+  region: ${AWS_REGION:ap-south-1}
+  s3:
+    bucket: ${AWS_S3_BUCKET_MEDIA:ilmora-media-storage}
+
+image:
+  mentor:
+    s3-prefix: images/mentor-images/
+    presign-expiry-minutes: ${MENTOR_IMAGE_PRESIGN_EXPIRY_MINUTES:15}
+  banner:
+    s3-prefix: images/banner-images/
+    presign-expiry-minutes: ${BANNER_IMAGE_PRESIGN_EXPIRY_MINUTES:15}

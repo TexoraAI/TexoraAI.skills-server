@@ -2,6 +2,17 @@ package com.lms.course.dto;
 
 import java.math.BigDecimal;
 
+/**
+ * Lightweight projection used by GET /featurecourse/summary (LMS homepage).
+ * Populated directly by the JPQL constructor expression in
+ * FeaturedProgramRepository#findSummaryByStatusAndPublishStatus — field order
+ * here MUST match the order of that SELECT new ... (...) clause exactly.
+ *
+ * NOTE: this file was reconstructed to match that constructor signature since
+ * the original wasn't available — if your real version had extra
+ * fields/annotations beyond this, re-add them; the constructor order below is
+ * the part that's load-bearing.
+ */
 public class FeaturedProgramSummaryDTO {
 
     private Long id;
@@ -25,14 +36,28 @@ public class FeaturedProgramSummaryDTO {
     private String videoUrl;
     private String enrollmentUrl;
 
-    public FeaturedProgramSummaryDTO() {
-    }
+    // ── NEW: badge flags — homepage should read these instead of guessing
+    // isBestseller from rating client-side ──
+    private Boolean isFeatured;
+    private Boolean isTrending;
+    private Boolean isBestseller;
+    private Boolean isPopular;
+    private Boolean isRecommended;
+    private Boolean isComingSoon;
 
-    public FeaturedProgramSummaryDTO(Long id, String title, String category, String instructorName,
-            String instructorRole, String level, Integer durationWeeks, Integer lessons, Integer liveSessions,
-            Integer projects, String studentsEnrolled, Double rating, BigDecimal price, String shortDescription,
+    // ── NEW: discount pricing, so homepage cards can show strike-through price ──
+    private BigDecimal originalPrice;
+    private Integer discountPercent;
+
+    public FeaturedProgramSummaryDTO(
+            Long id, String title, String category, String instructorName, String instructorRole,
+            String level, Integer durationWeeks, Integer lessons, Integer liveSessions, Integer projects,
+            String studentsEnrolled, Double rating, BigDecimal price, String shortDescription,
             String thumbnailUrl, String bannerUrl, String instructorPhotoUrl, String instructorLinkedIn,
-            String videoUrl, String enrollmentUrl) {
+            String videoUrl, String enrollmentUrl,
+            Boolean isFeatured, Boolean isTrending, Boolean isBestseller, Boolean isPopular,
+            Boolean isRecommended, Boolean isComingSoon,
+            BigDecimal originalPrice, Integer discountPercent) {
         this.id = id;
         this.title = title;
         this.category = category;
@@ -53,65 +78,42 @@ public class FeaturedProgramSummaryDTO {
         this.instructorLinkedIn = instructorLinkedIn;
         this.videoUrl = videoUrl;
         this.enrollmentUrl = enrollmentUrl;
+        this.isFeatured = isFeatured;
+        this.isTrending = isTrending;
+        this.isBestseller = isBestseller;
+        this.isPopular = isPopular;
+        this.isRecommended = isRecommended;
+        this.isComingSoon = isComingSoon;
+        this.originalPrice = originalPrice;
+        this.discountPercent = discountPercent;
     }
 
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
     public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
     public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
-
     public String getInstructorName() { return instructorName; }
-    public void setInstructorName(String instructorName) { this.instructorName = instructorName; }
-
     public String getInstructorRole() { return instructorRole; }
-    public void setInstructorRole(String instructorRole) { this.instructorRole = instructorRole; }
-
     public String getLevel() { return level; }
-    public void setLevel(String level) { this.level = level; }
-
     public Integer getDurationWeeks() { return durationWeeks; }
-    public void setDurationWeeks(Integer durationWeeks) { this.durationWeeks = durationWeeks; }
-
     public Integer getLessons() { return lessons; }
-    public void setLessons(Integer lessons) { this.lessons = lessons; }
-
     public Integer getLiveSessions() { return liveSessions; }
-    public void setLiveSessions(Integer liveSessions) { this.liveSessions = liveSessions; }
-
     public Integer getProjects() { return projects; }
-    public void setProjects(Integer projects) { this.projects = projects; }
-
     public String getStudentsEnrolled() { return studentsEnrolled; }
-    public void setStudentsEnrolled(String studentsEnrolled) { this.studentsEnrolled = studentsEnrolled; }
-
     public Double getRating() { return rating; }
-    public void setRating(Double rating) { this.rating = rating; }
-
     public BigDecimal getPrice() { return price; }
-    public void setPrice(BigDecimal price) { this.price = price; }
-
     public String getShortDescription() { return shortDescription; }
-    public void setShortDescription(String shortDescription) { this.shortDescription = shortDescription; }
-
     public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
-
     public String getBannerUrl() { return bannerUrl; }
-    public void setBannerUrl(String bannerUrl) { this.bannerUrl = bannerUrl; }
-
     public String getInstructorPhotoUrl() { return instructorPhotoUrl; }
-    public void setInstructorPhotoUrl(String instructorPhotoUrl) { this.instructorPhotoUrl = instructorPhotoUrl; }
-
     public String getInstructorLinkedIn() { return instructorLinkedIn; }
-    public void setInstructorLinkedIn(String instructorLinkedIn) { this.instructorLinkedIn = instructorLinkedIn; }
-
     public String getVideoUrl() { return videoUrl; }
-    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
-
     public String getEnrollmentUrl() { return enrollmentUrl; }
-    public void setEnrollmentUrl(String enrollmentUrl) { this.enrollmentUrl = enrollmentUrl; }
+    public Boolean getIsFeatured() { return isFeatured; }
+    public Boolean getIsTrending() { return isTrending; }
+    public Boolean getIsBestseller() { return isBestseller; }
+    public Boolean getIsPopular() { return isPopular; }
+    public Boolean getIsRecommended() { return isRecommended; }
+    public Boolean getIsComingSoon() { return isComingSoon; }
+    public BigDecimal getOriginalPrice() { return originalPrice; }
+    public Integer getDiscountPercent() { return discountPercent; }
 }

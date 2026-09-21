@@ -16,6 +16,11 @@ public class AuthEvent {
     private Integer maxDepartments;
     private Integer maxBranchesPerDept;
     private Integer maxBatchesPerBranch;
+    
+ // NEW — resume-plan purchase track only. Null for every other event type.
+    private String plan;
+    
+    private String expiresAt;
 
     // ── EXISTING constructor — DO NOT TOUCH, used everywhere ──
     public AuthEvent(String eventType, Long userId, String email,
@@ -71,4 +76,10 @@ public class AuthEvent {
 
     public Integer getMaxBatchesPerBranch()       { return maxBatchesPerBranch; }
     public void setMaxBatchesPerBranch(Integer v) { this.maxBatchesPerBranch = v; }
+    
+    public String getPlan()          { return plan; }
+    public void setPlan(String plan) { this.plan = plan; }
+    
+    public String getExpiresAt()          { return expiresAt; }
+    public void setExpiresAt(String expiresAt) { this.expiresAt = expiresAt; }
 }

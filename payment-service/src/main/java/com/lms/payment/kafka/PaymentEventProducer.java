@@ -1,28 +1,40 @@
 package com.lms.payment.kafka;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class PaymentEventProducer {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private static final Logger log = LoggerFactory.getLogger(PaymentEventProducer.class);
 
-    // hard-coded here, NOT in services
-    private static final String PAYMENT_TOPIC = "payment-events";
-    private static final String INVOICE_TOPIC = "invoice-events";
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public PaymentEventProducer(KafkaTemplate<String, String> kafkaTemplate) {
+    public PaymentEventProducer(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void publishPaymentEvent(String payload) {
-        kafkaTemplate.send(PAYMENT_TOPIC, payload);
-        System.out.println("📤 Payment event sent: " + payload);
+    public void publishPaymentSuccess(Map<String, Object> payload) {
+        publish("payment.success", payload);
     }
 
-    public void publishInvoiceEvent(String payload) {
-        kafkaTemplate.send(INVOICE_TOPIC, payload);
-        System.out.println("📤 Invoice event sent: " + payload);
+    public void publishPaymentFailed(Map<String, Object> payload) {
+        publish("payment.failed", payload);
     }
-}  
+
+    public void publish(String eventType, Object payload) {
+        try {
+            kafkaTemplate.send(PaymentTopics.PAYMENT_EVENTS_TOPIC, eventType, payload)
+                    .get(5, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            throw new RuntimeException("Kafka publish failed for eventType=" + eventType, ex);
+        }
+
+        log.info("Published payment event -> eventType={} topic={} payload={}",
+                eventType, PaymentTopics.PAYMENT_EVENTS_TOPIC, payload);
+    }
+}

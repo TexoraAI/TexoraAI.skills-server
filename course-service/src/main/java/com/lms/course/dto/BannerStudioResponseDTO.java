@@ -4,6 +4,14 @@ package com.lms.course.dto;
  * Response shape returned to the frontend for every banner-studio endpoint.
  * Matches the flat object shape bannerApi.js / BannerCard.jsx expect
  * (id, name, status, emoji, gradient, updatedAt, startDate, startTime, views, clicks, ...).
+ *
+ * desktopImageUrl / tabletImageUrl / mobileImageUrl are PRESIGNED URLs —
+ * display-only, expire after image.banner.presign-expiry-minutes, and must
+ * NEVER be sent back in a create/update request.
+ *
+ * desktopImageKey / tabletImageKey / mobileImageKey are the raw, permanent
+ * S3 keys. The frontend round-trips THESE when editing a banner without
+ * replacing its images.
  */
 public class BannerStudioResponseDTO {
 
@@ -27,6 +35,10 @@ public class BannerStudioResponseDTO {
     private String desktopImageUrl;
     private String tabletImageUrl;
     private String mobileImageUrl;
+
+    private String desktopImageKey;
+    private String tabletImageKey;
+    private String mobileImageKey;
 
     private Integer titleSize;
     private String titleWeight;
@@ -180,6 +192,30 @@ public class BannerStudioResponseDTO {
 
     public void setMobileImageUrl(String mobileImageUrl) {
         this.mobileImageUrl = mobileImageUrl;
+    }
+
+    public String getDesktopImageKey() {
+        return desktopImageKey;
+    }
+
+    public void setDesktopImageKey(String desktopImageKey) {
+        this.desktopImageKey = desktopImageKey;
+    }
+
+    public String getTabletImageKey() {
+        return tabletImageKey;
+    }
+
+    public void setTabletImageKey(String tabletImageKey) {
+        this.tabletImageKey = tabletImageKey;
+    }
+
+    public String getMobileImageKey() {
+        return mobileImageKey;
+    }
+
+    public void setMobileImageKey(String mobileImageKey) {
+        this.mobileImageKey = mobileImageKey;
     }
 
     public Integer getTitleSize() {

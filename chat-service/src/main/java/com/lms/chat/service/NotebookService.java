@@ -18,18 +18,24 @@ public class NotebookService {
     private final NotebookSectionRepository sectionRepository;
     private final NotebookPageRepository    pageRepository;
     private final NotebookSourceRepository  sourceRepository;
-    
+    private final NotebookUsageService      notebookUsageService;
+    private final NotebookChatService       notebookChatService;
+
     private ContentExtractorService contentExtractorService;
     public NotebookService(NotebookRepository notebookRepository,
                            NotebookSectionRepository sectionRepository,
                            NotebookPageRepository pageRepository,NotebookSourceRepository  sourceRepository,
-                           ContentExtractorService contentExtractorService) {
+                           ContentExtractorService contentExtractorService,
+                           NotebookUsageService notebookUsageService,
+                           NotebookChatService notebookChatService) {
     	
         this.notebookRepository = notebookRepository;
         this.sectionRepository  = sectionRepository;
         this.pageRepository     = pageRepository;
         this.sourceRepository=sourceRepository;
         this.contentExtractorService=contentExtractorService;
+        this.notebookUsageService = notebookUsageService;
+        this.notebookChatService = notebookChatService;
     }
 
     // ── NOTEBOOK ──────────────────────────────────────────────────
@@ -52,7 +58,9 @@ public class NotebookService {
     }
 
     @Transactional
-    public NotebookResponse createNotebook(NotebookRequest req, String studentEmail) {
+    public NotebookResponse createNotebook(NotebookRequest req, String studentEmail, String organizationId) {
+        notebookUsageService.checkAndIncrement(studentEmail, organizationId);
+
         Notebook nb = new Notebook();
         nb.setStudentEmail(studentEmail);
         nb.setTitle(req.getTitle());
@@ -100,7 +108,9 @@ public class NotebookService {
     // ── SECTION ───────────────────────────────────────────────────
 
     @Transactional
-    public NotebookResponse addSection(NotebookSectionRequest req, String studentEmail) {
+    public NotebookResponse addSection(NotebookSectionRequest req, String studentEmail, String organizationId) {
+        notebookUsageService.checkAndIncrement(studentEmail, organizationId);
+
         Notebook nb = notebookRepository
                 .findByIdAndStudentEmail(req.getNotebookId(), studentEmail)
                 .orElseThrow(() -> new RuntimeException("Notebook not found"));
@@ -153,7 +163,9 @@ public class NotebookService {
     // ── PAGE ──────────────────────────────────────────────────────
 
     @Transactional
-    public NotebookResponse addPage(NotebookPageRequest req, String studentEmail) {
+    public NotebookResponse addPage(NotebookPageRequest req, String studentEmail, String organizationId) {
+        notebookUsageService.checkAndIncrement(studentEmail, organizationId);
+
         NotebookSection section = sectionRepository
                 .findByIdAndNotebook_StudentEmail(req.getSectionId(), studentEmail)
                 .orElseThrow(() -> new RuntimeException("Section not found"));
@@ -215,7 +227,9 @@ public class NotebookService {
         return NotebookResponse.from(notebookRepository.save(nb));
     }
     @Transactional
-    public NotebookResponse addUrlSource(Long notebookId, String url, String studentEmail) {
+    public NotebookResponse addUrlSource(Long notebookId, String url, String studentEmail, String organizationId) {
+        notebookUsageService.checkAndIncrement(studentEmail, organizationId);
+
         Notebook nb = notebookRepository
                 .findByIdAndStudentEmail(notebookId, studentEmail)
                 .orElseThrow(() -> new RuntimeException("Notebook not found"));
@@ -227,7 +241,9 @@ public class NotebookService {
 
         if (url.contains("youtube.com") || url.contains("youtu.be")) {
             source.setSourceType(NotebookSource.SourceType.YOUTUBE);
-            source.setExtractedContent("YouTube video: " + url);
+            // ✅ Extract YouTube transcript/caption content
+            String content = contentExtractorService.extractFromYoutube(url);
+            source.setExtractedContent(content);
         } else {
             source.setSourceType(NotebookSource.SourceType.WEBSITE);
             // ✅ Extract website content
@@ -236,10 +252,17 @@ public class NotebookService {
         }
 
         nb.getSources().add(source);
-        return NotebookResponse.from(notebookRepository.save(nb));
+        NotebookResponse response = NotebookResponse.from(notebookRepository.save(nb));
+
+        // 🆕 Auto-overview: only fires when this was the notebook's first source
+        attachAutoOverviewIfFirstSource(response, notebookId, studentEmail, organizationId);
+
+        return response;
     }
     @Transactional
-    public NotebookResponse addFileSource(Long notebookId, MultipartFile file, String studentEmail) {
+    public NotebookResponse addFileSource(Long notebookId, MultipartFile file, String studentEmail, String organizationId) {
+        notebookUsageService.checkAndIncrement(studentEmail, organizationId);
+
         Notebook nb = notebookRepository
                 .findByIdAndStudentEmail(notebookId, studentEmail)
                 .orElseThrow(() -> new RuntimeException("Notebook not found"));
@@ -260,18 +283,71 @@ public class NotebookService {
         source.setTitle(file.getOriginalFilename());
         source.setFilePath(savedPath);
 
-        String mime = file.getContentType();
-        if (mime != null && mime.contains("pdf")) {
-            source.setSourceType(NotebookSource.SourceType.PDF);
-            // ✅ Extract PDF content
-            String content = contentExtractorService.extractFromPdf(savedPath);
-            source.setExtractedContent(content);
-        } else {
-            source.setSourceType(NotebookSource.SourceType.TEXT);
-            source.setExtractedContent("File: " + file.getOriginalFilename());
+        // ✅ Dispatch extraction by file extension (case-insensitive), instead of
+        // only handling PDF and silently leaving everything else with no content.
+        String extension = getFileExtension(file.getOriginalFilename()).toLowerCase();
+
+        switch (extension) {
+            case "pdf":
+                source.setSourceType(NotebookSource.SourceType.PDF);
+                source.setExtractedContent(contentExtractorService.extractFromPdf(savedPath));
+                break;
+            case "docx":
+                source.setSourceType(NotebookSource.SourceType.TEXT);
+                source.setExtractedContent(contentExtractorService.extractFromDocx(savedPath));
+                break;
+            case "doc":
+                source.setSourceType(NotebookSource.SourceType.TEXT);
+                source.setExtractedContent(contentExtractorService.extractFromDoc(savedPath));
+                break;
+            case "txt":
+                source.setSourceType(NotebookSource.SourceType.TEXT);
+                source.setExtractedContent(contentExtractorService.extractFromTxt(savedPath));
+                break;
+            default:
+                source.setSourceType(NotebookSource.SourceType.TEXT);
+                source.setExtractedContent(
+                        "Extraction not supported for this file type yet ("
+                                + (extension.isBlank() ? "no extension" : "." + extension)
+                                + "). File: " + file.getOriginalFilename());
+                break;
         }
 
         nb.getSources().add(source);
-        return NotebookResponse.from(notebookRepository.save(nb));
+        NotebookResponse response = NotebookResponse.from(notebookRepository.save(nb));
+
+        // 🆕 Auto-overview: only fires when this was the notebook's first source
+        attachAutoOverviewIfFirstSource(response, notebookId, studentEmail, organizationId);
+
+        return response;
+    }
+
+    /**
+     * If the notebook now has exactly one source (i.e. the source just added
+     * was its first), automatically generate a NotebookLM-style overview and
+     * attach it to the response so the frontend can display it in the chat
+     * panel without the user typing anything. Generation is best-effort: any
+     * failure is swallowed so it never blocks the source from being saved.
+     */
+    private void attachAutoOverviewIfFirstSource(NotebookResponse response, Long notebookId,
+                                                  String studentEmail, String organizationId) {
+        if (response.getSourceCount() == 1) {
+            try {
+                String overview = notebookChatService.generateAutoOverview(notebookId, studentEmail, organizationId);
+                response.setAutoOverview(overview);
+            } catch (Exception e) {
+                // Auto-overview is a nice-to-have; a failure here must never
+                // surface as a failed source upload.
+                response.setAutoOverview(null);
+            }
+        }
+    }
+
+    private String getFileExtension(String filename) {
+        if (filename == null) {
+            return "";
+        }
+        int dot = filename.lastIndexOf('.');
+        return (dot >= 0 && dot < filename.length() - 1) ? filename.substring(dot + 1) : "";
     }
 }

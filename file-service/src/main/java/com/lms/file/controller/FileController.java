@@ -1,13 +1,14 @@
 
-
 package com.lms.file.controller;
 
 import com.lms.file.constants.FileFeatureKeys;
+import com.lms.file.dto.UploadQuotaResponse;
 import com.lms.file.model.FileResource;
 import com.lms.file.security.SecurityUtils;
 import com.lms.file.service.FileFeatureFlagsService;
 import com.lms.file.service.FileService;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -58,55 +59,43 @@ public class FileController {
         return service.getStudentFiles();
     }
 
+    // ================= PLAN-TIER: UPLOAD QUOTA SNAPSHOT =================
+    // Read-only, so left ungated — matches the other GET endpoints in this
+    // controller that don't call featureFlagsService.enforce(...).
+    @GetMapping("/upload-quota")
+    public UploadQuotaResponse uploadQuota() {
+        return service.getUploadQuota(currentOrgId(), currentEmail());
+    }
+
     // ================= DOWNLOAD =================
-    @GetMapping("/download/{name}")
-    public ResponseEntity<byte[]> download(@PathVariable String name) throws Exception {
+    // Returns a JSON payload with a fresh presigned S3 URL — NOT a redirect
+    // and NOT the raw bytes — because the frontend calls this with an
+    // Authorization header via axios/fetch, and that header would otherwise
+    // get forwarded to S3 on a redirect and get rejected.
+    @GetMapping("/download/{id}")
+    public ResponseEntity<java.util.Map<String, String>> download(@PathVariable Long id) throws Exception {
         featureFlagsService.enforce(currentOrgId(), currentEmail(), FileFeatureKeys.DOWNLOAD_FILE);
-        byte[] data = service.download(name);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + name + "\"")
-                .body(data);
+        FileResource file = service.getById(id);
+        String url = service.getPresignedUrl(file.getStoredName());
+        return ResponseEntity.ok(java.util.Map.of(
+                "url", url,
+                "contentType", file.getContentType() != null ? file.getContentType() : "application/octet-stream",
+                "originalName", file.getOriginalName() != null ? file.getOriginalName() : ""
+        ));
     }
 
     // ================= VIEW / PREVIEW =================
     @GetMapping("/view/{id}")
-    public ResponseEntity<byte[]> view(@PathVariable Long id) throws Exception {
+    public ResponseEntity<java.util.Map<String, String>> view(@PathVariable Long id) throws Exception {
         featureFlagsService.enforce(currentOrgId(), currentEmail(), FileFeatureKeys.VIEW_FILE);
-
         FileResource file = service.getById(id);
-        byte[] data = service.viewFile(id);
-
-        String name = file.getOriginalName() != null
-                ? file.getOriginalName().toLowerCase() : "";
-
-        String contentType;
-
-        if (name.endsWith(".pdf"))        contentType = "application/pdf";
-        else if (name.endsWith(".png"))   contentType = "image/png";
-        else if (name.endsWith(".jpg") || name.endsWith(".jpeg")) contentType = "image/jpeg";
-        else if (name.endsWith(".gif"))   contentType = "image/gif";
-        else if (name.endsWith(".webp"))  contentType = "image/webp";
-        else if (name.endsWith(".txt"))   contentType = "text/plain";
-        else if (name.endsWith(".docx"))  contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        else if (name.endsWith(".doc"))   contentType = "application/msword";
-        else if (name.endsWith(".pptx"))  contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-        else if (name.endsWith(".ppt"))   contentType = "application/vnd.ms-powerpoint";
-        else if (name.endsWith(".xlsx"))  contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        else if (name.endsWith(".xls"))   contentType = "application/vnd.ms-excel";
-        else if (name.endsWith(".zip"))   contentType = "application/zip";
-        else                              contentType = "application/octet-stream";
-
-        // ✅ Always inline — never attachment — no download forced
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename=\"" + file.getOriginalName() + "\"")
-                .header(HttpHeaders.CONTENT_TYPE, contentType)
-                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
-                        HttpHeaders.CONTENT_DISPOSITION, HttpHeaders.CONTENT_TYPE)
-                .body(data);
+        String url = service.getPresignedUrl(file.getStoredName());
+        return ResponseEntity.ok(java.util.Map.of(
+                "url", url,
+                "contentType", file.getContentType() != null ? file.getContentType() : "application/octet-stream",
+                "originalName", file.getOriginalName() != null ? file.getOriginalName() : ""
+        ));
     }
-
     // ================= DELETE =================
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) throws Exception {
@@ -150,16 +139,7 @@ public class FileController {
         return ResponseEntity.ok(updated);
     }
 
-//    // ================= ADMIN: ALL FILES =================
-//    @GetMapping("/admin/all")
-//    public List<FileResource> adminAllFiles() {
-//        String role = SecurityUtils.getCurrentRole();
-//        if (!"ADMIN".equalsIgnoreCase(role)) {
-//            throw new RuntimeException("Admin access required");
-//        }
-//        featureFlagsService.enforce(currentOrgId(), currentEmail(), FileFeatureKeys.GET_ALL_FILES);
-//        return service.getAllFilesForAdmin();
-//    }
+    // ================= ADMIN: ALL FILES =================
     @GetMapping("/admin/all")
     public List<FileResource> adminAllFiles() {
         String role = SecurityUtils.getCurrentRole();
@@ -170,17 +150,24 @@ public class FileController {
         return service.getAllFilesForAdmin();
     }
 
-    // ── Helpers to pull current user context ──────────────────────────────────
     private String currentOrgId() {
         return SecurityUtils.getCurrentOrganizationId();
     }
 
-    // Mirrors the pattern already used elsewhere in the app:
-    // SecurityContextHolder.getContext().getAuthentication().getName()
     private String currentEmail() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return null;
         String name = auth.getName();
         return (name == null || "anonymousUser".equals(name)) ? null : name;
     }
+    
+    
+
+    // ✅ NEW — true total (before tier cap), for "Upgrade to unlock N more" UI
+    @GetMapping("/student/count")
+    public java.util.Map<String, Object> studentFilesCount() {
+        featureFlagsService.enforce(currentOrgId(), currentEmail(), FileFeatureKeys.GET_STUDENT_FILES);
+        return service.getStudentFileCount(currentOrgId(), currentEmail());
+    }
 }
+

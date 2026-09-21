@@ -1,26 +1,3 @@
-//
-//
-//package com.lms.auth.repository;
-//
-//import com.lms.auth.model.Organization;
-//import org.springframework.data.jpa.repository.JpaRepository;
-//import org.springframework.stereotype.Repository;
-//
-//import java.util.List;
-//import java.util.Optional; // ← ADDED
-//import java.util.UUID;
-//
-//@Repository
-//public interface OrganizationRepository extends JpaRepository<Organization, UUID> {
-//    List<Organization> findByStatusOrderByNameAsc(String status);
-//    boolean existsByIdAndStatus(UUID id, String status);
-//    Optional<Organization> findByOwnerId(Long ownerId); // ← ADDED
-//}
-
-// OPTIMIZATION: Added findOrgUserCounts() @Query to replace N+1 count calls
-// in getAllOrganizations(). Previously called countByOrganizationIdAndRole twice
-// per org (2N queries for N orgs). New query fetches all org counts in one
-// GROUP BY query and returns a Map<UUID, long[]> (index 0=students, 1=trainers).
 
 package com.lms.auth.repository;
 
@@ -42,6 +19,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
     List<Organization> findByStatusOrderByNameAsc(String status);
     boolean existsByIdAndStatus(UUID id, String status);
     Optional<Organization> findByOwnerId(Long ownerId);
+    List<Organization> findByPlanExpiryDateBeforeAndPlanNot(java.time.LocalDate date, String plan);
 
     // OPTIMIZATION: Replaces 2N count queries in getAllOrganizations().
     // Returns list of Object[] rows: [organizationId, role, count].

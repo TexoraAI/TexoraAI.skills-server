@@ -1,14 +1,17 @@
+//
 //package com.lms.live_session.service;
 //
 //import org.springframework.beans.factory.annotation.Value;
+//import org.springframework.core.io.ByteArrayResource;
 //import org.springframework.http.*;
 //import org.springframework.stereotype.Service;
+//import org.springframework.util.LinkedMultiValueMap;
+//import org.springframework.util.MultiValueMap;
 //import org.springframework.web.client.RestTemplate;
 //
 //import java.util.*;
 //
 ///**
-// * NEW FILE
 // * Path: src/main/java/com/lms/live_session/service/OpenAiClientService.java
 // *
 // * Centralised OpenAI API caller.
@@ -17,6 +20,7 @@
 // *   openai.model=gpt-4o
 // *   openai.max-tokens=3000
 // *   openai.temperature=0.7
+// *   openai.whisper-model=whisper-1   (optional, defaults to whisper-1)
 // *
 // * AiCompanionService delegates all API calls here so the key
 // * is NEVER exposed to the frontend.
@@ -36,7 +40,11 @@
 //    @Value("${openai.temperature:0.7}")
 //    private double temperature;
 //
+//    @Value("${openai.whisper-model:whisper-1}")
+//    private String whisperModel;
+//
 //    private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+//    private static final String OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
 //
 //    private final RestTemplate restTemplate;
 //
@@ -125,13 +133,56 @@
 //        return (String) message.get("content");
 //    }
 //
+//    /**
+//     * Sends raw audio bytes to OpenAI's Whisper transcription endpoint
+//     * and returns the transcript text.
+//     */
+//    public String transcribeAudio(byte[] audioBytes, String filename) {
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+//        headers.setBearerAuth(openAiApiKey);
+//
+//        ByteArrayResource fileResource = new ByteArrayResource(audioBytes) {
+//            @Override
+//            public String getFilename() {
+//                return filename;
+//            }
+//        };
+//
+//        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+//        body.add("file", fileResource);
+//        body.add("model", whisperModel);
+//
+//        HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+//
+//        ResponseEntity<Map> responseEntity = restTemplate.exchange(
+//            OPENAI_TRANSCRIPTION_URL, HttpMethod.POST, entity, Map.class
+//        );
+//
+//        Map<String, Object> responseBody = responseEntity.getBody();
+//        if (responseBody == null) {
+//            throw new RuntimeException("Empty response from OpenAI transcription API");
+//        }
+//
+//        Object text = responseBody.get("text");
+//        if (text == null) {
+//            throw new RuntimeException("No transcript text returned by OpenAI (response: " + responseBody + ")");
+//        }
+//
+//        return text.toString();
+//    }
+//
 //    public String getModel() { return model; }
 //}
+
+
+
 package com.lms.live_session.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -149,6 +200,8 @@ import java.util.*;
  *   openai.max-tokens=3000
  *   openai.temperature=0.7
  *   openai.whisper-model=whisper-1   (optional, defaults to whisper-1)
+ *   openai.connect-timeout-ms=10000  (optional, defaults to 10s)
+ *   openai.read-timeout-ms=120000    (optional, defaults to 120s — covers slow Whisper responses on large chunks)
  *
  * AiCompanionService delegates all API calls here so the key
  * is NEVER exposed to the frontend.
@@ -176,8 +229,13 @@ public class OpenAiClientService {
 
     private final RestTemplate restTemplate;
 
-    public OpenAiClientService() {
-        this.restTemplate = new RestTemplate();
+    public OpenAiClientService(
+            @Value("${openai.connect-timeout-ms:10000}") int connectTimeoutMs,
+            @Value("${openai.read-timeout-ms:120000}") int readTimeoutMs) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeoutMs);
+        factory.setReadTimeout(readTimeoutMs);
+        this.restTemplate = new RestTemplate(factory);
     }
 
     /**
@@ -265,7 +323,57 @@ public class OpenAiClientService {
      * Sends raw audio bytes to OpenAI's Whisper transcription endpoint
      * and returns the transcript text.
      */
+//    public String transcribeAudio(byte[] audioBytes, String filename) {
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+//        headers.setBearerAuth(openAiApiKey);
+//
+//        ByteArrayResource fileResource = new ByteArrayResource(audioBytes) {
+//            @Override
+//            public String getFilename() {
+//                return filename;
+//            }
+//        };
+//
+//        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+//        body.add("file", fileResource);
+//        body.add("model", whisperModel);
+//
+//        HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+//
+//        ResponseEntity<Map> responseEntity = restTemplate.exchange(
+//            OPENAI_TRANSCRIPTION_URL, HttpMethod.POST, entity, Map.class
+//        );
+//
+//        Map<String, Object> responseBody = responseEntity.getBody();
+//        if (responseBody == null) {
+//            throw new RuntimeException("Empty response from OpenAI transcription API");
+//        }
+//
+//        Object text = responseBody.get("text");
+//        if (text == null) {
+//            throw new RuntimeException("No transcript text returned by OpenAI (response: " + responseBody + ")");
+//        }
+//
+//        return text.toString();
+//    }
+//    
+    /**
+     * Sends raw audio bytes to OpenAI's Whisper transcription endpoint
+     * and returns the transcript text. Backward-compatible overload — no
+     * language hint, Whisper auto-detects.
+     */
     public String transcribeAudio(byte[] audioBytes, String filename) {
+        return transcribeAudio(audioBytes, filename, null);
+    }
+
+    /**
+     * Same as above, but with an optional ISO-639-1 language hint (e.g.
+     * "en", "hi", "es") passed straight through to Whisper's "language"
+     * param — improves accuracy over auto-detect, especially on short
+     * chunks or accented speech. Pass null/blank to auto-detect.
+     */
+    public String transcribeAudio(byte[] audioBytes, String filename, String language) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         headers.setBearerAuth(openAiApiKey);
@@ -280,6 +388,9 @@ public class OpenAiClientService {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", fileResource);
         body.add("model", whisperModel);
+        if (language != null && !language.isBlank()) {
+            body.add("language", language);
+        }
 
         HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
 

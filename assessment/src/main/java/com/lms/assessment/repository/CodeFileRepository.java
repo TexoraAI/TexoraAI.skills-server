@@ -27,4 +27,6 @@ public interface CodeFileRepository extends JpaRepository<CodeFile, Long> {
 
     // Delete all files for a student (admin use)
     void deleteByStudentEmailAndBatchId(String studentEmail, String batchId);
+    
+    long countByStudentEmail(String studentEmail);
 }

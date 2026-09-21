@@ -14,6 +14,8 @@ public class AuthEvent {
     private String role;
     private String displayName;
     private String organizationId; // ← NEW: must match auth-service AuthEvent
+    private String plan;
+    private String expiresAt;
 
     public String getEventType()      { return eventType; }
     public void setEventType(String e){ this.eventType = e; }
@@ -32,4 +34,11 @@ public class AuthEvent {
 
     public String getOrganizationId()           { return organizationId; }   // ← NEW
     public void setOrganizationId(String orgId) { this.organizationId = orgId; } // ← NEW
+    
+
+    public String getPlan()           { return plan; }
+    public void setPlan(String plan)  { this.plan = plan; }
+    
+    public String getExpiresAt()           { return expiresAt; }
+    public void setExpiresAt(String v)     { this.expiresAt = v; }
 }

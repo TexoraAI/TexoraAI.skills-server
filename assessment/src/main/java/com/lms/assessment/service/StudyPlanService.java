@@ -1,7 +1,7 @@
 
-
 package com.lms.assessment.service;
 
+import com.lms.assessment.constants.AssessmentUsageLimits;
 import com.lms.assessment.dto.StudyPlanRequest;
 import com.lms.assessment.dto.StudyPlanResponse;
 import com.lms.assessment.model.*;
@@ -29,17 +29,20 @@ public class StudyPlanService {
     private final StudyPlanItemRepository      itemRepository;
     private final StudyPlanProgressRepository  progressRepository;
     private final CodingProblemRepository      problemRepository;
+    private final AssessmentUsageService       assessmentUsageService;
 
     public StudyPlanService(StudyPlanRepository studyPlanRepository,
                             StudyPlanSectionRepository sectionRepository,
                             StudyPlanItemRepository itemRepository,
                             StudyPlanProgressRepository progressRepository,
-                            CodingProblemRepository problemRepository) {
+                            CodingProblemRepository problemRepository,
+                            AssessmentUsageService assessmentUsageService) {
         this.studyPlanRepository = studyPlanRepository;
         this.sectionRepository   = sectionRepository;
         this.itemRepository      = itemRepository;
         this.progressRepository  = progressRepository;
         this.problemRepository   = problemRepository;
+        this.assessmentUsageService = assessmentUsageService;
     }
 
     /* ─────────────────────────────────────────────
@@ -48,6 +51,10 @@ public class StudyPlanService {
 
     @Transactional
     public StudyPlanResponse createStudyPlan(StudyPlanRequest req, String trainerEmail, String organizationId) {
+
+        assessmentUsageService.checkAndIncrement(
+                AssessmentUsageLimits.Action.STUDY_PLAN_CREATE, trainerEmail, organizationId);
+
         StudyPlan plan = new StudyPlan();
         plan.setTitle(req.getTitle());
         plan.setDescription(req.getDescription());

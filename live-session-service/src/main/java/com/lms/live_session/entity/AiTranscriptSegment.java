@@ -18,9 +18,9 @@ public class AiTranscriptSegment {
     private String text;
 
     private String speakerName = "Speaker 1";
-
     private Integer startedAtSecond; // seconds since transcript session started
-
+    private Integer chunkIndex; // order of the audio chunk this came from, nullable for legacy/manual segments
+    private String language; // ISO-639-1 code passed to Whisper for this chunk, e.g. "en", "hi"
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -45,7 +45,10 @@ public class AiTranscriptSegment {
 
     public Integer getStartedAtSecond() { return startedAtSecond; }
     public void setStartedAtSecond(Integer startedAtSecond) { this.startedAtSecond = startedAtSecond; }
-
+    public Integer getChunkIndex() { return chunkIndex; }
+    public void setChunkIndex(Integer chunkIndex) { this.chunkIndex = chunkIndex; }
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

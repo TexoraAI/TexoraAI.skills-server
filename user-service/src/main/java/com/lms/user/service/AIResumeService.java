@@ -184,67 +184,7 @@ public class AIResumeService {
     // ─────────────────────────────────────────────────────────────────────────
     // Path B: AI-only generation (chunked)
     // ─────────────────────────────────────────────────────────────────────────
-//    private ResumeRequestDTO generateAiOnlyChunked(
-//            String name, String email, String linkedinUrl,
-//            String jobTitle, String years, String skills,
-//            String templateName, String firstName, String lastName) {
-//
-//        log.info("AI-only chunked generation");
-//
-//        String ctx = "Name: " + name + " | Email: " + email +
-//                     " | Target: " + jobTitle + " | Exp: " + years + " yrs | Skills: " + skills;
-//
-//        String system1 =
-//            "You are an expert ATS resume writer. Return ONLY valid JSON — no markdown, no comments, no code blocks.\n" +
-//            "IMPORTANT: Output a FLAT JSON object only. Do NOT nest fields under 'personalInfo' or any other wrapper.\n" +
-//            "The JSON must have these exact top-level keys: title, templateName, firstName, lastName, jobTitle,\n" +
-//            "email, phone, city, country, linkedinUrl, githubUrl, portfolioUrl, profileSummary,\n" +
-//            "workExperiences (array), educations (array).\n" +
-//            "NEVER invent company names or educational institutions.\n" +
-//            "Return workExperiences and educations with empty strings — user will fill them.\n" +
-//            "Write a rich 4-5 sentence ATS-optimised profileSummary.";
-//
-//        String user1 =
-//            "Generate resume header + summary for: " + ctx + "\n\n" +
-//            "Return this FLAT JSON (no nested wrappers, no personalInfo key):\n" +
-//            "{\"title\":\"" + name + "'s Resume\",\"templateName\":\"" + templateName + "\"," +
-//            "\"firstName\":\"" + firstName + "\",\"lastName\":\"" + lastName + "\"," +
-//            "\"jobTitle\":\"" + jobTitle + "\",\"email\":\"" + email + "\"," +
-//            "\"phone\":\"\",\"city\":\"\",\"country\":\"India\"," +
-//            "\"linkedinUrl\":\"" + linkedinUrl + "\",\"githubUrl\":\"\",\"portfolioUrl\":\"\"," +
-//            "\"profileSummary\":\"<WRITE 4-5 ATS sentences for " + jobTitle + " with " + years + " yrs exp and skills [" + skills + "]>\"," +
-//            "\"workExperiences\":[{\"companyName\":\"\",\"position\":\"" + jobTitle + "\"," +
-//            "\"startDate\":\"\",\"endDate\":\"\",\"isCurrent\":false,\"location\":\"\"," +
-//            "\"description\":\"\",\"displayOrder\":0}]," +
-//            "\"educations\":[{\"institution\":\"\",\"degree\":\"\",\"fieldOfStudy\":\"\"," +
-//            "\"startDate\":\"\",\"endDate\":\"\",\"grade\":\"\",\"description\":\"\",\"displayOrder\":0}]}";
-//
-//        String system2 =
-//            "You are an expert ATS resume writer. Return ONLY valid JSON — no markdown, no comments, no code blocks.\n" +
-//            "IMPORTANT: Output a FLAT JSON with exactly these top-level keys: skills, projects, certifications.\n" +
-//            "Do NOT wrap them. proficiencyLevel must be: BEGINNER, INTERMEDIATE, ADVANCED, or EXPERT.\n" +
-//            "Generate exactly 14 skills, exactly 3 detailed projects, exactly 2 certifications.";
-//
-//        String user2 =
-//            "Generate skills, projects, certifications for: " + ctx + "\n\n" +
-//            "Return this FLAT JSON:\n" +
-//            "{\"skills\":[<14 skill objects for " + jobTitle + " including [" + skills + "]. " +
-//            "Each:{\"skillName\":\"\",\"proficiencyLevel\":\"\",\"displayOrder\":N}>]," +
-//            "\"projects\":[<3 realistic project objects for " + jobTitle + " with " + years + " yrs exp. " +
-//            "Each:{\"projectName\":\"\",\"techStack\":\"\",\"projectUrl\":\"https://github.com/" + firstName.toLowerCase() + "/project\"," +
-//            "\"startDate\":\"Mon YYYY\",\"endDate\":\"Mon YYYY\"," +
-//            "\"description\":\"3-4 detailed sentences\",\"displayOrder\":N}>]," +
-//            "\"certifications\":[<2 relevant cert objects for " + jobTitle + ". " +
-//            "Each:{\"certName\":\"\",\"issuingOrganization\":\"\",\"issueDate\":\"Mon YYYY\"," +
-//            "\"expiryDate\":\"\",\"credentialId\":\"\",\"credentialUrl\":\"\",\"displayOrder\":N}>]}";
-//
-//        return mergeChunks(callChatApi(system1, user1, 4096), callChatApi(system2, user2, 6000));
-//    }
- // ─────────────────────────────────────────────────────────────────────────
- // REPLACE ONLY this ONE method in AIResumeService.java
- // Method: generateAiOnlyChunked(...)
- // Everything else stays untouched.
- // ─────────────────────────────────────────────────────────────────────────
+
 
      private ResumeRequestDTO generateAiOnlyChunked(
              String name, String email, String linkedinUrl,

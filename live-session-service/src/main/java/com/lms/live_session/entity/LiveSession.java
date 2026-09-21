@@ -78,6 +78,9 @@ public class LiveSession {
     private String timezone;
     
     private String currentEgressFileSuffix;
+    
+    @Column(name = "organization_id")
+    private Long organizationId;
 
     // ── ADD Getters & Setters ──────────────────────────────────────
 
@@ -163,5 +166,9 @@ public class LiveSession {
     public void setCurrentEgressFileSuffix(String currentEgressFileSuffix) {
         this.currentEgressFileSuffix = currentEgressFileSuffix;
     }
+    
+    // ✅ NEW
+    public Long getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Long organizationId) { this.organizationId = organizationId; }
 
 }

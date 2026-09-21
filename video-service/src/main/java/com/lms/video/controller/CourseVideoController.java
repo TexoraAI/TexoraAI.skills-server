@@ -1,22 +1,23 @@
 
-
 package com.lms.video.controller;
+import java.util.Map;
 import com.lms.video.dto.TranscriptResponse;
 import com.lms.video.model.FeaturedTranscriptSegment;
 import com.lms.video.model.TranscriptSourceType;
 import com.lms.video.model.TranscriptStatus;
 import com.lms.video.repository.FeaturedVideoTranscriptRepository;
 import com.lms.video.repository.FeaturedTranscriptSegmentRepository;
+import com.lms.video.security.JwtUtil;
 import java.util.List;
 import com.lms.video.model.CourseVideo;
 import com.lms.video.service.CourseVideoService;
-import org.springframework.core.io.*;
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
+import java.net.URI;
 import com.lms.video.repository.CourseVideoRepository;
 @RestController
 @RequestMapping("/api/course-videos")
@@ -26,30 +27,39 @@ public class CourseVideoController {
     private final FeaturedVideoTranscriptRepository transcriptRepo;
     private final FeaturedTranscriptSegmentRepository segmentRepo;
     private final CourseVideoRepository repo;
-   
-    private static final String VIDEO_DIR =
-            System.getProperty("user.dir") + "/videos/course-content/";
+    private final JwtUtil jwtUtil; // NEW
 
     public CourseVideoController(CourseVideoService service,
             CourseVideoRepository repo,
             FeaturedVideoTranscriptRepository transcriptRepo,
-            FeaturedTranscriptSegmentRepository segmentRepo) {
+            FeaturedTranscriptSegmentRepository segmentRepo,
+            JwtUtil jwtUtil) { // NEW param
         this.service = service;
         this.repo = repo;
         this.transcriptRepo = transcriptRepo;
         this.segmentRepo = segmentRepo;
+        this.jwtUtil = jwtUtil; // NEW
+    }
+
+    // NEW — same helper pattern as VideoController's orgIdFrom
+    private String orgIdFrom(String authHeader) {
+        if (authHeader == null) return null;
+        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+        return jwtUtil.extractOrganizationId(token);
     }
 
     // ================= UPLOAD =================
     @PostMapping("/upload")
     public CourseVideo upload(
+            @RequestHeader(value = "Authorization", required = false) String authHeader, // NEW
             @RequestParam MultipartFile file,
             @RequestParam Long courseId,
             @RequestParam Long moduleId,
             @RequestParam Long batchId,
             Authentication auth
     ) throws IOException {
-        return service.upload(file, courseId, moduleId, batchId, auth.getName());
+        String organizationId = orgIdFrom(authHeader); // NEW
+        return service.upload(file, courseId, moduleId, batchId, auth.getName(), organizationId);
     }
 
     // ================= EDIT =================
@@ -57,6 +67,7 @@ public class CourseVideoController {
     // Frontend sends: file (optional), courseId, moduleId, batchId
     @PutMapping("/{id}")
     public CourseVideo update(
+            @RequestHeader(value = "Authorization", required = false) String authHeader, // NEW
             @PathVariable Long id,
             @RequestParam(required = false) MultipartFile file,
             @RequestParam(required = false) Long courseId,
@@ -64,13 +75,15 @@ public class CourseVideoController {
             @RequestParam(required = false) Long batchId,
             Authentication auth
     ) throws IOException {
+        String organizationId = orgIdFrom(authHeader); // NEW
         return service.update(
                 id,
                 file,
                 courseId,
                 moduleId,
                 batchId,
-                auth != null ? auth.getName() : null
+                auth != null ? auth.getName() : null,
+                organizationId
         );
     }
 
@@ -81,57 +94,19 @@ public class CourseVideoController {
         return ResponseEntity.ok("Course video deleted successfully");
     }
 
-    // ================= STREAM =================
-    @GetMapping("/stream/{fileName:.+}")
-    public ResponseEntity<Resource> streamVideo(
+    // ================= PLAYBACK URL (JSON) =================
+    @GetMapping("/play/{fileName:.+}")
+    public ResponseEntity<Map<String, String>> getPlaybackUrlJson(
             @PathVariable String fileName,
-            @RequestHeader HttpHeaders headers,
             Authentication auth
-    ) throws IOException {
-
+    ) {
         if (auth == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
-        File file = new File(VIDEO_DIR + fileName);
-        if (!file.exists()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        long fileLength = file.length();
-        String rangeHeader = headers.getFirst(HttpHeaders.RANGE);
-
-        if (rangeHeader == null) {
-            Resource resource = new FileSystemResource(file);
-            return ResponseEntity.ok()
-                    .contentType(MediaTypeFactory.getMediaType(fileName)
-                            .orElse(MediaType.APPLICATION_OCTET_STREAM))
-                    .contentLength(fileLength)
-                    .body(resource);
-        }
-
-        String[] ranges = rangeHeader.replace("bytes=", "").split("-");
-        long start = Long.parseLong(ranges[0]);
-        long end = ranges.length > 1 && !ranges[1].isEmpty()
-                ? Long.parseLong(ranges[1])
-                : fileLength - 1;
-        long contentLength = end - start + 1;
-
-        HttpHeaders responseHeaders = new HttpHeaders();
-        responseHeaders.add("Content-Range", "bytes " + start + "-" + end + "/" + fileLength);
-        responseHeaders.add("Accept-Ranges", "bytes");
-
-        InputStream inputStream = new FileInputStream(file);
-        inputStream.skip(start);
-
-        return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-                .headers(responseHeaders)
-                .contentLength(contentLength)
-                .contentType(MediaTypeFactory.getMediaType(fileName)
-                        .orElse(MediaType.APPLICATION_OCTET_STREAM))
-                .body(new InputStreamResource(inputStream));
+        String presignedUrl = service.getPlaybackUrl(fileName);
+        return ResponseEntity.ok(Map.of("url", presignedUrl));
     }
- // ================= TRANSCRIPT =================
+    // ================= TRANSCRIPT =================
     @GetMapping("/{id}/transcript")
     public TranscriptResponse getTranscript(@PathVariable Long id) {
         return transcriptRepo.findBySessionIdAndSourceType(id, TranscriptSourceType.COURSE_VIDEO)
@@ -151,11 +126,7 @@ public class CourseVideoController {
                 })
                 .orElse(new TranscriptResponse("NONE", null, null, List.of()));
     }
- // ================= TRANSCRIPT BY URL =================
-    // ContentItem (course-service) only stores the video's url, not
-    // video-service's internal CourseVideo.id — same reason
-    // ContentEventConsumer resolves by url instead of id. This endpoint
-    // lets the frontend do the same lookup.
+    // ================= TRANSCRIPT BY URL =================
     @GetMapping("/transcript-by-url")
     public TranscriptResponse getTranscriptByUrl(@RequestParam String url) {
         return repo.findByUrl(url)
@@ -175,5 +146,15 @@ public class CourseVideoController {
                     return new TranscriptResponse(transcript.getStatus().name(), transcript.getLanguage(), null, List.of());
                 })
                 .orElse(new TranscriptResponse("NONE", null, null, List.of()));
+    }
+    
+    // ================= USAGE (video course-content storage quota) =================
+    @GetMapping("/upload-quota")
+    public java.util.Map<String, Object> getUploadQuota(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            Authentication auth
+    ) {
+        String organizationId = orgIdFrom(authHeader);
+        return service.getCourseVideoUsage(auth.getName(), organizationId);
     }
 }

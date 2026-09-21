@@ -1,8 +1,11 @@
+
+
 package com.lms.live_session.controller;
 
 import com.lms.live_session.dto.ScheduleRequestDTO;
 import com.lms.live_session.dto.ScheduleResponseDTO;
 import com.lms.live_session.service.ScheduleService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,22 +26,25 @@ public class ScheduleController {
         this.scheduleService = scheduleService;
     }
 
-//    @PostMapping
-//    public ResponseEntity<?> createSchedule(@RequestBody ScheduleRequestDTO dto, Authentication auth) {
-//        try {
-//            return ResponseEntity.ok(scheduleService.createSchedule(dto, auth.getName()));
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-//        }
-//    }
     @PostMapping
-    public ResponseEntity<?> createSchedule(@RequestBody ScheduleRequestDTO dto, Authentication auth) {
+    public ResponseEntity<?> createSchedule(@RequestBody ScheduleRequestDTO dto, Authentication auth, HttpServletRequest request) {
         try {
             String creatorRole = extractRole(auth);
-            return ResponseEntity.ok(scheduleService.createSchedule(dto, auth.getName(), creatorRole));
+            String token = extractToken(request);
+            return ResponseEntity.ok(scheduleService.createSchedule(dto, auth.getName(), creatorRole, token));
+        } catch (com.lms.live_session.exception.MeetingLimitExceededException e) {
+            throw e; // let GlobalExceptionHandler produce 429 + MEETING_LIMIT_EXCEEDED
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
     }
 
     private String extractRole(Authentication auth) {

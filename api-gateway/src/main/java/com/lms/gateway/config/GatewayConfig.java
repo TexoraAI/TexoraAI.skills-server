@@ -63,6 +63,9 @@ public class GatewayConfig {
     @Value("${services.live-session}")
     private String liveSessionService;
     
+    @Value("${services.audit}") 
+    private String auditService;
+    
     @Bean
     public RouteLocator customRoutes(RouteLocatorBuilder builder) {
 
@@ -93,6 +96,17 @@ public class GatewayConfig {
                     "/api/organizations/**"
             ).uri(authService))
 
+            
+         // ================= AUTH: PLAN UPGRADE PREVIEW (✅ ADD) =================
+         // PlanUpgradeController lives in auth-service (com.lms.auth.controller),
+         // but its paths start with /api/users/** which would otherwise be
+         // swallowed by the user-service route below — so these must be
+         // registered first and point at authService instead.
+         .route("auth-plan-upgrade", r -> r.path(
+                 "/api/users/*/upgrade/preview",
+                 "/api/users/*/resume-plan/upgrade/preview"
+         ).uri(authService))
+            
             // ================= USER =================
             .route("user-service", r -> r.path("/api/users/**","/api/v1/resume/**" )
                     .uri(userService))
@@ -203,8 +217,10 @@ public class GatewayConfig {
                     .uri(searchService))
 
             // ================= PAYMENT =================
+         // ================= PAYMENT / WALLET =================
             .route("payment-service", r -> r.path(
-                    "/api/payment/**",
+                    "/api/payments/**",   // ✅ FIXED: was "/api/payment/**" (singular) — didn't match controller
+                    "/api/wallet/**",     // ✅ ADDED: was missing entirely
                     "/api/refund/**"
             ).uri(paymentService))
 
@@ -244,6 +260,9 @@ public class GatewayConfig {
             		"/api/chat-feature-flags/**","/api/meeting-summaries/**")
                     .uri(chatService))
            
+            
+            .route("audit-service", r -> r.path("/api/audit/**")
+                    .uri(auditService))
 //         // ================= LIVE SESSION SERVICE =================
 //            .route("live-session-service", r -> r.path(
 //                    "/api/live-sessions/**",
@@ -273,4 +292,6 @@ public class GatewayConfig {
             )
             		.uri(liveSessionService)).build();
     }
+    
+    
 }

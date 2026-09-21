@@ -44,7 +44,8 @@ import java.util.UUID;
 import java.util.List;
 import com.lms.auth.dto.AdminUpdateUserRequest;
 import com.lms.auth.dto.AdminUserViewDTO;
-
+import com.lms.auth.constants.DefaultOrgLimits; 
+import com.lms.auth.exception.SeatLimitExceededException;
 @Service
 public class AuthService {
 
@@ -116,6 +117,28 @@ public class AuthService {
             return;
         }
 
+//        Organization org = new Organization();
+//        org.setName(user.getName() + "'s Organization");
+//        org.setEmail(user.getEmail());
+//        org.setManagerName(user.getName());
+//        org.setManagerEmail(user.getEmail());
+//        org.setOwnerId(user.getId());
+//        org.setPlan("trial");
+//        org.setStatus("active");
+//
+//        Organization savedOrg = organizationRepository.save(org);
+//        user.setOrganizationId(savedOrg.getId());
+//        userRepository.save(user);
+//
+//        authEventProducer.sendEvent(new AuthEvent(
+//            "ORG_CREATED",
+//            user.getId(),
+//            savedOrg.getEmail(),
+//            null,
+//            savedOrg.getName(),
+//            savedOrg.getId().toString()
+//        ));
+//    }
         Organization org = new Organization();
         org.setName(user.getName() + "'s Organization");
         org.setEmail(user.getEmail());
@@ -124,6 +147,11 @@ public class AuthService {
         org.setOwnerId(user.getId());
         org.setPlan("trial");
         org.setStatus("active");
+        org.setMaxStudents(DefaultOrgLimits.MAX_STUDENTS);
+        org.setMaxTrainers(DefaultOrgLimits.MAX_TRAINERS);
+        org.setMaxDepartments(DefaultOrgLimits.MAX_DEPARTMENTS);
+        org.setMaxBranchesPerDept(DefaultOrgLimits.MAX_BRANCHES_PER_DEPT);
+        org.setMaxBatchesPerBranch(DefaultOrgLimits.MAX_BATCHES_PER_BRANCH);
 
         Organization savedOrg = organizationRepository.save(org);
         user.setOrganizationId(savedOrg.getId());
@@ -135,7 +163,10 @@ public class AuthService {
             savedOrg.getEmail(),
             null,
             savedOrg.getName(),
-            savedOrg.getId().toString()
+            savedOrg.getId().toString(),
+            savedOrg.getMaxDepartments(),
+            savedOrg.getMaxBranchesPerDept(),
+            savedOrg.getMaxBatchesPerBranch()
         ));
     }
 
@@ -183,23 +214,43 @@ public class AuthService {
                 .findById(user.getOrganizationId())
                 .orElse(null);
 
+//            if (org != null) {
+//                if (user.getRole() == Role.STUDENT && org.getMaxStudents() != null) {
+//                    long count = userRepository.countByOrganizationIdAndRole(
+//                        org.getId(), Role.STUDENT);
+//                    if (count >= org.getMaxStudents()) {
+//                        throw new ResponseStatusException(
+//                            HttpStatus.FORBIDDEN,
+//                            "Student limit reached. Max allowed: " + org.getMaxStudents());
+//                    }
+//                }
+//                if (user.getRole() == Role.TRAINER && org.getMaxTrainers() != null) {
+//                    long count = userRepository.countByOrganizationIdAndRole(
+//                        org.getId(), Role.TRAINER);
+//                    if (count >= org.getMaxTrainers()) {
+//                        throw new ResponseStatusException(
+//                            HttpStatus.FORBIDDEN,
+//                            "Trainer limit reached. Max allowed: " + org.getMaxTrainers());
+//                    }
+//                }
+//            }
             if (org != null) {
                 if (user.getRole() == Role.STUDENT && org.getMaxStudents() != null) {
                     long count = userRepository.countByOrganizationIdAndRole(
                         org.getId(), Role.STUDENT);
                     if (count >= org.getMaxStudents()) {
-                        throw new ResponseStatusException(
-                            HttpStatus.FORBIDDEN,
-                            "Student limit reached. Max allowed: " + org.getMaxStudents());
+                        throw new SeatLimitExceededException(
+                            org.getId().toString(), "STUDENT",
+                            (int) count, org.getMaxStudents());
                     }
                 }
                 if (user.getRole() == Role.TRAINER && org.getMaxTrainers() != null) {
                     long count = userRepository.countByOrganizationIdAndRole(
                         org.getId(), Role.TRAINER);
                     if (count >= org.getMaxTrainers()) {
-                        throw new ResponseStatusException(
-                            HttpStatus.FORBIDDEN,
-                            "Trainer limit reached. Max allowed: " + org.getMaxTrainers());
+                        throw new SeatLimitExceededException(
+                            org.getId().toString(), "TRAINER",
+                            (int) count, org.getMaxTrainers());
                     }
                 }
             }
