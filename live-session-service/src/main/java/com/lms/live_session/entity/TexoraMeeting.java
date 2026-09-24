@@ -15,7 +15,7 @@ public class TexoraMeeting {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "texora_meeting_id", nullable = false, updatable = false, length = 64)
+    @Column(name = "texora_meeting_id", length = 64)
     private String texoraMeetingId;
 
     @Column(name = "external_ref", length = 64)
