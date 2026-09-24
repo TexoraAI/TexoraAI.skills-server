@@ -463,7 +463,10 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
       FFMPEG_PATH: /usr/bin/ffmpeg
 
-  # ✅ UPDATED: live-session-service with Google Calendar configuration
+  # ✅ UPDATED: live-session-service — added Texora webhook/transcript-signing
+  # secrets, kept FFMPEG_PATH (still needed for audio extraction), and added
+  # TRANSCRIPT_MICROSERVICE_URL (reuses the shared Whisper container that
+  # video-service already uses, instead of running Whisper locally).
   live-session-service:
     image: shareef123/live-session-service:latest
     container_name: live-session-service
@@ -475,6 +478,7 @@ services:
       - kafka
       - livekit
       - livekit-egress
+      - transcript-microservice
     env_file:
       - .env
     environment:
@@ -494,6 +498,17 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       TEXORA_API_KEY: ${TEXORA_API_KEY}
+      # ✅ NEW — Texora webhook delivery
+      TEXORA_WEBHOOK_URL: ${TEXORA_WEBHOOK_URL}
+      TEXORA_WEBHOOK_SECRET: ${TEXORA_WEBHOOK_SECRET}
+      # ✅ NEW — signs the 30-day transcript download links
+      TEXORA_TRANSCRIPT_SIGNING_SECRET: ${TEXORA_TRANSCRIPT_SIGNING_SECRET}
+      # ✅ Still needed — audio extraction from the recording before sending
+      # to transcript-microservice
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      # ✅ NEW — reuse the shared Whisper container instead of running
+      # whisper locally
+      TRANSCRIPT_MICROSERVICE_URL: http://transcript-microservice:5001
       AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
       AWS_SECRET_KEY: ${AWS_SECRET_KEY}
       AWS_REGION: ${AWS_REGION}

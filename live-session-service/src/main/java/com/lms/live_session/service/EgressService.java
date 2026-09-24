@@ -322,4 +322,44 @@ public class EgressService {
 	        s3.close();
 	    }
 	}
+ 
+ 
+ //for texora purpose we added this 
+ public EgressStartResult startTrackEgress(String roomName, String trackSid, String participantIdentity) {
+	    String fileSuffix = String.valueOf(System.currentTimeMillis());
+	    try {
+	        EgressServiceClient client = buildEgressClient();
+
+	        S3Upload s3 = S3Upload.newBuilder()
+	                .setAccessKey(awsAccessKey)
+	                .setSecret(awsSecretKey)
+	                .setBucket(bucket)
+	                .setRegion(awsRegion)
+	                .build();
+
+	        DirectFileOutput output = DirectFileOutput.newBuilder()
+	                .setFilepath("recordings/texora-track-" + participantIdentity + "-" + fileSuffix + ".ogg")
+	                .setS3(s3)
+	                .build();
+
+	        retrofit2.Response<EgressInfo> response = client
+	                .startTrackEgress(roomName, output, trackSid)
+	                .execute();
+
+	        if (!response.isSuccessful() || response.body() == null) {
+	            System.err.println("❌ Track egress start failed for " + participantIdentity + " track " + trackSid);
+	            return null;
+	        }
+
+	        String egressId = response.body().getEgressId();
+	        System.out.println("✅ Track egress started: " + egressId + " for " + participantIdentity);
+	        return new EgressStartResult(egressId, fileSuffix);
+
+	    } catch (Exception e) {
+	        System.err.println("❌ Failed to start track egress for " + participantIdentity + ": " + e.getMessage());
+	        e.printStackTrace();
+	        return null;
+	    }
+	}
+ 
 }

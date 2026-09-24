@@ -2,8 +2,10 @@ package com.lms.live_session.dto;
 
 public class TexoraMeetingRequestDTO {
     private String topic;
-    private String startTime;      // ISO 8601 UTC, e.g. 2026-08-12T14:30:00Z
+    private String startTime;
     private Integer durationMinutes;
+    private String externalRef;
+    private TexoraContextDTO context;
 
     public TexoraMeetingRequestDTO() {}
 
@@ -15,4 +17,10 @@ public class TexoraMeetingRequestDTO {
 
     public Integer getDurationMinutes() { return durationMinutes; }
     public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+
+    public String getExternalRef() { return externalRef; }
+    public void setExternalRef(String externalRef) { this.externalRef = externalRef; }
+
+    public TexoraContextDTO getContext() { return context; }
+    public void setContext(TexoraContextDTO context) { this.context = context; }
 }

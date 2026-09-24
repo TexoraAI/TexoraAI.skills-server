@@ -108,3 +108,24 @@ openai:
 # ✅ NEW: Texora Integration API Key
 texora:
   api-key: ${TEXORA_API_KEY}
+  # ✅ ADDED — required for TexoraWebhookSender to send meeting.ended /
+  # analysis.completed / analysis.failed events to Texora's backend.
+  webhook:
+    url: ${TEXORA_WEBHOOK_URL}
+    secret: ${TEXORA_WEBHOOK_SECRET}
+  # ✅ NEW — signs transcript download links. Never leaves ILMOra; used only
+  # to verify our own generated URLs when Texora's browser/backend fetches them.
+  transcript-signing-secret: ${TEXORA_TRANSCRIPT_SIGNING_SECRET}
+
+# ✅ Still required — TexoraAnalysisService uses FFmpeg locally to extract
+# audio from the recording before sending it to transcript-microservice.
+ffmpeg:
+  path: ${FFMPEG_PATH:ffmpeg}
+
+# ✅ CHANGED — was a local whisper.command/whisper.model block (ProcessBuilder,
+# ran Whisper directly in this service). Now reuses the shared, already-warm
+# transcript-microservice (the same one video-service/chat-service already
+# call) over HTTP instead. whisper.* properties are no longer used anywhere
+# and have been removed.
+transcript:
+  microservice-url: ${TRANSCRIPT_MICROSERVICE_URL:http://localhost:5001}

@@ -3,7 +3,7 @@ package com.lms.live_session.dto;
 public class TexoraMeetingResponseDTO {
     private String meetingLink;
     private String meetingId;
-    private String expiresAt; // ISO 8601 UTC, optional
+    private String expiresAt;
 
     public TexoraMeetingResponseDTO() {}
 

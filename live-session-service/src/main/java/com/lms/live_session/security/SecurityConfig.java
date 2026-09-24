@@ -64,7 +64,11 @@ public class SecurityConfig {
                     .requestMatchers("/api/meetings/**").authenticated()
                     
                     
-                    .requestMatchers(HttpMethod.POST, "/api/v1/texorameetings").permitAll()
+                 // ✅ UPDATED — was exact-path POST only, which left every other Texora
+                 // endpoint (join/token/leave, analysis, cancel, livekit-webhook) falling
+                 // through to .anyRequest().authenticated() and getting rejected, since
+                 // the gateway strips the JWT for this whole path tree already.
+                 .requestMatchers("/api/v1/texorameetings/**").permitAll()
                     
                     .requestMatchers(HttpMethod.GET, "/api/calendar-sync/callback").permitAll()
                     

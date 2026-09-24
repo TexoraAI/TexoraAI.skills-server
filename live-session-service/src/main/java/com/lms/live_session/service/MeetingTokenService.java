@@ -118,4 +118,29 @@ public class MeetingTokenService {
             return "{\"isHost\":" + isHost + ",\"avatarSeed\":\"" + seed.replace("\"", "") + "\"}";
         }
     }
+    
+    
+    
+    //for texora purpose me we added 
+    public boolean isRoomStillActive(String roomName) {
+        if (roomName == null || roomName.isBlank()) return false;
+        try {
+            RoomServiceClient client = RoomServiceClient.createClient(
+                    config.getUrl(), config.getApiKey(), config.getApiSecret());
+            retrofit2.Response<List<ParticipantInfo>> response = client.listParticipants(roomName).execute();
+
+            if (!response.isSuccessful() || response.body() == null) {
+                return false;
+            }
+            for (ParticipantInfo p : response.body()) {
+                if (p.getTracksCount() > 0) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to check room activity for " + roomName + ": " + e.getMessage());
+            return false;
+        }
+    }
 }

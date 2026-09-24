@@ -8,7 +8,14 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # -------- Run Stage --------
-FROM eclipse-temurin:17-jdk-jammy      
+FROM eclipse-temurin:17-jdk-jammy
+
+# ✅ NEW — needed by TexoraAnalysisService for audio extraction (ffmpeg)
+# before sending audio to transcript-microservice. Same install as
+# video-service/chat-service, for consistency.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
