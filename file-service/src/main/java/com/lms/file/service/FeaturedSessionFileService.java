@@ -7,9 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.time.Duration;
 import java.time.Instant;
 
 @Service
@@ -17,42 +16,57 @@ public class FeaturedSessionFileService {
 
     private final FeaturedSessionFileRepository repo;
     private final FeaturedFileKafkaProducer kafkaProducer;
+    private final S3Service s3Service;
 
+    // ✅ same as video-service — real public gateway URL, not localhost
     @Value("${gateway.base-url}")
-    private String gatewayBaseUrl;
+    private String publicApiUrl;
 
-    private static final String FILE_DIR =
-            System.getProperty("user.dir") + "/files/featured-content/";
+    // ✅ per-course folder, mirrors video's VIDEO_S3_PREFIX pattern
+    private static final String BASE_S3_PREFIX = "featured-courses/";
+    private static final String FILE_SUBFOLDER = "/files/";
 
     public FeaturedSessionFileService(FeaturedSessionFileRepository repo,
-                                       FeaturedFileKafkaProducer kafkaProducer) {
+                                       FeaturedFileKafkaProducer kafkaProducer,
+                                       S3Service s3Service) {
         this.repo = repo;
         this.kafkaProducer = kafkaProducer;
+        this.s3Service = s3Service;
     }
 
-    // ================= UPLOAD (direct from frontend, same shape as CourseFileService) =================
-    public FeaturedSessionFile upload(MultipartFile file, Long sessionId) {
-        try {
-            File directory = new File(FILE_DIR);
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
+    private String buildS3Key(String courseSlug, String fileName) {
+        String safeSlug = (courseSlug == null || courseSlug.isBlank())
+                ? "unassigned"
+                : courseSlug.toLowerCase().replaceAll("[^a-z0-9-]+", "-");
+        return BASE_S3_PREFIX + safeSlug + FILE_SUBFOLDER + fileName;
+    }
 
-            // if this session already has a file, replace it (delete old first)
+    // ================= UPLOAD (direct from frontend) =================
+    public FeaturedSessionFile upload(MultipartFile file, Long sessionId, String courseSlug) {
+        try {
+            // replace existing file for this session, if any
             repo.findBySessionId(sessionId).ifPresent(existing -> {
-                deleteFileFromDisk(existing.getFileName());
+                if (existing.getS3Key() != null) {
+                    try {
+                        s3Service.deleteFile(existing.getS3Key());
+                    } catch (Exception e) {
+                        System.out.println("⚠️ Could not delete old featured file from S3: " + e.getMessage());
+                    }
+                }
                 repo.delete(existing);
             });
 
             String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path path = Paths.get(FILE_DIR + fileName);
-            Files.copy(file.getInputStream(), path);
+            String s3Key = buildS3Key(courseSlug, fileName);
 
-            String url = gatewayBaseUrl + "/api/featured-files/download/" + fileName;
+            s3Service.uploadFile(s3Key, file);
+
+            String url = publicApiUrl + "/api/featured-files/stream/" + fileName;
 
             FeaturedSessionFile record = new FeaturedSessionFile();
             record.setSessionId(sessionId);
             record.setFileName(fileName);
+            record.setS3Key(s3Key);          // ✅ NEW field — needed to reconstruct path later
             record.setUrl(url);
             record.setUploadedAt(Instant.now());
             record.setStatus("READY");
@@ -70,11 +84,24 @@ public class FeaturedSessionFileService {
         }
     }
 
+    // ================= STREAM / VIEW — fresh presigned redirect =================
+    public String getPlaybackUrl(String fileName) {
+        FeaturedSessionFile record = repo.findByFileName(fileName)
+                .orElseThrow(() -> new RuntimeException("Featured file not found: " + fileName));
+        return s3Service.generatePresignedUrl(record.getS3Key(), Duration.ofHours(2));
+    }
+
     // ================= DELETE (called by FeaturedFileKafkaConsumer on FEATURED_FILE_DELETED) =================
     public void deleteByUrl(String url) {
         repo.findByUrl(url).ifPresentOrElse(
             record -> {
-                deleteFileFromDisk(record.getFileName());
+                if (record.getS3Key() != null) {
+                    try {
+                        s3Service.deleteFile(record.getS3Key());
+                    } catch (Exception e) {
+                        System.out.println("⚠️ Could not delete featured file from S3: " + e.getMessage());
+                    }
+                }
                 repo.delete(record);
                 System.out.println("🧹 Featured file deleted → url=" + url);
             },
@@ -86,20 +113,21 @@ public class FeaturedSessionFileService {
     public void deleteBySessionIds(java.util.List<Long> sessionIds) {
         java.util.List<FeaturedSessionFile> files = repo.findBySessionIdIn(sessionIds);
         for (FeaturedSessionFile f : files) {
-            deleteFileFromDisk(f.getFileName());
+            if (f.getS3Key() != null) {
+                try {
+                    s3Service.deleteFile(f.getS3Key());
+                } catch (Exception e) {
+                    System.out.println("⚠️ Could not delete featured file from S3: " + e.getMessage());
+                }
+            }
         }
         repo.deleteAll(files);
         System.out.println("🧹 Featured files cleaned for sessionIds=" + sessionIds + " count=" + files.size());
     }
 
-    private void deleteFileFromDisk(String fileName) {
-        if (fileName == null || fileName.isBlank()) return;
-        File file = new File(FILE_DIR + fileName);
-        if (file.exists()) {
-            boolean deleted = file.delete();
-            if (!deleted) {
-                System.out.println("⚠️ Could not delete featured file from disk: " + fileName);
-            }
-        }
+    // used by FeaturedSyllabusFileController's old "mark processing" flow, if still needed
+    public FeaturedSessionFile getFile(Long sessionId) {
+        return repo.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("No file for session " + sessionId));
     }
 }

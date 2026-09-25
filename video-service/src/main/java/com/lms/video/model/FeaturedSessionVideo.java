@@ -17,8 +17,16 @@ public class FeaturedSessionVideo {
 
     private String url;
 
+    private String s3Key;
+
+    // ✅ NEW — thumbnail no longer stores a base64 data URI; it's a real S3
+    // object now, so it needs its own fileName + key, same shape as the video.
+    private String thumbnailFileName;
+
+    private String thumbnailS3Key;
+
     @Column(columnDefinition = "TEXT")
-    private String thumbnailUrl; // now stores a base64 data URI, not a file URL
+    private String thumbnailUrl;
 
     @Column(columnDefinition = "TEXT")
     private String title;
@@ -46,6 +54,15 @@ public class FeaturedSessionVideo {
 
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
+
+    public String getS3Key() { return s3Key; }
+    public void setS3Key(String s3Key) { this.s3Key = s3Key; }
+
+    public String getThumbnailFileName() { return thumbnailFileName; }
+    public void setThumbnailFileName(String thumbnailFileName) { this.thumbnailFileName = thumbnailFileName; }
+
+    public String getThumbnailS3Key() { return thumbnailS3Key; }
+    public void setThumbnailS3Key(String thumbnailS3Key) { this.thumbnailS3Key = thumbnailS3Key; }
 
     public String getThumbnailUrl() { return thumbnailUrl; }
     public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }

@@ -11,4 +11,6 @@ public interface FeaturedSessionFileRepository extends JpaRepository<FeaturedSes
     Optional<FeaturedSessionFile> findBySessionId(Long sessionId);
     Optional<FeaturedSessionFile> findByUrl(String url);
     List<FeaturedSessionFile> findBySessionIdIn(List<Long> sessionIds);
+    
+    Optional<FeaturedSessionFile> findByFileName(String fileName);
 }

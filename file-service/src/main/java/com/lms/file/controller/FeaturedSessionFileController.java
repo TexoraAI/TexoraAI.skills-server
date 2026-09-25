@@ -2,13 +2,13 @@ package com.lms.file.controller;
 
 import com.lms.file.model.FeaturedSessionFile;
 import com.lms.file.service.FeaturedSessionFileService;
-import org.springframework.core.io.*;
-import org.springframework.http.*;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/featured-files")
@@ -16,45 +16,31 @@ public class FeaturedSessionFileController {
 
     private final FeaturedSessionFileService service;
 
-    private static final String FILE_DIR =
-            System.getProperty("user.dir") + "/files/featured-content/";
-
     public FeaturedSessionFileController(FeaturedSessionFileService service) {
         this.service = service;
     }
 
-    // ================= UPLOAD (direct from frontend) =================
+    // ================= UPLOAD =================
+    // ✅ NEW: courseSlug param, so the file lands in featured-courses/{slug}/files/
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @PostMapping("/upload")
     public FeaturedSessionFile upload(
             @RequestParam MultipartFile file,
-            @RequestParam Long sessionId
+            @RequestParam Long sessionId,
+            @RequestParam(required = false) String courseSlug
     ) {
-        return service.upload(file, sessionId);
+        return service.upload(file, sessionId, courseSlug);
     }
 
-    // ================= SECURED DOWNLOAD (same guard style as CourseFileController) =================
-    @GetMapping("/download/{fileName:.+}")
-    public ResponseEntity<Resource> download(@PathVariable String fileName) {
-        File file = new File(FILE_DIR + fileName);
-        if (!file.exists()) {
-            return ResponseEntity.notFound().build();
-        }
-        Resource resource = new FileSystemResource(file);
-        MediaType contentType = resolveContentType(fileName);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
-                .contentType(contentType)
-                .contentLength(file.length())
-                .body(resource);
-    }
-
-    private MediaType resolveContentType(String fileName) {
-        String lower = fileName.toLowerCase();
-        if (lower.endsWith(".pdf")) return MediaType.APPLICATION_PDF;
-        if (lower.endsWith(".doc")) return MediaType.valueOf("application/msword");
-        if (lower.endsWith(".docx")) {
-            return MediaType.valueOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        }
-        return MediaType.APPLICATION_OCTET_STREAM;
+    // ================= STREAM — redirect to fresh presigned S3 URL =================
+    // ✅ Replaces the old local-disk /download/{fileName} endpoint.
+    // Works inside an <iframe src="..."> exactly like video's /stream does —
+    // browser follows the 302 to S3 transparently.
+    @GetMapping("/stream/{fileName:.+}")
+    public ResponseEntity<Void> stream(@PathVariable String fileName) {
+        String presignedUrl = service.getPlaybackUrl(fileName);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(presignedUrl))
+                .build();
     }
 }

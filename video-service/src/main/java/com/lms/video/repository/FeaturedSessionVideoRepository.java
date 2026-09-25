@@ -13,4 +13,8 @@ public interface FeaturedSessionVideoRepository extends JpaRepository<FeaturedSe
     Optional<FeaturedSessionVideo> findByUrl(String url);
 
     List<FeaturedSessionVideo> findBySessionIdIn(List<Long> sessionIds);
+    
+    Optional<FeaturedSessionVideo> findByFileName(String fileName);
+    
+    Optional<FeaturedSessionVideo> findByThumbnailFileName(String fileName);
 }

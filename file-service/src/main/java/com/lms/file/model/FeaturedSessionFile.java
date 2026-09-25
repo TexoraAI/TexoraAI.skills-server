@@ -20,6 +20,8 @@ public class FeaturedSessionFile {
     private Instant uploadedAt;
 
     private String status; // PROCESSING / READY / FAILED
+    
+    private String s3Key;
 
     public FeaturedSessionFile() {
     }
@@ -70,5 +72,13 @@ public class FeaturedSessionFile {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+    
+    public String getS3Key() {
+        return s3Key;
+    }
+
+    public void setS3Key(String s3Key) {
+        this.s3Key = s3Key;
     }
 }
