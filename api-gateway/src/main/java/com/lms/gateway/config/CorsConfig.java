@@ -23,7 +23,8 @@ public class CorsConfig {
                 "https://*.vercel.app",
                 "http://15.206.210.30",
                 "http://13.126.176.156",
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://next-test.ilmora.texora.ai" 
         ));
 
         // ✅ Allow all headers
