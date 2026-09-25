@@ -57,7 +57,7 @@ public class TexoraWebhookService {
         data.put("endedAt", meeting.getEndedAt() != null ? toIso(meeting.getEndedAt()) : null);
         data.put("durationSeconds", durationSeconds);
         data.put("recordingUrl", meeting.getRecordingS3Url());
-        data.put("recordingUrl", meeting.getRecordingS3Url()); // ← only this line added
+        // ← only this line added
         data.put("attendance", Map.of("participants", participants != null ? participants : List.of()));
 
         enqueue(meeting, "meeting.ended", data);
