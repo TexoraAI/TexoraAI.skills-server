@@ -158,10 +158,14 @@ public class TexoraMeetingService {
     // context JSON blob, without needing a full DTO round-trip.
     private String extractCandidateName(String contextJson) {
         if (contextJson == null) return null;
+        System.out.println("[DEBUG-CANDIDATE] raw contextJson = " + contextJson);
         try {
             var node = objectMapper.readTree(contextJson);
+            System.out.println("[DEBUG-CANDIDATE] hasNonNull(candidateName) = " + node.hasNonNull("candidateName"));
             if (node.hasNonNull("candidateName")) {
-                return node.get("candidateName").asText();
+                String name = node.get("candidateName").asText();
+                System.out.println("[DEBUG-CANDIDATE] extracted name = " + name);
+                return name;
             }
         } catch (Exception e) {
             System.err.println("[TexoraMeetingService] Failed to parse context for candidateName: " + e.getMessage());
