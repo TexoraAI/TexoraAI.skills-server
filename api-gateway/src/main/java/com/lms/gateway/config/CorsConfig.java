@@ -21,7 +21,9 @@ public class CorsConfig {
                 "http://localhost:5173",
                 "https://ilmora.texora.ai",
                 "https://*.vercel.app",
-                "http://15.206.210.30"
+                "http://15.206.210.30",
+                "http://13.126.176.156",
+                "http://localhost:3000"
         ));
 
         // ✅ Allow all headers
