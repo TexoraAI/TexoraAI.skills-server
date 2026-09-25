@@ -144,13 +144,14 @@ public class TexoraMeetingService {
         // already sent on create, so the frontend never needs to prompt for
         // a name at all.
         String candidateName = extractCandidateName(meeting.getContextJson());
-
+        List<String> interviewers = extractInterviewers(meeting.getContextJson());
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("valid", true);
         result.put("meetingId", meeting.getTexoraMeetingId());
         result.put("topic", meeting.getTopic());
         result.put("status", meeting.getStatus().name());
         result.put("candidateName", candidateName); // may be null if no context was sent
+        result.put("interviewers", interviewers); // ← ADD THIS
         return result;
     }
 
@@ -169,6 +170,23 @@ public class TexoraMeetingService {
             }
         } catch (Exception e) {
             System.err.println("[TexoraMeetingService] Failed to parse context for candidateName: " + e.getMessage());
+        }
+        return null;
+    }
+    
+    private List<String> extractInterviewers(String contextJson) {
+        if (contextJson == null) return null;
+        try {
+            var node = objectMapper.readTree(contextJson);
+            if (node.hasNonNull("interviewers") && node.get("interviewers").isArray()) {
+                List<String> interviewers = new ArrayList<>();
+                for (var item : node.get("interviewers")) {
+                    interviewers.add(item.asText());
+                }
+                return interviewers;
+            }
+        } catch (Exception e) {
+            System.err.println("[TexoraMeetingService] Failed to parse interviewers: " + e.getMessage());
         }
         return null;
     }
@@ -232,6 +250,7 @@ public class TexoraMeetingService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("role", p.getRole());
             entry.put("name", p.getDisplayName());
+            entry.put("identity", p.getIdentity());
             entry.put("joinedAt", p.getJoinedAt().atZone(ZoneId.of("UTC")).toInstant().toString());
             entry.put("leftAt", leftAt != null ? leftAt.atZone(ZoneId.of("UTC")).toInstant().toString() : null);
             result.add(entry);

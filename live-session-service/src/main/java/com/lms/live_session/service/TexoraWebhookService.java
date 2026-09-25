@@ -56,6 +56,8 @@ public class TexoraWebhookService {
         data.put("startedAt", meeting.getStartedAt() != null ? toIso(meeting.getStartedAt()) : null);
         data.put("endedAt", meeting.getEndedAt() != null ? toIso(meeting.getEndedAt()) : null);
         data.put("durationSeconds", durationSeconds);
+        data.put("recordingUrl", meeting.getRecordingS3Url());
+        data.put("recordingUrl", meeting.getRecordingS3Url()); // ← only this line added
         data.put("attendance", Map.of("participants", participants != null ? participants : List.of()));
 
         enqueue(meeting, "meeting.ended", data);
@@ -76,7 +78,9 @@ public class TexoraWebhookService {
         }
 
         int distinctParticipants = participants != null
-                ? (int) participants.stream().map(p -> p.get("name")).distinct().count()
+                ? (int) participants.stream().map(p -> (String) p.get("identity"))
+                		.filter(java.util.Objects::nonNull)
+                		.distinct().count()
                 : 0;
         if (distinctParticipants < 2) {
             return "PARTIAL";
