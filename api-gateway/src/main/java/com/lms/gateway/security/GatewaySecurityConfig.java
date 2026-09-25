@@ -182,8 +182,8 @@ public class GatewaySecurityConfig {
                     && method == HttpMethod.GET) {
                 return chain.filter(exchange);
             }
-         // ── Public featured-session file downloads (course-details / player) ──
-            if (path.startsWith("/api/featured-files/download/")
+            // ── Public featured-session file streaming (course-details / player) ──
+            if (path.startsWith("/api/featured-files/stream/")
                     && method == HttpMethod.GET) {
                 return chain.filter(exchange);
             }
