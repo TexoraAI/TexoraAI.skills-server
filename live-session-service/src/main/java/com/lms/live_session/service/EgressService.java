@@ -2,7 +2,7 @@
 
 
 package com.lms.live_session.service;
-
+import java.util.List;
 import io.livekit.server.EgressServiceClient;
 import io.livekit.server.RoomServiceClient;
 import livekit.LivekitEgress.*;
@@ -361,5 +361,27 @@ public class EgressService {
 	        return null;
 	    }
 	}
+ 
+//NEW — fetches an egress's current/final info regardless of whether it's
+//still running or already auto-stopped. Room-composite egress can end
+//itself the instant the room empties (before our own scheduler gets to
+//it), so relying only on stopEgress()'s response misses the file result
+//entirely in that case — this covers both.
+public EgressInfo getEgressInfo(String egressId) {
+  if (egressId == null) return null;
+  try {
+      EgressServiceClient client = buildEgressClient();
+      retrofit2.Response<List<EgressInfo>> response = client.listEgress(null, egressId, null).execute();
+      if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+          return response.body().get(0);
+      }
+      return null;
+  } catch (Exception e) {
+      System.err.println("⚠️ Failed to fetch egress info for " + egressId + ": " + e.getMessage());
+      return null;
+  }
+}
+ 
+ 
  
 }

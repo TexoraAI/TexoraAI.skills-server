@@ -139,12 +139,34 @@ public class TexoraMeetingService {
         if (reason != null) {
             return Map.of("valid", false, "message", reason);
         }
-        return Map.of(
-                "valid", true,
-                "meetingId", meeting.getTexoraMeetingId(),
-                "topic", meeting.getTopic(),
-                "status", meeting.getStatus().name()
-        );
+
+        // NEW — surface the candidate's real name from the context Texora
+        // already sent on create, so the frontend never needs to prompt for
+        // a name at all.
+        String candidateName = extractCandidateName(meeting.getContextJson());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("valid", true);
+        result.put("meetingId", meeting.getTexoraMeetingId());
+        result.put("topic", meeting.getTopic());
+        result.put("status", meeting.getStatus().name());
+        result.put("candidateName", candidateName); // may be null if no context was sent
+        return result;
+    }
+
+    // NEW helper — reads just the candidateName field out of the stored
+    // context JSON blob, without needing a full DTO round-trip.
+    private String extractCandidateName(String contextJson) {
+        if (contextJson == null) return null;
+        try {
+            var node = objectMapper.readTree(contextJson);
+            if (node.hasNonNull("candidateName")) {
+                return node.get("candidateName").asText();
+            }
+        } catch (Exception e) {
+            System.err.println("[TexoraMeetingService] Failed to parse context for candidateName: " + e.getMessage());
+        }
+        return null;
     }
 
     public Map<String, String> generateJoinToken(String joinCode, String identity, String displayName, String role) {
@@ -280,10 +302,19 @@ public class TexoraMeetingService {
     }
 
     void stopRecordingIfRunning(TexoraMeeting meeting) {
-        // Stop the mixed room-level recording (unchanged).
+        // Stop the mixed room-level recording.
         if (meeting.getEgressId() != null) {
             try {
                 livekit.LivekitEgress.EgressInfo info = egressService.stopRecordingAndGetInfo(meeting.getEgressId());
+
+                // NEW — if stop returned null (egress already auto-stopped before
+                // we got here, e.g. LiveKit closed it the instant the room went
+                // empty), fall back to fetching its final recorded info instead
+                // of treating null as "no recording happened."
+                if (info == null) {
+                    info = egressService.getEgressInfo(meeting.getEgressId());
+                }
+
                 if (info != null && info.getFileResultsCount() > 0) {
                     String filename = info.getFileResults(0).getFilename();
                     String s3Url = "https://" + bucket + ".s3." + awsRegion + ".amazonaws.com/" + filename;
@@ -297,13 +328,20 @@ public class TexoraMeetingService {
             }
         }
 
-        // NEW — also stop each participant's individual track egress, and
-        // capture their audio file's S3 URL for per-speaker transcription.
+        // Also stop each participant's individual track egress, and capture
+        // their audio file's S3 URL for per-speaker transcription. Same
+        // already-stopped fallback applies here too.
         List<TexoraParticipant> participants = participantRepository.findByTexoraMeetingId(meeting.getTexoraMeetingId());
         for (TexoraParticipant p : participants) {
             if (p.getAudioEgressId() == null) continue;
             try {
                 livekit.LivekitEgress.EgressInfo info = egressService.stopRecordingAndGetInfo(p.getAudioEgressId());
+
+                // NEW — same fallback as above.
+                if (info == null) {
+                    info = egressService.getEgressInfo(p.getAudioEgressId());
+                }
+
                 if (info != null && info.getFileResultsCount() > 0) {
                     String filename = info.getFileResults(0).getFilename();
                     String s3Url = "https://" + bucket + ".s3." + awsRegion + ".amazonaws.com/" + filename;
@@ -325,6 +363,12 @@ public class TexoraMeetingService {
         if (meeting.getStatus() == TexoraMeetingStatus.ENDED) return "This meeting has already ended";
         if (meeting.getExpiresAtUtc() != null && LocalDateTime.now(ZoneId.of("UTC")).isAfter(meeting.getExpiresAtUtc())) {
             return "This meeting link has expired";
+        }
+        // NEW — allow joining up to 30 seconds before the scheduled start time,
+        // but block anyone trying to join earlier than that.
+        LocalDateTime earliestJoinable = meeting.getStartTimeUtc().minusSeconds(30);
+        if (LocalDateTime.now(ZoneId.of("UTC")).isBefore(earliestJoinable)) {
+            return "This meeting hasn't started yet — please join closer to the scheduled time";
         }
         return null;
     }
